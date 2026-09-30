@@ -61,8 +61,8 @@ export default function DebugPanel({ onClose, battleActions }) {
 
       <Group title="Progression">
         <div className="flex gap-1.5"><Field ph="Wave" v={wave} set={setWave} tid="debug-wave" /><NeonButton color="cyan" onClick={setWaveFn}>Set</NeonButton></div>
-        <div className="flex gap-1.5 mt-1.5"><Field ph="Hero Lvl" v={hLvl} set={setHLvl} tid="debug-hero-level" /><NeonButton color="cyan" onClick={setHeroLevels}>All</NeonButton></div>
-        <div className="flex gap-1.5 mt-1.5"><Field ph="Tower Lvl" v={tLvl} set={setTLvl} tid="debug-tower-level" /><NeonButton color="cyan" onClick={setTowerLevels}>All</NeonButton></div>
+        <div className="flex gap-1.5 mt-1.5"><Field ph="Hero Lvl" v={hLvl} set={setHLvl} tid="debug-hero-level" /><NeonButton color="cyan" onClick={setHeroLevels} data-testid="debug-hero-level-all">All</NeonButton></div>
+        <div className="flex gap-1.5 mt-1.5"><Field ph="Tower Lvl" v={tLvl} set={setTLvl} tid="debug-tower-level" /><NeonButton color="cyan" onClick={setTowerLevels} data-testid="debug-tower-level-all">All</NeonButton></div>
       </Group>
 
       <Group title="Castle / Time">

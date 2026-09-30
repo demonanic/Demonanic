@@ -1,0 +1,43 @@
+{
+  "summary": "First-iteration full backend + frontend E2E test of Demonanic MVP. 11/11 pytest backend tests pass (auth, game state persistence, monetization mock, offline-accrual smoke). Frontend Playwright covers full loop: register -> Home -> Preparation (debug set-resources, hero-level All button, build Archer, buy worker/farmer, barricade, hero card SP allocation) -> scout countdown -> battlefield canvas -> debug force-win -> Results 'Wave Cleared' -> continue to prep -> tactical slowdown banner on hero card open -> force-defeat -> Results 'Castle Fallen' with all 3 buttons -> free-life restores squad -> Profile shows username/bests/squad/kill log. All 14 UI checkpoints functionally pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/game/state",
+        "issue": "Server unconditionally overwrites state['lastSeen'] = now on PUT (server.py L102), so the review-spec offline-accrual test flow (PUT state with lastSeen in 2020, then GET should return _offlineGains) can never fire via API. Offline accrual therefore only works when a client PUT is followed by a real elapsed gap before the next GET, not when the client explicitly seeds an old lastSeen. Consider honoring client-supplied lastSeen on PUT (or exposing a separate seeding hook) so the documented offline flow is reachable and testable."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DebugPanel", "issues": ["The 'All' buttons next to debug-hero-level and debug-tower-level inputs lack data-testid attributes (e.g. debug-hero-level-all, debug-tower-level-all). Two adjacent buttons rendering identical 'All' text makes automation and screen-reader distinction fragile. Add data-testids."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional/minor) Add data-testid='debug-hero-level-all' and 'debug-tower-level-all' to the two 'All' NeonButtons in DebugPanel.jsx",
+    "(Minor) Decide whether PUT /api/game/state should preserve a client-supplied lastSeen so the offline-accrual review flow is reachable end-to-end via API; today the field is silently overwritten"
+  ],
+  "critical_code_review_comments": [
+    "server.py L102: PUT overrides state.lastSeen with now, defeating the intent of the review-spec offline-accrual test.",
+    "server.py L137-143: CORSMiddleware is added AFTER include_router. FastAPI evaluates middleware stack correctly here because it is added before first request, but conventional practice is to add middleware before routers for clarity.",
+    "auth.py L25 _secret() reads env at every token op. Fine, but if JWT_SECRET is ever missing the error surfaces late; consider a startup assertion.",
+    "DebugPanel: numeric inputs (Gold/Food/etc) accept type='number' but there is no clamp on negative values (except morale); intentional for debug but worth a comment."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Register a fresh user each run (script uses qa_<uuid>). Static account qatester/test123 also works if registered.",
+  "seed_data_creation": "None persistent; each Playwright run creates a fresh qa_<uuid> user via /api/auth/register.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite lives at /app/backend/tests/backend_test.py (pytest, JUnit XML at /app/test_reports/pytest/pytest_results.xml). Frontend loop is stable end-to-end using data-testids listed in the review request. Debug 'All' buttons still lack testids so use xpath following-sibling from debug-hero-level input (as in this iteration). The offline-accrual capped-at-12h logic in server.py is correct code-wise (min(elapsed_min, 12*60)) but is not reachable via the described PUT-with-old-lastSeen-then-GET flow because PUT overwrites lastSeen; unit-test the apply_offline_accrual function directly if deeper coverage is needed.",
+  "rca of the issue": "N/A — no blocking bugs found. Only nit: PUT clobbers lastSeen so the review-spec offline-accrual flow via API is unreachable; the accrual math itself and its 12h cap are correct."
+}
