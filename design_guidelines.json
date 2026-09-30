@@ -1,0 +1,125 @@
+{
+  "project_name": "Demonanic",
+  "design_archetype": "Electric & Neon / Synthwave Cyber-Grid Tactical",
+  "theme": "Dark Synthwave",
+  "typography": {
+    "font_family_primary": "Chivo, 'Cabinet Grotesk', system-ui, sans-serif",
+    "font_family_heading": "Unbounded, 'Bebas Neue', sans-serif",
+    "font_family_mono": "'JetBrains Mono', 'Source Code Pro', monospace",
+    "font_rules": {
+      "headings": "Use 'Unbounded' or 'Bebas Neue' with uppercase tracking-wider (0.05em to 0.15em) and neon text-shadow drop glows.",
+      "body": "Use 'Chivo' or system sans for maximum readability in status cards and equipment panels.",
+      "hud_and_stats": "Use 'JetBrains Mono' or monospace font for resource counters (GOLD, FOOD, STONE, CASTLE HP, MORALE) and cooldown timers to avoid layout shifts."
+    },
+    "hierarchy": {
+      "h1_title": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-wider uppercase text-cyan-400 drop-shadow-[0_0_12px_rgba(0,243,255,0.8)]",
+      "h2_section": "text-2xl sm:text-3xl font-extrabold uppercase tracking-wide text-fuchsia-400 drop-shadow-[0_0_8px_rgba(255,0,127,0.6)]",
+      "h3_sub": "text-xl sm:text-2xl font-bold tracking-normal text-amber-300",
+      "hud_label": "text-xs font-mono uppercase tracking-widest text-slate-400",
+      "hud_value": "text-lg font-mono font-bold text-yellow-300 drop-shadow-[0_0_6px_rgba(255,230,0,0.5)]"
+    }
+  },
+  "colors": {
+    "backgrounds": {
+      "battlefield_field": "#12131A",
+      "battlefield_outer_border": "#1A1C24",
+      "panel_bg": "rgba(18, 19, 26, 0.85)",
+      "panel_card": "rgba(26, 28, 38, 0.90)",
+      "modal_overlay": "rgba(8, 9, 12, 0.80)"
+    },
+    "walls_and_boundaries": {
+      "outer_boundary_wall": "#FFE600",
+      "outer_boundary_glow": "0 0 15px #FFE600, inset 0 0 10px #FFE600",
+      "inner_gate_line": "#FF2A5F",
+      "inner_gate_glow": "0 0 12px #FF2A5F, inset 0 0 8px #FF2A5F"
+    },
+    "neon_accents": {
+      "magenta": "#FF007F",
+      "cyan": "#00F3FF",
+      "electric_green": "#39FF14",
+      "bright_yellow": "#FFE600",
+      "hot_orange": "#FF6600",
+      "hot_red": "#FF0055",
+      "deep_purple": "#A855F7"
+    },
+    "unit_colors": {
+      "hero_squad": {
+        "knight_tank": "#00F3FF",
+        "archer_dps": "#39FF14",
+        "mage_burst": "#A855F7",
+        "paladin_support": "#FFE600"
+      },
+      "enemy_types": {
+        "slime": "#39FF14",
+        "goblin": "#FFE600",
+        "skeleton": "#E2E8F0",
+        "orc": "#FF6600",
+        "hooded_reaper": "#A855F7",
+        "boss_three_headed_demon": "#FF0055"
+      }
+    },
+    "status_bars": {
+      "castle_hp": "#FF0055",
+      "morale_bar": "#39FF14",
+      "food_counter": "#FF6600",
+      "gold_counter": "#FFE600",
+      "stone_counter": "#00F3FF"
+    }
+  },
+  "visual_enhancers": {
+    "hud_styling": {
+      "panel_border": "1px solid rgba(0, 243, 255, 0.3)",
+      "corner_brackets": "Bracket-cornered clips using CSS border-corners or SVG pseudo-elements for sci-fi/arcade look",
+      "barricades": "45deg diagonal hazard stripes (#FFE600 and #12131A) with neon yellow glow border",
+      "tower_slots": "Bracket-cornered squares with 1px cyan/yellow neon glow holding icon (gear, axe, bow, radiant sun)"
+    },
+    "glow_effects": {
+      "neon_button": "box-shadow: 0 0 12px rgba(0, 243, 255, 0.5), inset 0 0 6px rgba(0, 243, 255, 0.3)",
+      "danger_glow": "box-shadow: 0 0 12px rgba(255, 0, 85, 0.6), inset 0 0 6px rgba(255, 0, 85, 0.3)",
+      "boss_glow": "box-shadow: 0 0 20px rgba(255, 0, 127, 0.8), 0 0 40px rgba(255, 0, 127, 0.4)"
+    },
+    "glassmorphism": "backdrop-blur-md bg-[#12131A]/85 border border-cyan-500/30 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+  },
+  "grids_and_layouts": {
+    "battlefield_viewport": "Portrait-oriented mobile/desktop vertical battlefield (e.g. aspect-[9/16] or max-w-md / max-w-lg centered), dark grey field (#12131A), bounded by glowing yellow outer walls (#FFE600) and hot-red inner gate line (#FF2A5F). Enemies spawn at TOP and move DOWN toward 4 heroes at BOTTOM.",
+    "bento_config_panels": "Hero & Tower side/drawer panels split into 2-column grid: Left = Equipment slots (Helm, Armor, Weapon, Cloak, Ring), Right = Core Stats (HP, ATK, DEF, AGL, INT) + Attack Config.",
+    "bottom_hud_layout": "Horizontal bar fixed at bottom with 4 key metrics: Gold+Workers, Food+Farmers, Stone, Morale Bar, and Castle HP."
+  },
+  "motion": {
+    "tactical_battle_clock": "When Hero/Tower profile modal or drawer opens during active wave, game simulation clock visibly slows down to 0.2x speed (tactical slowdown) with visual scanline motion effect.",
+    "micro_interactions": {
+      "hover": "Slight scale-105 with increased neon glow brightness",
+      "active_press": "scale-95 push down with flash white highlight",
+      "tower_fire": "Pulse ring expanding outward + recoil displacement (2px)",
+      "enemy_hit": "Flash red/white silhouette + small floating damage numbers",
+      "scout_countdown": "Large pulse numbers 5..4..3..2..1 with sound wave glow ring"
+    }
+  },
+  "accessibility_and_testing": {
+    "contrast_rule": "All text must maintain APCA / WCAG AA 4.5:1 contrast against dark grey background (#12131A). Avoid dark grey text on dark panels.",
+    "data_testid_rule": "ALL interactive components, HUD items, buttons, inputs, towers, hero cards, and status elements MUST include data-testid (kebab-case, role-based). Examples: data-testid='hero-slot-1', data-testid='start-wave-button', data-testid='castle-hp-bar', data-testid='debug-toggle-panel'."
+  },
+  "image_urls": {
+    "background_cyber_grid": "https://images.unsplash.com/photo-1746468222143-235fe8347ed4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxuZW9uJTIwc3ludGh3YXZlJTIwZGFyayUyMGJhY2tncm91bmQlMjBjeWJlciUyMGdyaWR8ZW58MHx8fHwxNzkwNzM2NzY3fDA&ixlib=rb-4.1.0&q=85",
+    "background_neon_mesh": "https://images.unsplash.com/photo-1746468222077-5cb599c46d84?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwzfHxuZW9uJTIwc3ludGh3YXZlJTIwZGFyayUyMGJhY2tncm91bmQlMjBjeWJlciUyMGdyaWR8ZW58MHx8fHwxNzkwNzM2NzY3fDA&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the Demonanic Living Game Design v140 document requirements.",
+    "Implement the full game loop: Login/Account -> Home/Start -> Preparation -> 5s Scout Countdown -> Active Wave (real-time canvas) -> Results -> Preparation.",
+    "Ensure portrait battlefield layout on canvas with enemies advancing TOP downward to 4 heroes lined up at the BOTTOM.",
+    "Ensure yellow glowing outer boundary walls (#FFE600) and hot-red inner gate line (#FF2A5F) on dark grey field (#12131A).",
+    "Provide interactive side config panels for Heroes (Helm, Armor, Weapon, Cloak, Ring, stats HP/ATK/DEF/AGL/INT) and Tower slot rack (1-5 slots with weapon/utility icons).",
+    "Hero/Tower profile cards should trigger a Tactical Battle Clock slowdown during active wave combat.",
+    "Include bottom HUD (Gold+Workers, Food+Farmers, Stone, Morale bar, Castle HP) and top/side Enemy HUD.",
+    "Add Debug/Developer panel and account Profile screen.",
+    "Attach data-testid attributes to all interactive elements for frontend automation tests."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Never use generic centered layouts or plain flat white backgrounds.",
+    "Use glassmorphism with backdrop-blur-md and neon borders (cyan/magenta/yellow).",
+    "Ensure interactive states (hover, active, focus) explicitly declare text color (e.g., hover:text-white hover:bg-cyan-500).",
+    "Avoid using Inter or Arial for main headings; use 'Unbounded' or 'Bebas Neue' or 'JetBrains Mono'.",
+    "Keep mobile image heights under max-h-[80vh].",
+    "Ensure all interactive elements have data-testid attributes in kebab-case."
+  ]
+}

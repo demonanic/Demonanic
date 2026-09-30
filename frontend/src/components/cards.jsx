@@ -1,0 +1,181 @@
+import { X, Plus, Zap, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
+import { StatBar, NeonButton } from "@/components/ui-kit";
+import * as C from "@/game/config";
+import { heroDerived, towerDerived } from "@/game/logic";
+
+export function Modal({ children, onClose, testid, slowed }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid={testid}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      {slowed && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 font-mono-g text-xs tracking-[0.3em] text-cyan-400 animate-pulse-glow z-10">
+          ⧗ BATTLE CLOCK — TACTICAL SLOWDOWN
+        </div>
+      )}
+      <div className="relative glass rounded-2xl w-full max-w-md max-h-[86vh] overflow-y-auto thin-scroll animate-rise">
+        <button onClick={onClose} className="absolute top-3 right-3 text-slate-400 hover:text-white z-10" data-testid="card-close"><X size={20} /></button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
+
+export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed }) {
+  const cls = C.HERO_CLASSES[hero.cls];
+  const d = heroDerived(hero);
+  const curXp = C.HERO_XP[hero.level - 1] || 0;
+  const nextXp = C.HERO_XP[hero.level] || curXp;
+  const xpFrac = nextXp > curXp ? (hero.xp - curXp) / (nextXp - curXp) : 1;
+
+  return (
+    <Modal onClose={onClose} testid={`hero-card-${hero.cls}`} slowed={slowed}>
+      <div className="p-5" style={{ borderTop: `3px solid ${cls.color}` }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-14 rounded-lg" style={{ background: cls.color, boxShadow: `0 0 16px ${cls.color}` }} />
+          <div>
+            <div className="font-display font-black text-2xl" style={{ color: cls.color }}>{cls.name}</div>
+            <div className="font-mono-g text-[11px] text-slate-400">{cls.role} · LVL {hero.level}</div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="font-mono-g text-[10px] text-slate-400">HP</div>
+            <div className="font-mono-g font-bold text-sm" style={{ color: cls.color }}>{Math.round(hero.hp)}/{d.maxHp}</div>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="font-mono-g text-[10px] text-slate-400 mb-1">XP {Math.round(hero.xp)} / {nextXp}</div>
+          <StatBar frac={xpFrac} color={cls.color} height={6} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1">Equipment</div>
+            <div className="space-y-1">
+              {C.EQUIP_SLOTS.map((s) => (
+                <div key={s} className="bracket flex items-center justify-between px-2 py-1 rounded bg-black/30 text-[11px] font-mono-g">
+                  <span className="text-slate-400">{s}</span><span className="text-slate-600">— empty —</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
+              <span>Core Stats</span>
+              {editable && <span className="text-cyan-400">SP:{hero.sp}</span>}
+            </div>
+            {["attack", "defense", "agility", "intelligence"].map((st) => (
+              <div key={st} className="flex items-center justify-between px-2 py-1 rounded bg-black/30 mb-1">
+                <span className="flex items-center gap-1 text-[11px] font-mono-g text-slate-300">{STAT_ICONS[st]}{st.slice(0, 3).toUpperCase()}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono-g font-bold text-sm" style={{ color: cls.color }}>{hero.stats[st]}</span>
+                  {editable && (
+                    <button disabled={hero.sp <= 0} onClick={() => onAlloc(st)} data-testid={`hero-alloc-${st}`}
+                      className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 disabled:opacity-30 flex items-center justify-center"><Plus size={12} /></button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1">Attack Config {editable ? "" : "(edit switches to MANUAL)"}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {C.ATTACK_CONFIGS[hero.cls].map((cfg) => (
+              <button key={cfg} onClick={() => onConfig(cfg)} data-testid={`hero-config-${cfg.replace(/\s+/g, "-").toLowerCase()}`}
+                className={`text-[10px] font-mono-g px-2 py-1 rounded border ${hero.attackConfig === cfg ? "bg-fuchsia-500 text-black border-fuchsia-400" : "border-white/15 text-slate-300"}`}>{cfg}</button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
+            <span className="flex items-center gap-1"><Zap size={12} /> Abilities (Tier 1)</span>
+            {editable && <span className="text-fuchsia-400">AP:{hero.ap}</span>}
+          </div>
+          <div className="text-[11px] font-mono-g px-2 py-1.5 rounded bg-black/30 mb-1.5 border border-white/10">
+            <span style={{ color: cls.color }}>★ {cls.ability.name}</span>
+            <span className="text-slate-400"> — {cls.ability.desc}</span>
+          </div>
+          {cls.perks.map((p) => {
+            const owned = hero.perks.includes(p);
+            return (
+              <div key={p} className="flex items-center justify-between px-2 py-1.5 rounded bg-black/30 mb-1 border border-white/5">
+                <span className={`text-[11px] font-mono-g ${owned ? "text-green-400" : "text-slate-300"}`}>{owned ? "✓ " : ""}{p}</span>
+                {editable && !owned && (
+                  <NeonButton color="magenta" className="!px-2 !py-0.5 !text-[10px]" disabled={hero.ap < 1}
+                    onClick={() => onPerk(p)} data-testid={`hero-perk-${p.split(" ")[0].toLowerCase()}`}>1 AP</NeonButton>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export function TowerCard({ tower, editable, onUpgrade, onClose, slowed }) {
+  const t = C.TOWERS[tower.type];
+  const d = towerDerived(tower);
+  const curXp = 150 * (tower.level - 1) * tower.level / 2;
+  const nextXp = 150 * tower.level * (tower.level + 1) / 2;
+  const xpFrac = nextXp > curXp ? (tower.xp - curXp) / (nextXp - curXp) : 0;
+  return (
+    <Modal onClose={onClose} testid={`tower-card-${tower.type}`} slowed={slowed}>
+      <div className="p-5" style={{ borderTop: `3px solid ${t.color}` }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 rounded-lg bracket flex items-center justify-center" style={{ boxShadow: `0 0 16px ${t.color}` }}>
+            <div className="w-5 h-5 rounded" style={{ background: t.color }} />
+          </div>
+          <div>
+            <div className="font-display font-black text-xl" style={{ color: t.color }}>{t.name}</div>
+            <div className="font-mono-g text-[11px] text-slate-400">LVL {tower.level} {tower.underfunded && <span className="text-rose-400">· UNDERFUNDED</span>}</div>
+          </div>
+        </div>
+        <div className="mb-3">
+          <div className="font-mono-g text-[10px] text-slate-400 mb-1">XP {Math.round(tower.xp)} / {Math.round(nextXp)}</div>
+          <StatBar frac={xpFrac} color={t.color} height={6} />
+        </div>
+        <div className="grid grid-cols-2 gap-2 font-mono-g text-xs mb-4">
+          <Info label="HP" value={`${Math.round(tower.hp)}/${d.maxHp}`} color={t.color} />
+          <Info label="DAMAGE" value={Math.round(d.damage)} color={t.color} />
+          <Info label="RANGE" value={d.range} color={t.color} />
+          <Info label="FIRE RATE" value={`${d.fireRate.toFixed(1)}/s`} color={t.color} />
+          <Info label="UPKEEP" value={`${t.upkeep.gold}g ${t.upkeep.stone}s`} color="#FFE600" />
+          <Info label="SPY" value={`${Math.round((C.SCOUT.towerSpyBase + t.spyBonus / 100) * 100)}%`} color="#00F3FF" />
+        </div>
+        {editable && tower.pending > 0 ? (
+          <div>
+            <div className="font-mono-g text-[10px] text-yellow-300 uppercase tracking-widest mb-2 animate-pulse-glow">⬆ {tower.pending} Level-Up Choice(s) available</div>
+            <div className="flex gap-2">
+              {Object.values(C.TOWER_UPGRADE_CHOICES).map((ch) => (
+                <button key={ch.key} onClick={() => onUpgrade(ch.key)} data-testid={`tower-upgrade-${ch.key}`}
+                  className="flex-1 p-2 rounded-lg border border-cyan-400/40 bg-black/40 hover:bg-cyan-500/20 text-left">
+                  <div className="font-mono-g text-xs font-bold text-cyan-300">{ch.label}</div>
+                  <div className="font-mono-g text-[10px] text-slate-400">{ch.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="font-mono-g text-[10px] text-slate-500">Towers earn XP from kills and level up. Upgrade choices appear here.</div>
+        )}
+        {tower.choices.length > 0 && (
+          <div className="mt-3 font-mono-g text-[10px] text-slate-400">Upgrades: {tower.choices.join(", ")}</div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function Info({ label, value, color }) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1.5 rounded bg-black/30">
+      <span className="text-slate-400 text-[10px]">{label}</span>
+      <span className="font-bold" style={{ color }}>{value}</span>
+    </div>
+  );
+}
