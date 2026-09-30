@@ -3,6 +3,7 @@ import { GameProvider, useGame } from "@/context/GameProvider";
 import { Toaster } from "@/components/ui/sonner";
 import Login from "@/screens/Login";
 import Home from "@/screens/Home";
+import SquadSelect from "@/screens/SquadSelect";
 import Preparation from "@/screens/Preparation";
 import Battle from "@/screens/Battle";
 import Results from "@/screens/Results";
@@ -24,6 +25,7 @@ function GameRouter() {
   if (loading) return <Splash label="LOADING CASTLE..." />;
   switch (screen) {
     case "home": return <Home />;
+    case "squad": return <SquadSelect />;
     case "prep": return <Preparation />;
     case "battle": return <Battle />;
     case "results": return <Results />;

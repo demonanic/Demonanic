@@ -48,14 +48,12 @@ export class Engine {
     this.ended = false;
 
     // hero runtime
+    const n = sim.heroes.length || 1;
     this.heroes = sim.heroes.map((h, i) => {
       const d = heroDerived(h);
-      return { i, ref: h, x: laneX(i === 3 ? 4 : i) , y: HERO_Y, d,
-        cd: 0, alive: h.hp > 0, protect: 0 };
+      const x = W * ((i + 0.5) / n);
+      return { i, ref: h, x, y: HERO_Y, home: { x, y: HERO_Y }, d, cd: 0, alive: h.hp > 0, protect: 0 };
     });
-    // spread 4 heroes across width
-    const hxs = [W * 0.2, W * 0.4, W * 0.6, W * 0.8];
-    this.heroes.forEach((h, i) => (h.x = hxs[i]));
 
     // tower runtime
     this.towers = [];
@@ -130,19 +128,30 @@ export class Engine {
       if (t.ref.underfunded) t.ref.hp = Math.max(0, t.ref.hp - t.d.maxHp * C.UNDERFUNDED.hpLossPerMin * dt / 60);
     }
 
-    // heroes attack
+    // heroes: outer defenses are attrition; the Castle Squad ENGAGES once the
+    // enemy breaches the gate line. Melee heroes advance to attack; ranged fire in place.
+    const breached = this.active.some((e) => e.y > GATE_Y);
     for (const h of this.heroes) {
       if (!h.alive) continue;
       if (h.protect > 0) { h.protect -= dt; continue; }
       h.cd -= dt;
-      const melee = h.d.range < 120;
-      if (h.cd <= 0) {
+      if (!breached) { this._returnHome(h, dt); continue; }
+      const melee = h.d.range < 130;
+      if (melee) {
+        const target = this._nearestEnemy(h.x, h.y, 99999);
+        if (target) {
+          const dist = Math.hypot(target.x - h.x, target.y - h.y) || 1;
+          if (dist > h.d.range - 6) {
+            const spd = 155 * dt;
+            h.x += ((target.x - h.x) / dist) * Math.min(spd, dist);
+            h.y += ((target.y - h.y) / dist) * Math.min(spd, dist);
+          } else if (h.cd <= 0) {
+            this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate;
+          }
+        } else this._returnHome(h, dt);
+      } else if (h.cd <= 0) {
         const target = this._nearestEnemy(h.x, h.y, h.d.range);
-        // melee only engages once enemies breach the gate (attrition-then-engage)
-        if (target && (!melee || target.y > GATE_Y - 40)) {
-          this._fire("H" + h.i, h, target, h.d, true);
-          h.cd = h.d.rate;
-        }
+        if (target) { this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate; }
       }
     }
 
@@ -186,7 +195,7 @@ export class Engine {
     // objective-based targeting near their position
     let blocker = null;
     if (e.objective === "towers") blocker = this._nearestTower(e.x, e.y, 46);
-    if (!blocker && e.y >= HERO_Y - 30) blocker = this._nearestHeroEntity(e.x, 42);
+    if (!blocker) blocker = this._nearestHeroEntity(e.x, e.y, 30);
     if (blocker) {
       if (e.atkCd <= 0) {
         this._enemyAttack(e, blocker);
@@ -305,10 +314,18 @@ export class Engine {
     for (const t of this.towers) if (t.ref.hp > 0 && Math.hypot(t.x - x, t.y - y) <= r) return { kind: "tower", obj: t };
     return null;
   }
-  _nearestHeroEntity(x, r) {
+  _nearestHeroEntity(x, y, r) {
     let best = null, bd = r;
-    for (const h of this.heroes) if (h.alive) { const d = Math.abs(h.x - x); if (d <= bd) { bd = d; best = h; } }
+    for (const h of this.heroes) if (h.alive) { const d = Math.hypot(h.x - x, h.y - y); if (d <= bd) { bd = d; best = h; } }
     return best ? { kind: "hero", obj: best } : null;
+  }
+  _returnHome(h, dt) {
+    const dx = h.home.x - h.x, dy = h.home.y - h.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 2) return;
+    const spd = 150 * dt;
+    h.x += (dx / d) * Math.min(spd, d);
+    h.y += (dy / d) * Math.min(spd, d);
   }
 
   _float(x, y, text, color) { this.floaters.push({ x, y, text, color, life: 0.7 }); }

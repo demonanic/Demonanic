@@ -5,6 +5,14 @@ import { createNewState, produce } from "@/game/logic";
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
 
+// backward-compat for older saves (add bench/ids/needsSquad)
+function normalizeState(s) {
+  if (!s.bench) s.bench = [];
+  if (Array.isArray(s.heroes)) s.heroes.forEach((h) => { if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`; });
+  if (s.needsSquad === undefined) s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
+  return s;
+}
+
 export function GameProvider({ children }) {
   const [state, setState] = useState(null);
   const [screen, setScreen] = useState("home"); // home|prep|battle|results|profile
@@ -21,19 +29,23 @@ export function GameProvider({ children }) {
     (async () => {
       try {
         const { data } = await gameApi.getState();
+        let finalState;
         if (data.state) {
           if (data.state._offlineGains && data.state._offlineGains.minutes > 1) {
             setOfflineGains(data.state._offlineGains);
           }
           delete data.state._offlineGains;
-          setState(data.state);
+          finalState = normalizeState(data.state);
         } else {
-          const fresh = createNewState();
-          setState(fresh);
-          await gameApi.saveState(fresh);
+          finalState = createNewState();
+          await gameApi.saveState(finalState);
         }
+        setState(finalState);
+        if (finalState.needsSquad) setScreen("squad");
       } catch (e) {
-        setState(createNewState());
+        const fresh = createNewState();
+        setState(fresh);
+        setScreen("squad");
       } finally { setLoading(false); }
     })();
   }, []);

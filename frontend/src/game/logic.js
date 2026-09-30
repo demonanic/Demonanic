@@ -1,12 +1,14 @@
 // Pure game-state logic. No React, no rendering. Data-driven from config.js.
 import * as C from "./config";
 
+let _heroSeq = 0;
 export function createHero(classKey) {
   const cls = C.HERO_CLASSES[classKey];
   const stats = { ...C.BASE_STATS };
   for (const k in cls.mods) stats[k] += cls.mods[k];
   const maxHp = heroMaxHp(cls, 1, stats);
   return {
+    id: `${classKey}-${Date.now().toString(36)}-${_heroSeq++}`,
     key: classKey, name: cls.name, cls: classKey,
     level: 1, xp: 0, sp: 0, ap: 0,
     stats, perks: [], attackConfig: C.ATTACK_CONFIGS[classKey][0],
@@ -52,8 +54,8 @@ export function towerDerived(tower) {
   };
 }
 
-export function createNewState() {
-  const heroes = C.HERO_ORDER.map(createHero);
+export function createNewState(squadClasses) {
+  const heroes = squadClasses ? squadClasses.map(createHero) : [];
   const barricades = Array.from({ length: C.BARRICADE.positions }, () => ({ hp: 0, maxHp: 0 }));
   const castleMaxHp = C.castleMaxHp(0);
   return {
@@ -64,7 +66,7 @@ export function createNewState() {
     castleHp: castleMaxHp, castleMaxHp,
     wave: 1, highestWaveCleared: 0, freeLifeUsed: false,
     surrenderTaxRate: 0, surrenderDebtWave: 0,
-    heroes,
+    heroes, bench: [], needsSquad: !squadClasses,
     towers: Array.from({ length: 5 }, () => null),
     barricades,
     scoutKnowledge: 0,
@@ -72,6 +74,35 @@ export function createNewState() {
     bests: { highestWave: 0, totalKills: 0 },
     lastSeen: new Date().toISOString(),
   };
+}
+
+// choose the initial 4-hero squad (any combination, duplicates allowed)
+export function setSquad(state, classKeys) {
+  state.heroes = classKeys.map(createHero);
+  state.bench = state.bench || [];
+  state.needsSquad = false;
+}
+
+// recruit a new hero (Gold). Fills empty squad slots first, else goes to bench.
+export function recruitHero(state, classKey) {
+  const owned = state.heroes.length + (state.bench ? state.bench.length : 0);
+  const cost = C.recruitCost(owned);
+  if (state.gold < cost) return false;
+  state.gold -= cost;
+  const h = createHero(classKey);
+  if (state.heroes.length < 4) state.heroes.push(h);
+  else { state.bench = state.bench || []; state.bench.push(h); }
+  return true;
+}
+
+// swap a bench hero into an active squad slot
+export function swapHero(state, benchIndex, squadIndex) {
+  if (!state.bench || !state.bench[benchIndex]) return false;
+  if (squadIndex < 0 || squadIndex >= state.heroes.length) return false;
+  const b = state.bench[benchIndex];
+  state.bench[benchIndex] = state.heroes[squadIndex];
+  state.heroes[squadIndex] = b;
+  return true;
 }
 
 export function castlePower(state) {
