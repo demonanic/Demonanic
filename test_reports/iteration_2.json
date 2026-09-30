@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 2 E2E: Backend 12/12 pytest (auth, game/state persistence with new heroes/bench/needsSquad shape, offline accrual smoke, monetization mock). Frontend Playwright: register->Squad Select (data-testid squad-class-grid, squad-pick-<cls> incl. duplicates, squad-remove-<i>, squad-confirm) -> persistence after reload (no re-show) -> Home -> Preparation (prep-battlefield, hand-placed tower at field-slot-0 via build-menu + field-build-archer-0 + tower-actions with field-tower-card-0/field-repair-tower-0/field-dismantle-0; barricade-actions with field-barricade-buy-0-25/50/100; field-slot-4 disabled) -> recruit-panel (all 4 recruit-<cls>), bench-panel + bench-hero-0, bench-swap-0-0 swap, bench-card-0 opens hero card. Primary bug fix VERIFIED: with all-melee squad (2 Knight + 2 Rouge) and NO towers/barricades, enemies breached the GATE and the melee squad engaged; enemy-hud KILLED climbed to 2 within ~13s of combat (previously stuck at 0). Full loop regression (start-wave->scout-countdown->battlefield-canvas->debug-force-win->results-continue; then start-wave->debug-force-defeat->results-free-life->back to Preparation) passes. Zero console errors during combat.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/game/state", "issue": "Server still unconditionally overwrites state.lastSeen=now on PUT (server.py L102), so the review-spec offline-accrual PUT-then-GET path is unreachable via API. Carried over from iteration 1."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "engine.js melee fix is correct: `breached = any(active enemy.y > GATE_Y)` gates when melee heroes leave their home post; ranged (range>=130) still fire in place. _nearestHeroEntity uses hypot with radius filter — good.",
+    "Preparation.jsx L27 uses state.heroes.length + (state.bench?.length || 0) — safe. state.heroes itself is unconditionally referenced in slotCap paths (owned).",
+    "SquadSelect confirm disabled only when picks.length !== 4 — duplicates allowed, correct.",
+    "recruitHero routes 5th+ hero into bench (bench-panel appears conditionally when bench.length>0 — good UX).",
+    "Server PUT still clobbers lastSeen (see minor backend issue). Consider preserving client lastSeen when provided."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Register fresh mel<random>/test123 each run. qatester/test123 also seeded historically.",
+  "seed_data_creation": "None persistent; each Playwright run creates a fresh mel<uuid[:6]> user via /api/auth/register.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/backend_test.py (12 tests, JUnit XML at /app/test_reports/pytest/pytest_results.xml) now includes TestNewStateShape validating heroes[] unique ids + bench + needsSquad persistence. Frontend flow uses testids: tab-register/login-username/login-password/login-submit for auth; squad-class-grid/squad-pick-<cls>/squad-remove-<i>/squad-confirm for squad select; enter-preparation-button on Home; prep-battlefield, field-slot-<n>, build-menu, field-build-<type>-<slot>, tower-actions, field-tower-card-<slot>, field-repair-tower-<slot>, field-dismantle-<slot>, field-barricade-<pos>, barricade-actions, field-barricade-buy-<pos>-<25|50|100>, field-barricade-repair-<pos> for the battlefield; tab-heroes/recruit-panel/recruit-<cls>/bench-panel/bench-hero-<i>/bench-card-<i>/bench-swap-<benchIdx>-<squadIdx>. Combat KILLED counter lives inside enemy-hud text; poll it with regex /KILLED[^0-9]*(\\d+)/.",
+  "rca of the issue": "Previously: melee heroes (Knight/Rouge, range<130) stayed at their home post and never advanced, so enemies that breached the gate walked past out of melee range and KILLED remained 0. Fix: engine.js now computes `breached = any active enemy below the GATE line` per tick; when breached, short-range heroes advance toward _nearestHeroEntity and attack, while long-range heroes keep firing from home. Verified live: KILLED reached 2 within ~13s of combat with an all-melee squad and no towers."
+}

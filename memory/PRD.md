@@ -54,6 +54,18 @@ Three pillars, each shallow-but-complete: combat, strategy/preparation, economy/
 
 ## Testing
 - iteration_1.json: 11/11 backend pytest pass; frontend E2E full loop pass (100%/100%). No critical bugs.
+- iteration_2.json: 12/12 backend pytest (incl. new heroes/bench/needsSquad state shape); frontend 100%. Verified: melee-hero engagement fix, squad selection, recruitment/bench swap, hand-placed towers.
+
+## Iteration 2 changes (2026-06)
+- **Fixed**: Knight/Rouge (melee) heroes were stationary and never attacked. Engine now flags a
+  gate breach (any enemy past the red gate line) and melee heroes advance to engage while ranged
+  heroes fire in place — the Castle Squad engages once outer defenses are breached.
+- **Custom squad selection**: new players pick ANY 4 heroes (duplicates allowed, e.g. 4 Archers)
+  on a Squad Select screen; heroes carry unique ids.
+- **Recruitment**: recruit additional heroes with Gold during Preparation (exponential cost);
+  extras go to a Bench and can be swapped into the active 4-hero squad.
+- **Hand-placed towers**: Preparation now shows an interactive battlefield — tap a strategic tower
+  LOCATION to build/upgrade/repair/dismantle, and tap barricade LANES to reinforce them by hand.
 
 ## Backlog (staged per design doc)
 - P1: Tier 2–3 ability trees & layered attack configurations; richer tower spy / Scout Knowledge

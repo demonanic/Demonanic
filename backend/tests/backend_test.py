@@ -123,6 +123,36 @@ class TestOfflineAccrual:
             assert og["minutes"] <= 12 * 60 + 1
 
 
+# ------------------------- New state shape (heroes/bench/needsSquad) -------------------------
+class TestNewStateShape:
+    def test_put_get_heroes_bench_needsquad_persist(self, auth_headers):
+        payload = {"state": {
+            "gold": 500, "stone": 10, "food": 20, "wave": 1,
+            "workersGold": 0, "workersStone": 0, "farmers": 0,
+            "morale": 50, "castleHp": 1000, "castleMaxHp": 1000,
+            "needsSquad": False,
+            "heroes": [
+                {"id": "h1", "class": "knight", "level": 1},
+                {"id": "h2", "class": "rouge", "level": 1},
+                {"id": "h3", "class": "knight", "level": 1},
+                {"id": "h4", "class": "rouge", "level": 1},
+            ],
+            "bench": [{"id": "b1", "class": "archer", "level": 1}],
+        }}
+        r = requests.put(f"{API}/game/state", headers=auth_headers, json=payload, timeout=15)
+        assert r.status_code == 200
+        g = requests.get(f"{API}/game/state", headers=auth_headers, timeout=15)
+        assert g.status_code == 200
+        st = g.json()["state"]
+        assert st.get("needsSquad") is False
+        assert isinstance(st.get("heroes"), list) and len(st["heroes"]) == 4
+        ids = [h["id"] for h in st["heroes"]]
+        assert len(set(ids)) == 4  # unique ids
+        assert st["heroes"][0]["class"] == "knight"
+        assert isinstance(st.get("bench"), list) and len(st["bench"]) == 1
+        assert st["bench"][0]["class"] == "archer"
+
+
 # ------------------------- Monetization mock -------------------------
 class TestMonetization:
     def test_revive_hero_reward_granted_mock(self, auth_headers):
