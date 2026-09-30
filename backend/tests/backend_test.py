@@ -153,6 +153,38 @@ class TestNewStateShape:
         assert st["bench"][0]["class"] == "archer"
 
 
+# ------------------------- Iteration 3: towers as list persistence -------------------------
+class TestTowersListShape:
+    def test_put_get_towers_list_persist(self, auth_headers):
+        payload = {"state": {
+            "gold": 500, "stone": 10, "food": 20, "wave": 1,
+            "workersGold": 0, "workersStone": 0, "farmers": 0,
+            "morale": 50, "castleHp": 1000, "castleMaxHp": 1000,
+            "needsSquad": False,
+            "heroes": [{"id": "h1", "class": "knight", "level": 1}],
+            "bench": [],
+            "towers": [
+                {"id": "t1", "type": "archer", "x": 0.3, "y": 0.6, "level": 1, "hp": 100, "maxHp": 100},
+                {"id": "t2", "type": "wizard", "x": 0.7, "y": 0.55, "level": 2, "hp": 90, "maxHp": 100},
+                {"id": "t3", "type": "ballista", "x": 0.5, "y": 0.7, "level": 1, "hp": 100, "maxHp": 100},
+            ],
+        }}
+        r = requests.put(f"{API}/game/state", headers=auth_headers, json=payload, timeout=15)
+        assert r.status_code == 200
+        g = requests.get(f"{API}/game/state", headers=auth_headers, timeout=15)
+        assert g.status_code == 200
+        st = g.json()["state"]
+        assert isinstance(st.get("towers"), list) and len(st["towers"]) == 3
+        # Verify shape: each tower has id/type/x/y/level, no fixed nulls
+        types = sorted([t["type"] for t in st["towers"]])
+        assert types == ["archer", "ballista", "wizard"]
+        for t in st["towers"]:
+            assert "id" in t and "type" in t and "x" in t and "y" in t and "level" in t
+            assert isinstance(t["x"], (int, float)) and isinstance(t["y"], (int, float))
+        # ensure none are None/null placeholders
+        assert all(t is not None for t in st["towers"])
+
+
 # ------------------------- Monetization mock -------------------------
 class TestMonetization:
     def test_revive_hero_reward_granted_mock(self, auth_headers):
