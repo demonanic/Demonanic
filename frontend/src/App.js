@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Login from "@/screens/Login";
 import Home from "@/screens/Home";
 import SquadSelect from "@/screens/SquadSelect";
+import Roster from "@/screens/Roster";
 import Preparation from "@/screens/Preparation";
 import Battle from "@/screens/Battle";
 import Results from "@/screens/Results";
@@ -26,6 +27,7 @@ function GameRouter() {
   switch (screen) {
     case "home": return <Home />;
     case "squad": return <SquadSelect />;
+    case "roster": return <Roster />;
     case "prep": return <Preparation />;
     case "battle": return <Battle />;
     case "results": return <Results />;

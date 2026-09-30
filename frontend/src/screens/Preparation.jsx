@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft } from "lucide-react";
 import * as C from "@/game/config";
 import {
-  castlePower, slotCap, buildTower, dismantleTower, repairTower, applyTowerUpgrade,
+  castlePower, slotCap, buildTower, dismantleTower, repairTower, applyTowerUpgrade, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
   recruitHero, swapHero, heroDerived, productionRates,
 } from "@/game/logic";
@@ -29,10 +29,11 @@ export default function Preparation() {
   const act = (fn, okMsg, failMsg) => mutate((s) => { if (!fn(s)) { toast.error(failMsg || "Cannot afford / invalid"); } else if (okMsg) toast.success(okMsg); });
 
   const handlers = {
-    build: (slot, type) => act((s) => buildTower(s, type, slot), `${C.TOWERS[type].name} built`),
-    dismantle: (slot) => act((s) => dismantleTower(s, slot), "Dismantled (30% refund)"),
-    repairTower: (slot) => act((s) => repairTower(s, slot), "Repaired"),
-    openCard: (slot) => setOpenTower(slot),
+    build: (type, x, y) => act((s) => buildTower(s, type, x, y), `${C.TOWERS[type].name} placed`),
+    reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
+    dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
+    repairTower: (index) => act((s) => repairTower(s, index), "Repaired"),
+    openCard: (index) => setOpenTower(index),
     buyBarricade: (pos, g) => act((s) => buyBarricade(s, pos, g), `+${g * C.BARRICADE.goldToHp} HP`),
     repairBarricade: (pos) => act((s) => repairBarricade(s, pos), "Repaired"),
   };

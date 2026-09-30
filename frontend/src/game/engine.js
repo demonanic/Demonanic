@@ -3,7 +3,7 @@
 // Simulation is separate from React; mutates a cloned `sim` fragment and
 // accumulates XP gains, returned to the UI at wave end.
 import * as C from "./config";
-import { heroDerived, towerDerived } from "./logic";
+import { heroDerived, towerDerived, makeSingleEnemy } from "./logic";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -55,13 +55,10 @@ export class Engine {
       return { i, ref: h, x, y: HERO_Y, home: { x, y: HERO_Y }, d, cd: 0, alive: h.hp > 0, protect: 0 };
     });
 
-    // tower runtime
-    this.towers = [];
-    sim.towers.forEach((t, slot) => {
-      if (!t) return;
+    // tower runtime (free placement: use each tower's own x,y)
+    this.towers = sim.towers.map((t, idx) => {
       const d = towerDerived(t);
-      const p = SLOT_POS[slot];
-      this.towers.push({ slot, ref: t, x: p.x, y: p.y, d, cd: 0 });
+      return { slot: idx, ref: t, x: t.x, y: t.y, d, cd: 0 };
     });
 
     this.barricades = sim.barricades.map((b, lane) => ({ lane, ref: b, x: laneX(lane), y: WALL_Y }));
@@ -135,23 +132,28 @@ export class Engine {
       if (!h.alive) continue;
       if (h.protect > 0) { h.protect -= dt; continue; }
       h.cd -= dt;
-      if (!breached) { this._returnHome(h, dt); continue; }
+      const cfg = h.ref.attackConfig || "";
       const melee = h.d.range < 130;
+      const support = h.d.magic && /Support|Heal|Barrier/i.test(cfg);
+      // Mage support/barrier config: mend or shield allies (works pre-breach too)
+      if (support) {
+        if (h.cd <= 0 && this._support(h, cfg)) h.cd = h.d.rate;
+        this._returnHome(h, dt);
+        continue;
+      }
+      if (!breached) { this._returnHome(h, dt); continue; }
+      const target = this._selectTarget(h);
       if (melee) {
-        const target = this._nearestEnemy(h.x, h.y, 99999);
         if (target) {
           const dist = Math.hypot(target.x - h.x, target.y - h.y) || 1;
           if (dist > h.d.range - 6) {
             const spd = 155 * dt;
             h.x += ((target.x - h.x) / dist) * Math.min(spd, dist);
             h.y += ((target.y - h.y) / dist) * Math.min(spd, dist);
-          } else if (h.cd <= 0) {
-            this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate;
-          }
+          } else if (h.cd <= 0) { this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate; }
         } else this._returnHome(h, dt);
-      } else if (h.cd <= 0) {
-        const target = this._nearestEnemy(h.x, h.y, h.d.range);
-        if (target) { this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate; }
+      } else if (h.cd <= 0 && target) {
+        this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate;
       }
     }
 
@@ -180,6 +182,22 @@ export class Engine {
 
   _updateEnemy(e, dt) {
     e.atkCd -= dt;
+    // Boss (Three-Headed Demon Lord) special abilities: fire AoE + summon skeletons + lifesteal
+    if (e.boss) {
+      e.abilityCd = (e.abilityCd == null ? 5 : e.abilityCd) - dt;
+      if (e.abilityCd <= 0) {
+        e.abilityCd = 6;
+        for (let k = 0; k < 2; k++) this.injectEnemy(makeSingleEnemy(this.sim, "skeleton"));
+        for (const h of this.heroes) if (h.alive) {
+          let dmg = C.damageAfterDefense(e.damage * 1.3, h.ref.stats.defense);
+          if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
+          h.ref.hp = Math.max(0, h.ref.hp - dmg);
+          this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF6600");
+          if (h.ref.hp <= 0 && h.alive) { h.alive = false; this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat); }
+        }
+        this.effects.push({ x: e.x, y: e.y, r: 90, life: 0.7, color: "#FF6600" });
+      }
+    }
     // barricade in lane?
     const bar = this.barricades[e.lane];
     if (!e.floats && bar && bar.ref.hp > 0 && Math.abs(e.y - WALL_Y) < 16 && e.y < WALL_Y + 4) {
@@ -222,9 +240,11 @@ export class Engine {
       }
     } else {
       const h = blocker.obj;
-      let dmg = C.damageAfterDefense(e.damage, h.ref.stats.defense);
       if (Math.random() < h.d.dodge) { this._float(h.x, h.y - 20, "DODGE", "#00F3FF"); return; }
+      let dmg = C.damageAfterDefense(e.damage, h.ref.stats.defense);
+      if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
       h.ref.hp = Math.max(0, h.ref.hp - dmg);
+      if (e.boss) e.hp = Math.min(e.maxHp, e.hp + dmg * 0.5); // Demon Lord lifesteal
       this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF3366");
       if (h.ref.hp <= 0 && h.alive) {
         h.alive = false;
@@ -310,6 +330,41 @@ export class Engine {
     }
     return best;
   }
+  // targeting tactics driven by the hero's attack configuration
+  _selectTarget(h) {
+    const cfg = h.ref.attackConfig || "";
+    const melee = h.d.range < 130;
+    const pool = melee ? this.active : this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= h.d.range);
+    if (!pool.length) return null;
+    const pick = (fn, dir) => pool.reduce((a, b) => (fn(b) * dir > fn(a) * dir ? b : a));
+    if (/Weakest|Assassinate/i.test(cfg)) return pick((e) => e.hp, -1);       // lowest HP
+    if (/Sniper|strongest/i.test(cfg)) return pick((e) => e.maxHp, 1);        // toughest
+    if (/Guard|Defensive/i.test(cfg)) return pick((e) => e.y, 1);            // closest to keep
+    return pick((e) => Math.hypot(e.x - h.x, e.y - h.y), -1);                // nearest (default)
+  }
+  _support(h, cfg) {
+    const barrier = /Barrier/i.test(cfg);
+    let ally = null, worst = Infinity;
+    for (const a of this.heroes) {
+      if (!a.alive) continue;
+      const frac = a.ref.hp / a.d.maxHp;
+      if (frac < worst) { worst = frac; ally = a; }
+    }
+    if (!ally) return false;
+    if (barrier) {
+      const cap = ally.d.maxHp * 0.25;
+      ally.ref.shield = Math.min(cap, (ally.ref.shield || 0) + 28 * h.d.healPower);
+      this._float(ally.x, ally.y - 22, "+SHIELD", "#00F3FF");
+      this.effects.push({ x: ally.x, y: ally.y, r: 24, life: 0.4, color: "#00F3FF" });
+    } else {
+      if (ally.ref.hp >= ally.d.maxHp) return false;
+      const heal = 34 * h.d.healPower;
+      ally.ref.hp = Math.min(ally.d.maxHp, ally.ref.hp + heal);
+      this._float(ally.x, ally.y - 22, "+" + Math.round(heal), "#39FF14");
+      this.effects.push({ x: ally.x, y: ally.y, r: 22, life: 0.4, color: "#39FF14" });
+    }
+    return true;
+  }
   _nearestTower(x, y, r) {
     for (const t of this.towers) if (t.ref.hp > 0 && Math.hypot(t.x - x, t.y - y) <= r) return { kind: "tower", obj: t };
     return null;
@@ -337,7 +392,8 @@ export class Engine {
       remaining: this.active.length + this.spawnQueue.length,
       castleHp: this.sim.castleHp, castleMaxHp: this.sim.castleMaxHp,
       morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
-      heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive })),
+      heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
+      boss: (() => { const b = this.active.find((e) => e.boss); return b ? { name: b.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
     });
   }
 
@@ -383,15 +439,14 @@ export class Engine {
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
 
-    // tower slots + towers
-    SLOT_POS.forEach((p, slot) => {
-      const has = this.towers.find((t) => t.slot === slot);
-      this._bracketSquare(p.x, p.y, 34, has ? has.d.color : "rgba(0,243,255,0.35)");
-      if (has && has.ref.hp > 0) {
-        this._glowShape(p.x, p.y, 11, has.d.color, has.ref.underfunded ? 0.4 : 1);
-        this._bar(p.x - 16, p.y + 16, 32, 3, has.ref.hp / has.d.maxHp, has.d.color);
+    // towers (placed freely on the field)
+    for (const t of this.towers) {
+      this._bracketSquare(t.x, t.y, 30, t.d.color);
+      if (t.ref.hp > 0) {
+        this._glowShape(t.x, t.y, 10, t.d.color, t.ref.underfunded ? 0.4 : 1);
+        this._bar(t.x - 15, t.y + 14, 30, 3, t.ref.hp / t.d.maxHp, t.d.color);
       }
-    });
+    }
 
     // enemies
     for (const e of this.active) {

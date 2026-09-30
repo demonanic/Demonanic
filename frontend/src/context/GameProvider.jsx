@@ -5,11 +5,20 @@ import { createNewState, produce } from "@/game/logic";
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
 
-// backward-compat for older saves (add bench/ids/needsSquad)
+// backward-compat for older saves (add bench/ids/needsSquad, free-placement towers)
 function normalizeState(s) {
   if (!s.bench) s.bench = [];
   if (Array.isArray(s.heroes)) s.heroes.forEach((h) => { if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`; });
   if (s.needsSquad === undefined) s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
+  // migrate fixed-slot towers -> free-placement list with x,y
+  if (Array.isArray(s.towers)) {
+    const defaults = [[60, 180], [360, 180], [60, 300], [360, 300], [210, 205]];
+    s.towers = s.towers.filter(Boolean);
+    s.towers.forEach((t, i) => {
+      if (!t.id) t.id = `tw-${Math.random().toString(36).slice(2)}`;
+      if (t.x == null || t.y == null) { const d = defaults[i % 5]; t.x = d[0]; t.y = d[1]; }
+    });
+  } else s.towers = [];
   return s;
 }
 

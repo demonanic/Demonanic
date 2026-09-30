@@ -51,6 +51,9 @@ export default function Home() {
             <NeonButton color="cyan" className="flex-1 py-3" onClick={() => setScreen("profile")} data-testid="open-profile-button">
               <User size={14} className="inline mr-1" /> Profile
             </NeonButton>
+            <NeonButton color="yellow" className="flex-1 py-3" onClick={() => setScreen("roster")} data-testid="open-roster-button">
+              <User size={14} className="inline mr-1" /> Roster
+            </NeonButton>
           </div>
         </div>
         {state.surrenderTaxRate > 0 && (

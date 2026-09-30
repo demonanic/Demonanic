@@ -1,104 +1,136 @@
-import { useState } from "react";
-import { slotPositions, LAYOUT } from "@/game/engine";
+import { useRef, useState } from "react";
+import { LAYOUT } from "@/game/engine";
 import { NeonButton, StatBar } from "@/components/ui-kit";
 import { slotCap, towerDerived, canAfford } from "@/game/logic";
-import { Plus, Wrench, Trash2 } from "lucide-react";
+import { Wrench, Trash2, X } from "lucide-react";
 import * as C from "@/game/config";
 
-const SLOT_POS = slotPositions();
 const { W, H, WALL_Y, GATE_Y, HERO_Y } = LAYOUT;
 const pctX = (x) => `${(x / W) * 100}%`;
 const pctY = (y) => `${(y / H) * 100}%`;
+const clampX = (x) => Math.max(24, Math.min(W - 24, x));
+const clampY = (y) => Math.max(34, Math.min(GATE_Y + 30, y)); // defensive zone only
 
 export default function PrepField({ state, handlers }) {
-  const [sel, setSel] = useState(null); // {kind:'slot'|'tower'|'barricade', idx}
+  const [placing, setPlacing] = useState(null); // tower type key
+  const [sel, setSel] = useState(null);         // {kind:'tower'|'barricade', idx}
+  const [drag, setDrag] = useState(null);       // {idx, x, y, moved}
+  const fieldRef = useRef(null);
   const cap = slotCap(state);
   const n = state.heroes.length || 1;
+  const atCap = state.towers.length >= cap;
 
-  const close = () => setSel(null);
+  const toLogical = (e) => {
+    const r = fieldRef.current.getBoundingClientRect();
+    return { x: clampX(((e.clientX - r.left) / r.width) * W), y: clampY(((e.clientY - r.top) / r.height) * H) };
+  };
+
+  const placeAt = (e) => {
+    if (!placing) return;
+    const { x, y } = toLogical(e);
+    handlers.build(placing, x, y);
+    setPlacing(null);
+  };
+
+  const onTowerDown = (idx, e) => {
+    e.stopPropagation();
+    if (placing) return;
+    setDrag({ idx, x: state.towers[idx].x, y: state.towers[idx].y, moved: false });
+  };
+  const onFieldMove = (e) => {
+    if (!drag) return;
+    const { x, y } = toLogical(e);
+    setDrag((d) => ({ ...d, x, y, moved: true }));
+  };
+  const onFieldUp = () => {
+    if (!drag) return;
+    if (drag.moved) handlers.reposition(drag.idx, drag.x, drag.y);
+    else setSel({ kind: "tower", idx: drag.idx });
+    setDrag(null);
+  };
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative rounded-xl overflow-hidden border border-cyan-500/20 mx-auto"
-        style={{ aspectRatio: `${W}/${H}`, width: "min(340px, 78vw)", background: "#12131A" }}
+      {/* tower palette */}
+      <div className="w-full max-w-md mb-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-mono-g text-[10px] text-slate-400">TOWERS {state.towers.length}/{cap}{atCap ? " · at capacity" : ""}</span>
+          {placing && <button onClick={() => setPlacing(null)} className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1" data-testid="cancel-placing"><X size={11} />cancel</button>}
+        </div>
+        <div className="grid grid-cols-4 gap-1.5" data-testid="tower-palette">
+          {C.TOWER_ORDER.map((tp) => {
+            const t = C.TOWERS[tp];
+            const ok = !atCap && canAfford(state, t.construction);
+            return (
+              <button key={tp} disabled={!ok} data-testid={`palette-${tp}`}
+                onClick={() => setPlacing(placing === tp ? null : tp)}
+                className={`neon-btn p-1.5 rounded-lg border bg-black/40 disabled:opacity-30 ${placing === tp ? "ring-2 ring-cyan-400" : ""}`}
+                style={{ borderColor: t.color + "66" }}>
+                <div className="w-4 h-4 rounded mx-auto mb-1" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
+                <div className="font-mono-g text-[9px] font-bold text-center" style={{ color: t.color }}>{t.name.split(" ")[0]}</div>
+                <div className="font-mono-g text-[8px] text-slate-400 text-center">{t.construction.gold}g</div>
+              </button>
+            );
+          })}
+        </div>
+        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">Tap the battlefield to place {C.TOWERS[placing].name} · drag placed towers to move them</p>}
+      </div>
+
+      <div ref={fieldRef} onPointerMove={onFieldMove} onPointerUp={onFieldUp} onPointerLeave={onFieldUp}
+        className="relative rounded-xl overflow-hidden border border-cyan-500/20 mx-auto select-none"
+        style={{ aspectRatio: `${W}/${H}`, width: "min(340px, 78vw)", background: "#12131A", touchAction: "none" }}
         data-testid="prep-battlefield">
-        {/* grid */}
         <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)", backgroundSize: "10% 5.5%" }} />
-        {/* walls */}
         <div className="absolute left-0 right-0" style={{ top: pctY(WALL_Y), height: 2, background: "#FFE600", boxShadow: "0 0 10px #FFE600" }} />
         <div className="absolute left-0 right-0" style={{ top: pctY(GATE_Y), height: 2, background: "#FF2A5F", boxShadow: "0 0 10px #FF2A5F" }} />
-        {/* castle keep */}
         <div className="absolute" style={{ left: "50%", top: "96%", transform: "translate(-50%,-50%)", width: "34%", height: "4%", border: "2px solid #FF2A5F", boxShadow: "0 0 12px #FF2A5F" }} />
         <div className="absolute font-mono-g text-[8px] text-yellow-300/70" style={{ left: 4, top: `calc(${pctY(WALL_Y)} - 12px)` }}>OUTER WALL</div>
         <div className="absolute font-mono-g text-[8px] text-rose-400/70" style={{ left: 4, top: `calc(${pctY(GATE_Y)} - 12px)` }}>GATE</div>
 
-        {/* barricade lanes at wall line */}
+        {/* barricade lanes */}
         {state.barricades.map((b, pos) => {
-          const x = (W / 5) * (pos + 0.5);
-          const on = b.maxHp > 0;
+          const x = (W / 5) * (pos + 0.5); const on = b.maxHp > 0;
           return (
-            <button key={pos} data-testid={`field-barricade-${pos}`} onClick={() => setSel({ kind: "barricade", idx: pos })}
+            <button key={pos} data-testid={`field-barricade-${pos}`} onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setSel({ kind: "barricade", idx: pos }); }}
               className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
-              style={{ left: pctX(x), top: pctY(WALL_Y), width: "15%", height: "2.6%",
+              style={{ left: pctX(x), top: pctY(WALL_Y), width: "15%", height: "2.6%", pointerEvents: placing ? "none" : "auto",
                 backgroundImage: on ? "repeating-linear-gradient(45deg,#FFE600 0,#FFE600 5px,#12131A 5px,#12131A 10px)" : "none",
-                border: `1px solid ${on ? "#FFE600" : "rgba(255,230,0,0.35)"}`,
-                opacity: on ? 0.5 + 0.5 * (b.hp / b.maxHp) : 0.4,
+                border: `1px solid ${on ? "#FFE600" : "rgba(255,230,0,0.35)"}`, opacity: on ? 0.5 + 0.5 * (b.hp / b.maxHp) : 0.4,
                 outline: sel?.kind === "barricade" && sel.idx === pos ? "2px solid #00F3FF" : "none" }} />
           );
         })}
 
-        {/* tower slots */}
-        {SLOT_POS.map((p, slot) => {
-          const unlocked = slot < cap;
-          const tw = state.towers[slot];
-          const color = tw ? C.TOWERS[tw.type].color : unlocked ? "#00F3FF" : "#475569";
+        {/* placed towers */}
+        {state.towers.map((tw, idx) => {
+          const t = C.TOWERS[tw.type];
+          const pos = drag && drag.idx === idx ? drag : tw;
           return (
-            <button key={slot} data-testid={`field-slot-${slot}`} disabled={!unlocked}
-              onClick={() => setSel({ kind: tw ? "tower" : "slot", idx: slot })}
+            <button key={tw.id} data-testid={`field-tower-${idx}`} onPointerDown={(e) => onTowerDown(idx, e)}
               className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center bracket"
-              style={{ left: pctX(p.x), top: pctY(p.y), width: "17%", height: "9%",
-                borderColor: color, opacity: unlocked ? 1 : 0.4,
-                outline: sel && sel.idx === slot && sel.kind !== "barricade" ? "2px solid #00F3FF" : "none" }}>
-              {tw ? (
-                <div className="w-3.5 h-3.5 rounded" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-              ) : unlocked ? <Plus size={14} className="text-cyan-300" /> : <span className="font-mono-g text-[7px] text-slate-500">{C.SLOT_THRESHOLDS[slot]}CP</span>}
+              style={{ left: pctX(pos.x), top: pctY(pos.y), width: "16%", height: "8%", borderColor: t.color,
+                pointerEvents: placing ? "none" : "auto", cursor: "grab",
+                outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
+              <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
+              {tw.pending > 0 && <span className="absolute -top-1 -right-1 text-[8px] text-yellow-300 animate-pulse-glow">⬆</span>}
             </button>
           );
         })}
 
-        {/* hero markers */}
+        {/* heroes */}
         {state.heroes.map((h, i) => {
           const c = C.HERO_CLASSES[h.cls];
-          return (
-            <div key={h.id} className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
-              style={{ left: pctX(W * ((i + 0.5) / n)), top: pctY(HERO_Y), width: "5%", height: "5%", background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
-          );
+          return <div key={h.id} className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
+            style={{ left: pctX(W * ((i + 0.5) / n)), top: pctY(HERO_Y), width: "5%", height: "5%", background: c.color, boxShadow: `0 0 8px ${c.color}`, pointerEvents: "none" }} />;
         })}
+
+        {/* placement overlay captures taps anywhere */}
+        {placing && <div className="absolute inset-0 z-20" style={{ cursor: "crosshair" }} onClick={placeAt} data-testid="place-overlay" />}
       </div>
 
-      {/* contextual action bar */}
-      <div className="w-full max-w-md mt-2 min-h-[64px]">
-        {!sel && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Tap a tower location, a tower, or a barricade lane on the field to configure it.</p>}
-
-        {sel?.kind === "slot" && (
-          <div className="glass-card rounded-xl p-2.5" data-testid="build-menu">
-            <div className="font-mono-g text-[10px] text-cyan-400 mb-1.5">Build tower at location {sel.idx + 1}</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {C.TOWER_ORDER.map((tp) => {
-                const t = C.TOWERS[tp];
-                const ok = canAfford(state, t.construction);
-                return (
-                  <button key={tp} disabled={!ok} data-testid={`field-build-${tp}-${sel.idx}`}
-                    onClick={() => { handlers.build(sel.idx, tp); close(); }}
-                    className="text-left p-2 rounded-lg border bg-black/40 disabled:opacity-30" style={{ borderColor: t.color + "66" }}>
-                    <div className="font-mono-g text-xs font-bold" style={{ color: t.color }}>{t.name}</div>
-                    <div className="font-mono-g text-[9px] text-slate-400">{t.construction.gold}g {t.construction.stone}s {t.construction.food}f</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      {/* action bar */}
+      <div className="w-full max-w-md mt-2 min-h-[60px]">
+        {!sel && !placing && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Pick a tower above then tap the field to place it. Tap a placed tower or a barricade lane to configure; drag towers to reposition.</p>}
 
         {sel?.kind === "tower" && state.towers[sel.idx] && (() => {
           const tw = state.towers[sel.idx]; const t = C.TOWERS[tw.type]; const d = towerDerived(tw);
@@ -107,11 +139,10 @@ export default function PrepField({ state, handlers }) {
               <div className="flex-1">
                 <div className="font-mono-g text-xs font-bold" style={{ color: t.color }}>{t.name} L{tw.level} {tw.pending > 0 && <span className="text-yellow-300 animate-pulse-glow">⬆{tw.pending}</span>}</div>
                 <StatBar frac={tw.hp / d.maxHp} color={t.color} height={4} />
-                <div className="font-mono-g text-[9px] text-slate-500 mt-0.5">{Math.round(tw.hp)}/{d.maxHp} HP</div>
               </div>
               <NeonButton color="cyan" className="!px-2 !py-1 !text-[9px]" onClick={() => handlers.openCard(sel.idx)} data-testid={`field-tower-card-${sel.idx}`}>Card</NeonButton>
               <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" onClick={() => handlers.repairTower(sel.idx)} data-testid={`field-repair-tower-${sel.idx}`}><Wrench size={11} /></NeonButton>
-              <NeonButton color="red" className="!px-2 !py-1 !text-[9px]" onClick={() => { handlers.dismantle(sel.idx); close(); }} data-testid={`field-dismantle-${sel.idx}`}><Trash2 size={11} /></NeonButton>
+              <NeonButton color="red" className="!px-2 !py-1 !text-[9px]" onClick={() => { handlers.dismantle(sel.idx); setSel(null); }} data-testid={`field-dismantle-${sel.idx}`}><Trash2 size={11} /></NeonButton>
             </div>
           );
         })()}

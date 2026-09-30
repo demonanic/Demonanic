@@ -70,6 +70,7 @@ export default function Battle() {
       s.towers.forEach((t, i) => { if (t && sim.towers[i]) t.hp = sim.towers[i].hp; });
       for (const i in gainsHeroes) addHeroXp(s.heroes[i], gainsHeroes[i]);
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
+      s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
       s.bests.totalKills = Math.max(s.bests.totalKills || 0, s.kills.total);
       if (res.victory) completeWave(s);
     });
@@ -137,6 +138,16 @@ export default function Battle() {
             <div className="font-mono-g text-[9px] text-slate-400">MORALE {Math.round(hud.morale)}</div>
             <StatBar frac={hud.morale / 100} color={hud.morale <= 0 ? "#FF0055" : "#39FF14"} height={5} />
           </div>
+        </div>
+      )}
+
+      {/* boss health bar */}
+      {hud?.boss && (
+        <div className="px-3 py-1.5 border-b border-rose-500/30 bg-rose-950/20" data-testid="boss-hud">
+          <div className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1 animate-pulse-glow">
+            <Skull size={12} /> {hud.boss.name.toUpperCase()} · {Math.round(hud.boss.hp)}/{hud.boss.maxHp}
+          </div>
+          <StatBar frac={hud.boss.hp / hud.boss.maxHp} color="#FF0055" height={7} />
         </div>
       )}
 

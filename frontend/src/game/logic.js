@@ -34,10 +34,12 @@ export function heroDerived(hero) {
   };
 }
 
-export function createTower(type, slot) {
+let _towerSeq = 0;
+export function createTower(type, x, y) {
   const t = C.TOWERS[type];
   return {
-    slot, type, level: 1, xp: 0, hp: t.baseHp, maxHp: t.baseHp,
+    id: `tw-${Date.now().toString(36)}-${_towerSeq++}`,
+    type, x, y, level: 1, xp: 0, hp: t.baseHp, maxHp: t.baseHp,
     choices: [], pending: 0, underfunded: false,
   };
 }
@@ -67,7 +69,7 @@ export function createNewState(squadClasses) {
     wave: 1, highestWaveCleared: 0, freeLifeUsed: false,
     surrenderTaxRate: 0, surrenderDebtWave: 0,
     heroes, bench: [], needsSquad: !squadClasses,
-    towers: Array.from({ length: 5 }, () => null),
+    towers: [],
     barricades,
     scoutKnowledge: 0,
     kills: { total: 0, byType: {} },
@@ -102,6 +104,19 @@ export function swapHero(state, benchIndex, squadIndex) {
   const b = state.bench[benchIndex];
   state.bench[benchIndex] = state.heroes[squadIndex];
   state.heroes[squadIndex] = b;
+  return true;
+}
+
+export function renameHero(state, list, idx, name) {
+  const arr = list === "bench" ? state.bench : state.heroes;
+  if (!arr || !arr[idx]) return false;
+  const clean = (name || "").trim().slice(0, 18);
+  arr[idx].name = clean || C.HERO_CLASSES[arr[idx].cls].name;
+  return true;
+}
+export function retireHero(state, benchIdx) {
+  if (!state.bench || !state.bench[benchIdx]) return false;
+  state.bench.splice(benchIdx, 1);
   return true;
 }
 
@@ -159,24 +174,27 @@ export function buyWorker(state, allocateTo) {
   return true;
 }
 
-// ---- towers ----
-export function buildTower(state, type, slot) {
+// ---- towers (free placement anywhere on the field, up to slot capacity) ----
+export function buildTower(state, type, x, y) {
   const cost = C.TOWERS[type].construction;
   if (!canAfford(state, cost)) return false;
-  if (slot >= slotCap(state)) return false;
-  if (state.towers[slot]) return false;
+  if (state.towers.length >= slotCap(state)) return false;
   spend(state, cost);
-  state.towers[slot] = createTower(type, slot);
+  state.towers.push(createTower(type, x, y));
   return true;
 }
-export function dismantleTower(state, slot) {
-  const tw = state.towers[slot];
+export function repositionTower(state, index, x, y) {
+  const t = state.towers[index];
+  if (!t) return false;
+  t.x = x; t.y = y; return true;
+}
+export function dismantleTower(state, index) {
+  const tw = state.towers[index];
   if (!tw) return false;
-  // refund 30% of construction gold/stone
   const cost = C.TOWERS[tw.type].construction;
   state.gold += Math.floor(cost.gold * 0.3);
   state.stone += Math.floor(cost.stone * 0.3);
-  state.towers[slot] = null;
+  state.towers.splice(index, 1);
   return true;
 }
 export function addTowerXp(tower, xp) {
