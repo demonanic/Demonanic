@@ -182,7 +182,7 @@ export class Engine {
         this._returnHome(h, dt);
         continue;
       }
-      if (!breached) { this._returnHome(h, dt); continue; }
+      if (!breached && !h.manual) { this._returnHome(h, dt); continue; }
       let target = h.manual ? h.manualTarget : this._selectTarget(h);
 
       if (target && target.hp <= 0) {
