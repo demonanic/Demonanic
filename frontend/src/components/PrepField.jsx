@@ -14,7 +14,6 @@ const clampY = (y) => Math.max(34, Math.min(GATE_Y + 30, y)); // defensive zone 
 export default function PrepField({ state, handlers }) {
   const [placing, setPlacing] = useState(null); // tower type key
   const [sel, setSel] = useState(null);         // {kind:'tower'|'barricade', idx}
-  const [drag, setDrag] = useState(null);       // {idx, x, y, moved}
   const fieldRef = useRef(null);
   const cap = slotCap(state);
   const n = state.heroes.length || 1;
@@ -32,21 +31,10 @@ export default function PrepField({ state, handlers }) {
     setPlacing(null);
   };
 
-  const onTowerDown = (idx, e) => {
+  const onTowerClick = (idx, e) => {
     e.stopPropagation();
     if (placing) return;
-    setDrag({ idx, x: state.towers[idx].x, y: state.towers[idx].y, moved: false });
-  };
-  const onFieldMove = (e) => {
-    if (!drag) return;
-    const { x, y } = toLogical(e);
-    setDrag((d) => ({ ...d, x, y, moved: true }));
-  };
-  const onFieldUp = () => {
-    if (!drag) return;
-    if (drag.moved) handlers.reposition(drag.idx, drag.x, drag.y);
-    else setSel({ kind: "tower", idx: drag.idx });
-    setDrag(null);
+    setSel({ kind: "tower", idx });
   };
 
   return (
@@ -73,10 +61,10 @@ export default function PrepField({ state, handlers }) {
             );
           })}
         </div>
-        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">Tap the battlefield to place {C.TOWERS[placing].name} · drag placed towers to move them</p>}
+        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">Tap the battlefield to place {C.TOWERS[placing].name}</p>}
       </div>
 
-      <div ref={fieldRef} onPointerMove={onFieldMove} onPointerUp={onFieldUp} onPointerLeave={onFieldUp}
+      <div ref={fieldRef}
         className="relative rounded-xl overflow-hidden border border-cyan-500/20 mx-auto select-none"
         style={{ aspectRatio: `${W}/${H}`, width: "min(340px, 78vw)", background: "#12131A", touchAction: "none" }}
         data-testid="prep-battlefield">
@@ -104,12 +92,12 @@ export default function PrepField({ state, handlers }) {
         {/* placed towers */}
         {state.towers.map((tw, idx) => {
           const t = C.TOWERS[tw.type];
-          const pos = drag && drag.idx === idx ? drag : tw;
+          const pos = tw;
           return (
-            <button key={tw.id} data-testid={`field-tower-${idx}`} onPointerDown={(e) => onTowerDown(idx, e)}
+            <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center bracket"
               style={{ left: pctX(pos.x), top: pctY(pos.y), width: "16%", height: "8%", borderColor: t.color,
-                pointerEvents: placing ? "none" : "auto", cursor: "grab",
+                pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
               {tw.pending > 0 && <span className="absolute -top-1 -right-1 text-[8px] text-yellow-300 animate-pulse-glow">⬆</span>}
@@ -130,7 +118,7 @@ export default function PrepField({ state, handlers }) {
 
       {/* action bar */}
       <div className="w-full max-w-md mt-2 min-h-[60px]">
-        {!sel && !placing && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Pick a tower above then tap the field to place it. Tap a placed tower or a barricade lane to configure; drag towers to reposition.</p>}
+        {!sel && !placing && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Pick a tower above then tap the field to place it. Tap a placed tower or a barricade lane to configure. Towers stay fixed after placement.</p>}
 
         {sel?.kind === "tower" && state.towers[sel.idx] && (() => {
           const tw = state.towers[sel.idx]; const t = C.TOWERS[tw.type]; const d = towerDerived(tw);
