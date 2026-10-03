@@ -107,7 +107,7 @@ export class Engine {
     const target = this.active.reduce((best, e) => {
       if (e.hp <= 0) return best;
       const d = Math.hypot(e.x - x, e.y - y);
-      if (d > 42) return best;
+      if (d > 55) return best;
       if (!best) return e;
       return d < Math.hypot(best.x - x, best.y - y) ? e : best;
     }, null);
@@ -513,6 +513,17 @@ export class Engine {
         this._glowShape(e.x + 12, e.y - 6, 8, e.color, 1);
       }
       this._bar(e.x - r, e.y - r - 5, r * 2, 3, e.hp / e.maxHp, e.color);
+      if (this.heroes.some((h) => h.manual && h.manualTarget === e)) {
+        ctx.save();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, r + 7, 0, 7);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // heroes
