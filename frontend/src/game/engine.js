@@ -64,6 +64,8 @@ export class Engine {
         protect: 0,
         manual: !!h.manual,
         manualTarget: null,
+        rallyPoint: null,
+        retreating: false,
       };
     });
 
@@ -91,6 +93,8 @@ export class Engine {
     h.manual = !!manual;
     h.ref.manual = !!manual;
     if (!h.manual) h.manualTarget = null;
+    h.rallyPoint = null;
+    h.retreating = false;
     return true;
   }
 
@@ -100,6 +104,30 @@ export class Engine {
     h.manual = true;
     h.ref.manual = true;
     h.manualTarget = target;
+    return true;
+  }
+
+  retreatHero(index) {
+    const h = this.heroes[index];
+    if (!h || !h.alive) return false;
+    h.manual = true;
+    h.ref.manual = true;
+    h.manualTarget = null;
+    h.rallyPoint = null;
+    h.retreating = true;
+    return true;
+  }
+
+  rallyHeroes(index) {
+    const leader = this.heroes[index];
+    if (!leader || !leader.alive) return false;
+    const point = { x: leader.x, y: leader.y };
+    for (const h of this.heroes) {
+      if (!h.alive) continue;
+      h.rallyPoint = { ...point };
+      h.retreating = false;
+      h.manualTarget = null;
+    }
     return true;
   }
 
@@ -176,13 +204,31 @@ export class Engine {
       const cfg = h.ref.attackConfig || "";
       const melee = h.d.range < 130;
       const support = h.d.magic && /Support|Heal|Barrier/i.test(cfg);
+
+      if (h.retreating) {
+        this._returnHome(h, dt);
+        if (Math.hypot(h.x - h.home.x, h.y - h.home.y) < 8) h.retreating = false;
+        continue;
+      }
+
+      if (h.rallyPoint) {
+        const rd = Math.hypot(h.rallyPoint.x - h.x, h.rallyPoint.y - h.y);
+        if (rd > 24) {
+          const spd = 185 * dt;
+          h.x += ((h.rallyPoint.x - h.x) / rd) * Math.min(spd, rd);
+          h.y += ((h.rallyPoint.y - h.y) / rd) * Math.min(spd, rd);
+          continue;
+        }
+        h.rallyPoint = null;
+      }
       // Mage support/barrier config: mend or shield allies (works pre-breach too)
       if (support) {
         if (h.cd <= 0 && this._support(h, cfg)) h.cd = h.d.rate;
         this._returnHome(h, dt);
         continue;
       }
-      if (!breached && !h.manual) { this._returnHome(h, dt); continue; }
+      const nearbyAutoTarget = this._nearestEnemy(h.x, h.y, 220);
+      if (!breached && !h.manual && !nearbyAutoTarget) { this._returnHome(h, dt); continue; }
       let target = h.manual ? h.manualTarget : this._selectTarget(h);
 
       if (target && target.hp <= 0) {
@@ -390,7 +436,9 @@ export class Engine {
   _selectTarget(h) {
     const cfg = h.ref.attackConfig || "";
     const melee = h.d.range < 130;
-    const pool = melee ? this.active : this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= h.d.range);
+    const pool = melee
+      ? this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= 220)
+      : this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= h.d.range);
     if (!pool.length) return null;
     const pick = (fn, dir) => pool.reduce((a, b) => (fn(b) * dir > fn(a) * dir ? b : a));
     if (/Weakest|Assassinate/i.test(cfg)) return pick((e) => e.hp, -1);       // lowest HP
