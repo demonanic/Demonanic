@@ -168,7 +168,7 @@ export const ENEMIES = {
   orc:      { key: "orc",      name: "Orc",      tier: "specialized", hp: 120, speed: 24, damage: 18, color: "#FF6600" },
   reaper:   { key: "reaper",   name: "Reaper",   tier: "specialized", hp: 90,  speed: 32, damage: 15, color: "#A855F7", floats: true },
   lieutenant:{ key: "lieutenant", name: "Lieutenant", tier: "elite",  hp: 300, speed: 26, damage: 30, color: "#FF3366" },
-  demon:    { key: "demon",    name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true },
+  demon:    { key: "demon",    name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true, attackFx: "napalm", attackRange: 420, splashRadius: 68 },
 };
 export const BASIC_POOL = ["ghost", "slime", "goblin"];
 export const SPEC_POOL = ["skeleton", "orc", "reaper"];
