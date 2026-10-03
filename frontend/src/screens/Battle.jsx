@@ -117,6 +117,20 @@ export default function Battle() {
     triggerSlow();
   };
 
+  const retreatHero = (i) => {
+    if (engineRef.current?.retreatHero(i)) {
+      setSelectedManualHero(i);
+      forceTick((t) => t + 1);
+    }
+  };
+
+  const rallyHeroes = (i) => {
+    if (engineRef.current?.rallyHeroes(i)) {
+      setSelectedManualHero(i);
+      forceTick((t) => t + 1);
+    }
+  };
+
   const toggleCombatMode = (i, mode) => {
     const manual = mode === "manual";
     if (engineRef.current) engineRef.current.setHeroManual(i, manual);
@@ -261,6 +275,8 @@ export default function Battle() {
           slowed={slowed}
           combatMode={sim.heroes[openHero].manual ? "manual" : "auto"}
           onCombatMode={(mode) => toggleCombatMode(openHero, mode)}
+          onRetreat={() => retreatHero(openHero)}
+          onRally={() => rallyHeroes(openHero)}
           onAlloc={() => {}}
           onPerk={() => {}}
           onConfig={(cfg) => {
