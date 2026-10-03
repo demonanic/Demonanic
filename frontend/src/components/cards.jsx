@@ -22,7 +22,7 @@ export function Modal({ children, onClose, testid, slowed }) {
 
 const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
 
-export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed }) {
+export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed, combatMode, onCombatMode }) {
   const cls = C.HERO_CLASSES[hero.cls];
   const d = heroDerived(hero);
   const curXp = C.HERO_XP[hero.level - 1] || 0;
@@ -81,7 +81,25 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
         </div>
 
         <div className="mb-4">
-          <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1">Attack Config {editable ? "" : "(edit switches to MANUAL)"}</div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest">
+              Attack Config {editable ? "" : "(edit switches to MANUAL)"}
+            </div>
+            {combatMode && onCombatMode && (
+              <button
+                type="button"
+                onClick={() => onCombatMode(combatMode === "manual" ? "auto" : "manual")}
+                className={`font-mono-g text-[9px] px-2 py-1 rounded border uppercase tracking-wider ${
+                  combatMode === "manual"
+                    ? "bg-fuchsia-500/20 border-fuchsia-400 text-fuchsia-300"
+                    : "bg-cyan-500/20 border-cyan-400 text-cyan-300"
+                }`}
+                data-testid="hero-combat-mode"
+              >
+                {combatMode === "manual" ? "MANUAL" : "AUTO"}
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {C.ATTACK_CONFIGS[hero.cls].map((cfg) => (
               <button key={cfg} onClick={() => onConfig(cfg)} data-testid={`hero-config-${cfg.replace(/\s+/g, "-").toLowerCase()}`}
