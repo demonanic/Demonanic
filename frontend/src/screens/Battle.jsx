@@ -70,7 +70,11 @@ export default function Battle() {
     mutate((s) => {
       s.gold = sim.gold; s.food = sim.food; s.stone = sim.stone;
       s.morale = sim.morale; s.castleHp = sim.castleHp; s.kills = sim.kills;
-      s.heroes.forEach((h, i) => { h.hp = sim.heroes[i].hp; });
+      s.heroes.forEach((h, i) => {
+        h.hp = sim.heroes[i].hp;
+        h.manual = !!sim.heroes[i].manual;
+        h.attackConfig = sim.heroes[i].attackConfig;
+      });
       s.towers.forEach((t, i) => { if (t && sim.towers[i]) t.hp = sim.towers[i].hp; });
       for (const i in gainsHeroes) addHeroXp(s.heroes[i], gainsHeroes[i]);
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
@@ -116,6 +120,7 @@ export default function Battle() {
   const toggleCombatMode = (i, mode) => {
     const manual = mode === "manual";
     if (engineRef.current) engineRef.current.setHeroManual(i, manual);
+    if (simRef.current?.heroes[i]) simRef.current.heroes[i].manual = manual;
     state.heroes[i].manual = manual;
     if (manual) setSelectedManualHero(i);
     else if (selectedManualHero === i) setSelectedManualHero(null);
