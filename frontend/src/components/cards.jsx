@@ -22,7 +22,7 @@ export function Modal({ children, onClose, testid, slowed }) {
 
 const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
 
-export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed, combatMode, onCombatMode }) {
+export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed, combatMode, onCombatMode, onRetreat, onRally }) {
   const cls = C.HERO_CLASSES[hero.cls];
   const d = heroDerived(hero);
   const curXp = C.HERO_XP[hero.level - 1] || 0;
@@ -101,6 +101,28 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
+            {combatMode && (
+              <>
+                <NeonButton
+                  color="red"
+                  className="!px-2 !py-1 !text-[9px]"
+                  onClick={onRetreat}
+                  disabled={!hero.hp || !onRetreat}
+                  data-testid="hero-retreat"
+                >
+                  RETREAT
+                </NeonButton>
+                <NeonButton
+                  color="green"
+                  className="!px-2 !py-1 !text-[9px]"
+                  onClick={onRally}
+                  disabled={!hero.hp || !onRally}
+                  data-testid="hero-rally"
+                >
+                  RALLY
+                </NeonButton>
+              </>
+            )}
             {C.ATTACK_CONFIGS[hero.cls].map((cfg) => (
               <button key={cfg} onClick={() => onConfig(cfg)} data-testid={`hero-config-${cfg.replace(/\s+/g, "-").toLowerCase()}`}
                 className={`text-[10px] font-mono-g px-2 py-1 rounded border ${hero.attackConfig === cfg ? "bg-fuchsia-500 text-black border-fuchsia-400" : "border-white/15 text-slate-300"}`}>{cfg}</button>
