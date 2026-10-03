@@ -52,7 +52,19 @@ export class Engine {
     this.heroes = sim.heroes.map((h, i) => {
       const d = heroDerived(h);
       const x = W * ((i + 0.5) / n);
-      return { i, ref: h, x, y: HERO_Y, home: { x, y: HERO_Y }, d, cd: 0, alive: h.hp > 0, protect: 0 };
+      return {
+        i,
+        ref: h,
+        x,
+        y: HERO_Y,
+        home: { x, y: HERO_Y },
+        d,
+        cd: 0,
+        alive: h.hp > 0,
+        protect: 0,
+        manual: !!h.manual,
+        manualTarget: null,
+      };
     });
 
     // tower runtime (free placement: use each tower's own x,y)
@@ -72,6 +84,35 @@ export class Engine {
   }
   stop() { this.running = false; }
   setSpeed(s) { this.speed = s; }
+
+  setHeroManual(index, manual) {
+    const h = this.heroes[index];
+    if (!h) return false;
+    h.manual = !!manual;
+    h.ref.manual = !!manual;
+    if (!h.manual) h.manualTarget = null;
+    return true;
+  }
+
+  commandHeroAttack(index, target) {
+    const h = this.heroes[index];
+    if (!h || !h.alive || !target || target.hp <= 0) return false;
+    h.manual = true;
+    h.ref.manual = true;
+    h.manualTarget = target;
+    return true;
+  }
+
+  commandHeroAttackAt(index, x, y) {
+    const target = this.active.reduce((best, e) => {
+      if (e.hp <= 0) return best;
+      const d = Math.hypot(e.x - x, e.y - y);
+      if (d > 42) return best;
+      if (!best) return e;
+      return d < Math.hypot(best.x - x, best.y - y) ? e : best;
+    }, null);
+    return target ? this.commandHeroAttack(index, target) : false;
+  }
 
   injectEnemy(e) {
     e.x = laneX(pickLane(this, e)); e.y = 12;
@@ -142,7 +183,18 @@ export class Engine {
         continue;
       }
       if (!breached) { this._returnHome(h, dt); continue; }
-      const target = this._selectTarget(h);
+      let target = h.manual ? h.manualTarget : this._selectTarget(h);
+
+      if (target && target.hp <= 0) {
+        h.manualTarget = null;
+        target = h.manual ? null : this._selectTarget(h);
+      }
+
+      if (h.manual && !target) {
+        this._returnHome(h, dt);
+        continue;
+      }
+
       if (melee) {
         if (target) {
           const dist = Math.hypot(target.x - h.x, target.y - h.y) || 1;
@@ -150,10 +202,14 @@ export class Engine {
             const spd = 155 * dt;
             h.x += ((target.x - h.x) / dist) * Math.min(spd, dist);
             h.y += ((target.y - h.y) / dist) * Math.min(spd, dist);
-          } else if (h.cd <= 0) { this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate; }
+          } else if (h.cd <= 0) {
+            this._fire("H" + h.i, h, target, h.d, true);
+            h.cd = h.d.rate;
+          }
         } else this._returnHome(h, dt);
       } else if (h.cd <= 0 && target) {
-        this._fire("H" + h.i, h, target, h.d, true); h.cd = h.d.rate;
+        this._fire("H" + h.i, h, target, h.d, true);
+        h.cd = h.d.rate;
       }
     }
 
