@@ -266,7 +266,11 @@ export class Engine {
       const dist = Math.hypot(dx, dy);
       const step = p.spd * dt;
       if (dist <= step || !p.target || p.target.hp <= 0) {
-        if (p.target && p.target.hp > 0) this._applyHit(p);
+        if (p.kind === "napalm") {
+          this._explodeNapalm(p.x, p.y, p);
+        } else if (p.target && p.target.hp > 0) {
+          this._applyHit(p);
+        }
         p.dead = true;
       } else { p.x += (dx / dist) * step; p.y += (dy / dist) * step; }
     }
@@ -284,20 +288,21 @@ export class Engine {
 
   _updateEnemy(e, dt) {
     e.atkCd -= dt;
-    // Boss (Three-Headed Demon Lord) special abilities: fire AoE + summon skeletons + lifesteal
+    // Boss special: a targeted, proximity-based napalm bottle.
+    // It no longer damages every hero simultaneously. The target is the nearest
+    // living hero or tower inside the boss's configured attack range.
     if (e.boss) {
       e.abilityCd = (e.abilityCd == null ? 5 : e.abilityCd) - dt;
       if (e.abilityCd <= 0) {
-        e.abilityCd = 6;
-        for (let k = 0; k < 2; k++) this.injectEnemy(makeSingleEnemy(this.sim, "skeleton"));
-        for (const h of this.heroes) if (h.alive) {
-          let dmg = C.damageAfterDefense(e.damage * 1.3, h.ref.stats.defense);
-          if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
-          h.ref.hp = Math.max(0, h.ref.hp - dmg);
-          this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF6600");
-          if (h.ref.hp <= 0 && h.alive) { h.alive = false; this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat); }
+        const range = e.attackRange || 420;
+        const target = this._nearestDefender(e.x, e.y, range);
+        if (target) {
+          e.abilityCd = 6;
+          for (let k = 0; k < 2; k++) this.injectEnemy(makeSingleEnemy(this.sim, "skeleton"));
+          this._throwNapalm(e, target);
+        } else {
+          e.abilityCd = 1;
         }
-        this.effects.push({ x: e.x, y: e.y, r: 90, life: 0.7, color: "#FF6600" });
       }
     }
     // barricade in lane?
@@ -330,6 +335,115 @@ export class Engine {
       this._damageCastle(e.damage * 4);
       this._killEnemy(e, null, true);
     }
+  }
+
+  _nearestDefender(x, y, range) {
+    let best = null;
+    let bd = range;
+    for (const h of this.heroes) {
+      if (!h.alive) continue;
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d <= bd) {
+        bd = d;
+        best = { kind: "hero", obj: h };
+      }
+    }
+    for (const t of this.towers) {
+      if (t.ref.hp <= 0) continue;
+      const d = Math.hypot(t.x - x, t.y - y);
+      if (d <= bd) {
+        bd = d;
+        best = { kind: "tower", obj: t };
+      }
+    }
+    return best;
+  }
+
+  _throwNapalm(e, target) {
+    const obj = target.obj;
+    const d = obj.kind === "tower" ? obj.y : obj.y;
+    this.projectiles.push({
+      kind: "napalm",
+      sourceId: "E" + e.type,
+      x: e.x,
+      y: e.y,
+      tx: obj.x,
+      ty: d,
+      target: obj,
+      targetKind: target.kind,
+      spd: 250,
+      dmg: e.damage * 1.3,
+      splash: e.splashRadius || 68,
+      color: "#FF6600",
+      t: 0,
+    });
+    // Short launch/charge flash at the boss.
+    this.effects.push({ kind: "charge", x: e.x, y: e.y, r: 28, life: 0.45, color: "#FF6600" });
+  }
+
+  _explodeNapalm(x, y, p) {
+    const splash = p.splash || 68;
+    const victims = [];
+
+    for (const h of this.heroes) {
+      if (!h.alive) continue;
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d <= splash) victims.push({ kind: "hero", obj: h, dist: d });
+    }
+    for (const t of this.towers) {
+      if (t.ref.hp <= 0) continue;
+      const d = Math.hypot(t.x - x, t.y - y);
+      if (d <= splash) victims.push({ kind: "tower", obj: t, dist: d });
+    }
+
+    // A bottle is a local area attack: only defenders standing in the
+    // impact radius are hit. Spacing the squad therefore matters.
+    for (const v of victims) {
+      const falloff = 1 - 0.45 * (v.dist / splash);
+      let dmg = p.dmg * falloff;
+      if (v.kind === "hero") {
+        const h = v.obj;
+        if (Math.random() < h.d.dodge) {
+          this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
+          continue;
+        }
+        dmg = C.damageAfterDefense(dmg, h.ref.stats.defense);
+        if (h.ref.shield > 0) {
+          const ab = Math.min(h.ref.shield, dmg);
+          h.ref.shield -= ab;
+          dmg -= ab;
+        }
+        h.ref.hp = Math.max(0, h.ref.hp - dmg);
+        this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF6600");
+        if (h.ref.hp <= 0 && h.alive) {
+          h.alive = false;
+          this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
+        }
+      } else {
+        const t = v.obj;
+        t.ref.hp = Math.max(0, t.ref.hp - dmg);
+        if (t.ref.hp <= 0) {
+          this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
+          this.effects.push({ x: t.x, y: t.y, r: 30, life: 0.4, color: t.d.color });
+        }
+        this._float(t.x, t.y - 20, "-" + Math.round(dmg), "#FF6600");
+      }
+
+      // Persistent short fire-over-time visual on the actual victim.
+      this.effects.push({
+        kind: "fire",
+        x: v.obj.x,
+        y: v.obj.y,
+        life: 1.0,
+        color: "#FF6600",
+        target: v.obj,
+        targetKind: v.kind,
+      });
+    }
+
+    // Bottle shatters where it lands: flash + expanding fire ring.
+    this.effects.push({ kind: "napalm", x, y, r: 16, life: 0.9, color: "#FF6600" });
+    this.effects.push({ kind: "impact", x, y, r: 10, life: 0.35, color: "#FFE600" });
   }
 
   _enemyAttack(e, blocker) {
@@ -588,16 +702,75 @@ export class Engine {
     // projectiles
     for (const p of this.projectiles) {
       ctx.save();
-      ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.magic ? 4 : 3, 0, 7); ctx.fill();
+      if (p.kind === "napalm") {
+        ctx.shadowBlur = 18; ctx.shadowColor = "#FF6600";
+        ctx.fillStyle = "#FF6600";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "#FFE600";
+        ctx.beginPath();
+        ctx.arc(p.x - 2, p.y - 2, 2.5, 0, 7);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,102,0,0.55)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(p.x - 12, p.y + 5);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      } else {
+        ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.magic ? 4 : 3, 0, 7); ctx.fill();
+      }
       ctx.restore();
     }
     // effects
     for (const fx of this.effects) {
+      const alpha = Math.max(0, Math.min(1, fx.life * 2.2));
       ctx.save();
-      ctx.globalAlpha = Math.max(0, fx.life * 2.2);
-      ctx.strokeStyle = fx.color; ctx.lineWidth = 2; ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
-      ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r * (1 - fx.life), 0, 7); ctx.stroke();
+
+      if (fx.kind === "fire") {
+        const pulse = 1 + 0.12 * Math.sin(this.time * 24 + fx.x);
+        const base = 13 * pulse;
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = 22; ctx.shadowColor = "#FF6600";
+        ctx.fillStyle = "#FF6600";
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, base, 0, 7); ctx.fill();
+        ctx.fillStyle = "#FFE600";
+        ctx.beginPath(); ctx.arc(fx.x - 2, fx.y - 4, base * 0.55, 0, 7); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(fx.x - 3, fx.y - 6, base * 0.2, 0, 7); ctx.fill();
+        // small rising flame tongues
+        for (let i = 0; i < 3; i++) {
+          const ox = (i - 1) * 7;
+          const rise = 7 + ((this.time * 22 + i * 9) % 12);
+          ctx.globalAlpha = alpha * 0.8;
+          ctx.fillStyle = i === 1 ? "#FFE600" : "#FF6600";
+          ctx.beginPath();
+          ctx.arc(fx.x + ox, fx.y - rise, 4 - i * 0.5, 0, 7);
+          ctx.fill();
+        }
+      } else if (fx.kind === "napalm") {
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = 28; ctx.shadowColor = "#FF6600";
+        ctx.strokeStyle = "#FF6600"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r + (1 - fx.life) * 54, 0, 7); ctx.stroke();
+        ctx.fillStyle = "#FF6600";
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, 10 + (1 - fx.life) * 18, 0, 7); ctx.fill();
+        ctx.fillStyle = "#FFE600";
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, 4 + (1 - fx.life) * 9, 0, 7); ctx.fill();
+      } else if (fx.kind === "charge") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = "#FF6600"; ctx.lineWidth = 3;
+        ctx.shadowBlur = 20; ctx.shadowColor = "#FF6600";
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r + (1 - fx.life) * 18, 0, 7); ctx.stroke();
+        ctx.strokeStyle = "#FFE600";
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, 8 + (1 - fx.life) * 10, 0, 7); ctx.stroke();
+      } else {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = 2; ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r * (1 - fx.life), 0, 7); ctx.stroke();
+      }
       ctx.restore();
     }
     // floaters
