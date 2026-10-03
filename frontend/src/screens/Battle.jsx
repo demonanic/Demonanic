@@ -28,6 +28,7 @@ export default function Battle() {
   const [openTower, setOpenTower] = useState(null);
   const [slowed, setSlowed] = useState(false);
   const [debug, setDebug] = useState(false);
+  const [selectedManualHero, setSelectedManualHero] = useState(null);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -44,6 +45,9 @@ export default function Battle() {
       onEnd: (res) => onEnd(res),
     });
     engineRef.current = engine;
+
+    const firstManual = state.heroes.findIndex((h) => h.manual);
+    setSelectedManualHero(firstManual >= 0 ? firstManual : null);
 
     let c = TIME.scoutCountdown;
     setCount(c);
@@ -101,6 +105,41 @@ export default function Battle() {
   const openTowerCard = (slot) => { setOpenTower(slot); triggerSlow(); };
   const closeCard = () => { setOpenHero(null); setOpenTower(null); endSlow(); };
 
+  const selectManualHero = (i) => {
+    const hero = state.heroes[i];
+    if (!hero) return;
+    setSelectedManualHero(i);
+    setOpenHero(i);
+    triggerSlow();
+  };
+
+  const toggleCombatMode = (i, mode) => {
+    const manual = mode === "manual";
+    if (engineRef.current) engineRef.current.setHeroManual(i, manual);
+    state.heroes[i].manual = manual;
+    if (manual) setSelectedManualHero(i);
+    else if (selectedManualHero === i) setSelectedManualHero(null);
+    forceTick((t) => t + 1);
+  };
+
+  const handleBattlefieldTap = (e) => {
+    if (phase !== "combat" || !engineRef.current) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (LAYOUT.W / rect.width);
+    const y = (e.clientY - rect.top) * (LAYOUT.H / rect.height);
+
+    let heroIndex = selectedManualHero;
+    if (heroIndex == null || !state.heroes[heroIndex]?.manual) {
+      heroIndex = state.heroes.findIndex((h) => h.manual);
+      if (heroIndex < 0) return;
+      setSelectedManualHero(heroIndex);
+    }
+
+    engineRef.current.commandHeroAttackAt(heroIndex, x, y);
+    forceTick((t) => t + 1);
+  };
+
   const battleActions = {
     spawn: (t) => engineRef.current && engineRef.current.injectEnemy(makeSingleEnemy(simRef.current, t)),
     forceBoss: () => engineRef.current && engineRef.current.injectEnemy(makeSingleEnemy(simRef.current, "demon")),
@@ -153,8 +192,21 @@ export default function Battle() {
 
       {/* battlefield */}
       <div className="flex-1 flex items-center justify-center bg-black relative overflow-hidden min-h-0">
-        <canvas ref={canvasRef} width={LAYOUT.W} height={LAYOUT.H} data-testid="battlefield-canvas"
-          className="h-full max-h-full" style={{ aspectRatio: `${LAYOUT.W}/${LAYOUT.H}`, imageRendering: "auto" }} />
+        <canvas
+          ref={canvasRef}
+          width={LAYOUT.W}
+          height={LAYOUT.H}
+          onClick={handleBattlefieldTap}
+          data-testid="battlefield-canvas"
+          className="h-full max-h-full cursor-crosshair"
+          style={{ aspectRatio: `${LAYOUT.W}/${LAYOUT.H}`, imageRendering: "auto" }}
+        />
+
+        {phase === "combat" && selectedManualHero != null && state.heroes[selectedManualHero]?.manual && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded border border-fuchsia-400/50 bg-black/75 backdrop-blur-sm font-mono-g text-[9px] text-fuchsia-300 tracking-wider pointer-events-none">
+            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · TAP ENEMY TO ATTACK
+          </div>
+        )}
 
         {phase === "scout" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm" data-testid="scout-countdown">
@@ -181,8 +233,13 @@ export default function Battle() {
         {(hud?.heroes || state.heroes.map((h) => ({ name: h.name, hp: h.hp, maxHp: h.maxHp, alive: h.hp > 0 }))).map((h, i) => {
           const cls = C.HERO_CLASSES[state.heroes[i].cls];
           return (
-            <button key={i} onClick={() => openHeroCard(i)} data-testid={`battle-hero-${i}`}
-              className="glass-card rounded-lg p-1.5 flex flex-col items-center" style={{ borderBottom: `2px solid ${cls.color}`, opacity: h.alive ? 1 : 0.35 }}>
+            <button
+              key={i}
+              onClick={() => selectManualHero(i)}
+              data-testid={`battle-hero-${i}`}
+              className={`glass-card rounded-lg p-1.5 flex flex-col items-center ${selectedManualHero === i && state.heroes[i].manual ? "ring-1 ring-fuchsia-400" : ""}`}
+              style={{ borderBottom: `2px solid ${cls.color}`, opacity: h.alive ? 1 : 0.35 }}
+            >
               <div className="w-6 h-7 rounded mb-1" style={{ background: cls.color, boxShadow: `0 0 8px ${cls.color}` }} />
               <span className="font-mono-g text-[9px]" style={{ color: cls.color }}>{cls.name}</span>
               <StatBar frac={(h.hp || 0) / (h.maxHp || 1)} color={cls.color} height={3} />
@@ -193,10 +250,25 @@ export default function Battle() {
       </div>
 
       {openHero != null && sim && (
-        <HeroCard hero={sim.heroes[openHero]} editable={false} slowed={slowed}
-          onAlloc={() => {}} onPerk={() => {}}
-          onConfig={(cfg) => { sim.heroes[openHero].attackConfig = cfg; sim.heroes[openHero].manual = true; state.heroes[openHero].manual = true; forceTick((t) => t + 1); }}
-          onClose={closeCard} />
+        <HeroCard
+          hero={sim.heroes[openHero]}
+          editable={false}
+          slowed={slowed}
+          combatMode={sim.heroes[openHero].manual ? "manual" : "auto"}
+          onCombatMode={(mode) => toggleCombatMode(openHero, mode)}
+          onAlloc={() => {}}
+          onPerk={() => {}}
+          onConfig={(cfg) => {
+            sim.heroes[openHero].attackConfig = cfg;
+            sim.heroes[openHero].manual = true;
+            state.heroes[openHero].attackConfig = cfg;
+            state.heroes[openHero].manual = true;
+            if (engineRef.current) engineRef.current.setHeroManual(openHero, true);
+            setSelectedManualHero(openHero);
+            forceTick((t) => t + 1);
+          }}
+          onClose={closeCard}
+        />
       )}
       {openTower != null && sim && sim.towers[openTower] && (
         <TowerCard tower={sim.towers[openTower]} editable={false} slowed={slowed} onUpgrade={() => {}} onClose={closeCard} />
