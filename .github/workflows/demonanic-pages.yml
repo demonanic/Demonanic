@@ -32,6 +32,7 @@ jobs:
         env:
           REACT_APP_SUPABASE_URL: https://spujitkyideoalrdjlbq.supabase.co
           REACT_APP_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.REACT_APP_SUPABASE_PUBLISHABLE_KEY }}
+          REACT_APP_BACKEND_URL: https://demonanic.onrender.com
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
