@@ -1,5 +1,5 @@
 import { X, Plus, Zap, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
-import { StatBar, NeonButton } from "@/components/ui-kit";
+import { StatBar, NeonButton, HeroMiniSprite } from "@/components/ui-kit";
 import * as C from "@/game/config";
 import { heroDerived, towerDerived } from "@/game/logic";
 
@@ -33,7 +33,7 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
     <Modal onClose={onClose} testid={`hero-card-${hero.cls}`} slowed={slowed}>
       <div className="p-5" style={{ borderTop: `3px solid ${cls.color}` }}>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-14 rounded-lg" style={{ background: cls.color, boxShadow: `0 0 16px ${cls.color}` }} />
+          <HeroMiniSprite cls={hero.cls} color={cls.color} size="lg" dead={hero.hp <= 0} />
           <div>
             <div className="font-display font-black text-2xl" style={{ color: cls.color }}>{cls.name}</div>
             <div className="font-mono-g text-[11px] text-slate-400">{cls.role} · LVL {hero.level}</div>
@@ -168,7 +168,9 @@ export function TowerCard({ tower, editable, onUpgrade, onClose, slowed }) {
       <div className="p-5" style={{ borderTop: `3px solid ${t.color}` }}>
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 rounded-lg bracket flex items-center justify-center" style={{ boxShadow: `0 0 16px ${t.color}` }}>
-            <div className="w-5 h-5 rounded" style={{ background: t.color }} />
+            <div className="w-7 h-7 rounded-full border-2 relative" style={{ borderColor: t.color }}>
+              <div className="absolute left-1/2 top-0.5 w-1 h-5 -translate-x-1/2 rounded-full" style={{ background: t.color, boxShadow: `0 0 7px ${t.color}` }} />
+            </div>
           </div>
           <div>
             <div className="font-display font-black text-xl" style={{ color: t.color }}>{t.name}</div>
