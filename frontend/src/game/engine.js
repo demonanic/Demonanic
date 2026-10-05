@@ -252,6 +252,18 @@ export class Engine {
     }
 
     // enemies
+    // Lieutenant command auras are recalculated every frame so the battlefield
+    // visibly behaves like a living formation rather than a stack of stat bags.
+    for (const e of this.active) e._commanderBoost = 1;
+    for (const e of this.active) {
+      if (e.type !== "lieutenant" || e.hp <= 0) continue;
+      for (const other of this.active) {
+        if (other === e || other.hp <= 0) continue;
+        if (Math.hypot(other.x - e.x, other.y - e.y) <= 105) {
+          other._commanderBoost = Math.max(other._commanderBoost || 1, 1.15);
+        }
+      }
+    }
     for (const e of this.active) this._updateEnemy(e, dt);
     this.active = this.active.filter((e) => e.hp > 0);
 
@@ -405,31 +417,66 @@ export class Engine {
         }
       }
     }
+    // Enemy archetypes get a small tactical identity on top of their
+    // existing stats/objectives. These are intentionally readable rules:
+    // fast raiders rush, brutes hunt structures, reapers hunt wounded heroes,
+    // and lieutenants reinforce nearby attackers.
+    const tactical = this._selectEnemyTacticalTarget(e);
+    const commanderBoost = e._commanderBoost || 1;
+    const moveSpeed =
+      e.type === "goblin" ? e.speed * 1.18 * commanderBoost :
+      e.type === "slime" ? e.speed * 0.92 * commanderBoost :
+      e.type === "reaper" ? e.speed * 1.05 * commanderBoost :
+      e.speed * commanderBoost;
+
+    // Floating enemies bypass barricades, preserving their distinct identity.
+    // Reapers and lieutenants can peel toward heroes; orcs pressure towers.
+    if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost")) {
+      const target = tactical.obj;
+      const dist = Math.hypot(target.x - e.x, target.y - e.y) || 1;
+      const attackRange = e.type === "reaper" ? 34 : 30;
+      if (dist <= attackRange) {
+        if (e.atkCd <= 0) {
+          this._enemyAttack(e, tactical);
+          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "orc" ? 1.15 : 0.9;
+        }
+        return;
+      }
+      // Reapers deliberately pursue wounded heroes; other tactical enemies
+      // only peel when their preferred target is reasonably close.
+      const peelRange = e.type === "reaper" ? 260 : 150;
+      if (dist <= peelRange) {
+        e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
+        e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
+        return;
+      }
+    }
+
     // barricade in lane?
     const bar = this.barricades[e.lane];
     if (!e.floats && bar && bar.ref.hp > 0 && Math.abs(e.y - WALL_Y) < 16 && e.y < WALL_Y + 4) {
-      // attack barricade
       if (e.atkCd <= 0) {
         bar.ref.hp = Math.max(0, bar.ref.hp - e.damage);
-        e.hp = Math.max(0, e.hp - C.BARRICADE.collisionDamage); // collision dmg
-        e.atkCd = 0.8;
+        e.hp = Math.max(0, e.hp - C.BARRICADE.collisionDamage);
+        e.atkCd = e.type === "orc" ? 1.15 : e.type === "goblin" ? 0.65 : 0.8;
         if (e.hp <= 0) { this._killEnemy(e, null); return; }
       }
       return;
     }
-    // objective-based targeting near their position
+
+    // Existing wave objectives still matter when an enemy reaches a defender.
     let blocker = null;
     if (e.objective === "towers") blocker = this._nearestTower(e.x, e.y, 46);
     if (!blocker) blocker = this._nearestHeroEntity(e.x, e.y, 30);
     if (blocker) {
       if (e.atkCd <= 0) {
         this._enemyAttack(e, blocker);
-        e.atkCd = 1.0;
+        e.atkCd = e.type === "reaper" ? 0.72 : e.type === "goblin" ? 0.65 : e.type === "orc" ? 1.15 : 1.0;
       }
       return;
     }
     // advance downward
-    e.y += e.speed * dt;
+    e.y += moveSpeed * dt;
     if (e.y >= CASTLE_Y) {
       // reached castle -> damage it
       this._damageCastle(e.damage * 4);
@@ -688,9 +735,14 @@ export class Engine {
       }, null);
     }
     if (cfg.targetPriority === "vulnerable") {
-      return pool.reduce((best, e) => {
+      const viable = pool.filter((e) => C.affinityMultiplier(e, cfg.damageType) > 0);
+      if (!viable.length) return null;
+      return viable.reduce((best, e) => {
         if (!best) return e;
-        return C.affinityMultiplier(e, cfg.damageType) > C.affinityMultiplier(best, cfg.damageType) ? e : best;
+        const score = C.affinityMultiplier(e, cfg.damageType);
+        const bestScore = C.affinityMultiplier(best, cfg.damageType);
+        if (score !== bestScore) return score > bestScore ? e : best;
+        return e.hp < best.hp ? e : best;
       }, null);
     }
     if (cfg.targetPriority === "cluster") {
@@ -716,6 +768,18 @@ export class Engine {
     if (/Weakest|Assassinate/i.test(cfg)) return pick((e) => e.hp, -1);       // lowest HP
     if (/Sniper|strongest/i.test(cfg)) return pick((e) => e.maxHp, 1);        // toughest
     if (/Guard|Defensive/i.test(cfg)) return pick((e) => e.y, 1);            // closest to keep
+    if (h.ref.cls === "mage") {
+      const viable = pool.filter((e) => C.affinityMultiplier(e, C.DAMAGE_TYPES.ARCANE) > 0);
+      if (viable.length) {
+        return viable.reduce((best, e) => {
+          if (!best) return e;
+          const score = C.affinityMultiplier(e, C.DAMAGE_TYPES.ARCANE);
+          const bestScore = C.affinityMultiplier(best, C.DAMAGE_TYPES.ARCANE);
+          return score > bestScore || (score === bestScore && e.hp < best.hp) ? e : best;
+        }, null);
+      }
+      return null;
+    }
     return pick((e) => Math.hypot(e.x - h.x, e.y - h.y), -1);                // nearest (default)
   }
   _support(h, cfg) {
@@ -742,13 +806,49 @@ export class Engine {
     return true;
   }
   _nearestTower(x, y, r) {
-    for (const t of this.towers) if (t.ref.hp > 0 && Math.hypot(t.x - x, t.y - y) <= r) return { kind: "tower", obj: t };
-    return null;
+    let best = null, bd = r;
+    for (const t of this.towers) {
+      if (t.ref.hp <= 0) continue;
+      const d = Math.hypot(t.x - x, t.y - y);
+      if (d <= bd) { bd = d; best = t; }
+    }
+    return best ? { kind: "tower", obj: best } : null;
   }
   _nearestHeroEntity(x, y, r) {
     let best = null, bd = r;
-    for (const h of this.heroes) if (h.alive) { const d = Math.hypot(h.x - x, h.y - y); if (d <= bd) { bd = d; best = h; } }
+    for (const h of this.heroes) if (h.alive) {
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d <= bd) { bd = d; best = h; }
+    }
     return best ? { kind: "hero", obj: best } : null;
+  }
+
+  _selectEnemyTacticalTarget(e) {
+    if (e.type === "reaper") {
+      let best = null, worst = Infinity;
+      for (const h of this.heroes) {
+        if (!h.alive) continue;
+        const d = Math.hypot(h.x - e.x, h.y - e.y);
+        if (d > 260) continue;
+        const frac = h.ref.hp / Math.max(1, h.d.maxHp);
+        if (frac < worst) { worst = frac; best = h; }
+      }
+      return best ? { kind: "hero", obj: best } : null;
+    }
+
+    if (e.type === "orc") {
+      return this._nearestTower(e.x, e.y, 150) || this._nearestHeroEntity(e.x, e.y, 110);
+    }
+
+    if (e.type === "lieutenant") {
+      return this._nearestHeroEntity(e.x, e.y, 150) || this._nearestTower(e.x, e.y, 120);
+    }
+
+    if (e.type === "ghost") {
+      return this._nearestHeroEntity(e.x, e.y, 120) || this._nearestTower(e.x, e.y, 120);
+    }
+
+    return null;
   }
   _returnHome(h, dt) {
     const dx = h.home.x - h.x, dy = h.home.y - h.y;
@@ -826,6 +926,27 @@ export class Engine {
       const r = e.boss ? 25 : e.tier === "elite" ? 16 : 11;
       this._drawEnemySprite(e);
       this._bar(e.x - r, e.y - r - 7, r * 2, 3, e.hp / e.maxHp, e.color);
+      if (e.type === "reaper" && e.hp > 0) {
+        ctx.save();
+        ctx.strokeStyle = "#A855F7";
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#A855F7";
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, r + 4 + 2 * Math.sin(this.time * 6), 0, 7);
+        ctx.stroke();
+        ctx.restore();
+      } else if (e.type === "lieutenant" && e.hp > 0) {
+        ctx.save();
+        ctx.strokeStyle = "#00F3FF";
+        ctx.lineWidth = 1.2;
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 105, 0, 7);
+        ctx.stroke();
+        ctx.restore();
+      }
       if (this.heroes.some((h) => h.manual && h.manualTarget === e)) {
         ctx.save();
         ctx.strokeStyle = "#FFFFFF";
