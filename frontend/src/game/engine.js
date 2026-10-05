@@ -64,6 +64,7 @@ export class Engine {
         protect: 0,
         manual: !!h.manual,
         manualTarget: null,
+        manualPoint: null,
         rallyPoint: null,
         rallyHold: false,
         retreating: false,
@@ -93,7 +94,10 @@ export class Engine {
     if (!h) return false;
     h.manual = !!manual;
     h.ref.manual = !!manual;
-    if (!h.manual) h.manualTarget = null;
+    if (!h.manual) {
+      h.manualTarget = null;
+      h.manualPoint = null;
+    }
     h.rallyPoint = null;
     h.rallyHold = false;
     h.retreating = false;
@@ -106,6 +110,7 @@ export class Engine {
     h.manual = true;
     h.ref.manual = true;
     h.manualTarget = target;
+    h.manualPoint = null;
     h.rallyPoint = null;
     h.rallyHold = false;
     return true;
@@ -117,6 +122,7 @@ export class Engine {
     h.manual = true;
     h.ref.manual = true;
     h.manualTarget = null;
+    h.manualPoint = null;
     h.rallyPoint = null;
     h.rallyHold = false;
     h.retreating = true;
@@ -136,6 +142,7 @@ export class Engine {
       if (!h.alive) continue;
       h.retreating = false;
       h.manualTarget = null;
+      h.manualPoint = null;
       h.rallyHold = h === leader;
       h.rallyPoint = h === leader ? null : { ...point };
     }
@@ -156,10 +163,28 @@ export class Engine {
     h.manual = false;
     h.ref.manual = false;
     h.manualTarget = null;
+    h.manualPoint = null;
     h.rallyPoint = null;
     h.retreating = false;
     h.x = h.home.x;
     h.y = h.home.y;
+    return true;
+  }
+
+  commandHeroMoveTo(index, x, y) {
+    const h = this.heroes[index];
+    if (!h || !h.alive) return false;
+
+    h.manual = true;
+    h.ref.manual = true;
+    h.manualTarget = null;
+    h.manualPoint = {
+      x: Math.max(12, Math.min(W - 12, x)),
+      y: Math.max(12, Math.min(CASTLE_Y - 12, y)),
+    };
+    h.rallyPoint = null;
+    h.rallyHold = false;
+    h.retreating = false;
     return true;
   }
 
@@ -171,7 +196,13 @@ export class Engine {
       if (!best) return e;
       return d < Math.hypot(best.x - x, best.y - y) ? e : best;
     }, null);
-    return target ? this.commandHeroAttack(index, target) : false;
+
+    // Manual battlefield taps have two meanings:
+    // - tap an enemy -> attack that exact enemy
+    // - tap open ground -> move to that exact battlefield position
+    return target
+      ? this.commandHeroAttack(index, target)
+      : this.commandHeroMoveTo(index, x, y);
   }
 
   injectEnemy(e) {
@@ -254,6 +285,22 @@ export class Engine {
         h.rallyPoint = null;
       }
 
+      // Manual ground command: move to the exact tapped position and then
+      // hold there. This persists until another manual command or RETREAT.
+      if (h.manualPoint) {
+        const md = Math.hypot(h.manualPoint.x - h.x, h.manualPoint.y - h.y);
+        if (md > 8) {
+          const spd = 155 * dt;
+          h.x += ((h.manualPoint.x - h.x) / md) * Math.min(spd, md);
+          h.y += ((h.manualPoint.y - h.y) / md) * Math.min(spd, md);
+          continue;
+        }
+        h.x = h.manualPoint.x;
+        h.y = h.manualPoint.y;
+        h.manualPoint = null;
+        continue;
+      }
+
       // A rally caller is the anchor of the regroup. Keep that hero at the
       // rally location instead of sending it back to its starting position.
       if (h.rallyHold && !h.manualTarget) {
@@ -279,8 +326,9 @@ export class Engine {
         target = h.manual ? null : this._selectTarget(h);
       }
 
+      // Manual heroes hold their current position when they have no target.
+      // They return home only through the explicit RETREAT command.
       if (h.manual && !target) {
-        this._returnHome(h, dt);
         continue;
       }
 
@@ -295,7 +343,7 @@ export class Engine {
             this._fire("H" + h.i, h, target, h.d, true);
             h.cd = h.d.rate;
           }
-        } else this._returnHome(h, dt);
+        } else if (!h.manual) this._returnHome(h, dt);
       } else if (h.cd <= 0 && target) {
         this._fire("H" + h.i, h, target, h.d, true);
         h.cd = h.d.rate;
