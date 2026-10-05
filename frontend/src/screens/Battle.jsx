@@ -247,7 +247,7 @@ export default function Battle() {
 
         {phase === "combat" && selectedManualHero != null && state.heroes[selectedManualHero]?.manual && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded border border-fuchsia-400/50 bg-black/75 backdrop-blur-sm font-mono-g text-[9px] text-fuchsia-300 tracking-wider pointer-events-none">
-            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · TAP ENEMY TO ATTACK
+            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · TAP ENEMY TO ATTACK · TAP GROUND TO MOVE
           </div>
         )}
 
