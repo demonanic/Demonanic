@@ -16,7 +16,7 @@ import {
 } from "@/game/logic";
 
 export default function Preparation() {
-  const { state, mutate, setScreen, saveNow } = useGame();
+  const { state, mutate, setScreen, saveNow, offlineGains } = useGame();
   const [openHero, setOpenHero] = useState(null);   // {list:'squad'|'bench', idx}
   const [openTower, setOpenTower] = useState(null);
   const [debug, setDebug] = useState(false);
@@ -94,6 +94,19 @@ export default function Preparation() {
       </div>
 
       <div className="flex-1 overflow-y-auto thin-scroll p-3">
+        {offlineGains && (offlineGains.moraleRecovered > 0 || offlineGains.heroHpRecovered > 0) && (
+          <div className="glass-card rounded-xl p-3 mb-3 border border-green-400/20" data-testid="offline-recovery-summary">
+            <div className="font-display font-bold text-sm text-green-400">Castle recovered while you were away</div>
+            <div className="font-mono-g text-[10px] text-slate-400 mt-1">
+              {offlineGains.moraleRecovered > 0 && <>Morale +{offlineGains.moraleRecovered}</>}
+              {offlineGains.moraleRecovered > 0 && offlineGains.heroHpRecovered > 0 && <span className="text-slate-600 mx-2">·</span>}
+              {offlineGains.heroHpRecovered > 0 && <>Hero HP +{Math.round(offlineGains.heroHpRecovered)}</>}
+              {offlineGains.minutes > 0 && <span className="text-slate-600 mx-2">·</span>}
+              {Math.round(offlineGains.minutes)} min offline
+            </div>
+          </div>
+        )}
+
         <SectionTitle color="cyan">Battlefield · Place Defenses</SectionTitle>
         <p className="font-mono-g text-[10px] text-slate-500 mb-2">Tap strategic locations to build/upgrade towers and reinforce barricade lanes by hand.</p>
         <PrepField state={state} handlers={handlers} />
