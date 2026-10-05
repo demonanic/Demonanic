@@ -4,7 +4,7 @@ import { Engine, LAYOUT } from "@/game/engine";
 import { HeroCard, TowerCard } from "@/components/cards";
 import TacticalMenu from "@/components/TacticalMenu";
 import DebugPanel from "@/components/DebugPanel";
-import { NeonButton, StatBar } from "@/components/ui-kit";
+import { NeonButton, StatBar, HeroMiniSprite, getTacticalHudOpaque, setTacticalHudOpaque } from "@/components/ui-kit";
 import { Coins, Terminal, Skull, Crosshair } from "lucide-react";
 import { TIME } from "@/game/config";
 import * as C from "@/game/config";
@@ -31,6 +31,8 @@ export default function Battle() {
   const [debug, setDebug] = useState(false);
   const [selectedManualHero, setSelectedManualHero] = useState(null);
   const [tacticalOpen, setTacticalOpen] = useState(false);
+  const [commandMode, setCommandMode] = useState("move");
+  const [hudOpaque, setHudOpaque] = useState(false);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function Battle() {
 
     const firstManual = state.heroes.findIndex((h) => h.manual);
     setSelectedManualHero(firstManual >= 0 ? firstManual : null);
+    setHudOpaque(getTacticalHudOpaque());
+    if (firstManual >= 0) engine.setSelectedHero(firstManual);
 
     let c = TIME.scoutCountdown;
     setCount(c);
@@ -122,6 +126,7 @@ export default function Battle() {
     const hero = state.heroes[i];
     if (!hero) return;
     setSelectedManualHero(i);
+    engineRef.current?.setSelectedHero(i);
     setOpenHero(null);
     setOpenTower(null);
     setTacticalOpen(true);
@@ -155,6 +160,24 @@ export default function Battle() {
     }
   };
 
+  const enableManual = (i) => {
+    if (!engineRef.current) return;
+    if (engineRef.current.setHeroManual(i, true)) {
+      setSelectedManualHero(i);
+      engineRef.current.setSelectedHero(i);
+      setCommandMode("move");
+      forceTick((t) => t + 1);
+    }
+  };
+
+  const enableAuto = (i) => {
+    if (!engineRef.current) return;
+    if (engineRef.current.setHeroManual(i, false)) {
+      if (selectedManualHero === i) setSelectedManualHero(null);
+      forceTick((t) => t + 1);
+    }
+  };
+
   const toggleCombatMode = (i, mode) => {
     const manual = mode === "manual";
     if (engineRef.current) engineRef.current.setHeroManual(i, manual);
@@ -172,15 +195,22 @@ export default function Battle() {
     const x = (e.clientX - rect.left) * (LAYOUT.W / rect.width);
     const y = (e.clientY - rect.top) * (LAYOUT.H / rect.height);
 
-    let heroIndex = selectedManualHero;
-    if (heroIndex == null || !state.heroes[heroIndex]?.manual) {
-      heroIndex = state.heroes.findIndex((h) => h.manual);
-      if (heroIndex < 0) return;
-      setSelectedManualHero(heroIndex);
-    }
+    const heroIndex = selectedManualHero;
+    if (heroIndex == null || !state.heroes[heroIndex]?.manual) return;
 
-    engineRef.current.commandHeroAttackAt(heroIndex, x, y);
-    forceTick((t) => t + 1);
+    const accepted = commandMode === "target"
+      ? engineRef.current.commandHeroAttackAt(heroIndex, x, y)
+      : engineRef.current.commandHeroMoveTo(heroIndex, x, y);
+    if (accepted) {
+      engineRef.current.setSelectedHero(heroIndex);
+      forceTick((t) => t + 1);
+    }
+  };
+
+  const toggleHudOpaque = () => {
+    const next = !hudOpaque;
+    setHudOpaque(next);
+    setTacticalHudOpaque(next);
   };
 
   const battleActions = {
@@ -246,8 +276,8 @@ export default function Battle() {
         />
 
         {phase === "combat" && selectedManualHero != null && state.heroes[selectedManualHero]?.manual && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded border border-fuchsia-400/50 bg-black/75 backdrop-blur-sm font-mono-g text-[9px] text-fuchsia-300 tracking-wider pointer-events-none">
-            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · TAP ENEMY TO ATTACK · TAP GROUND TO MOVE
+          <div className={"absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded border border-fuchsia-400/50 font-mono-g text-[8px] text-fuchsia-300 tracking-wider pointer-events-none " + (hudOpaque ? "bg-[#090b12]" : "bg-black/75 backdrop-blur-sm")}>
+            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · {commandMode === "move" ? "MOVE MODE" : "TARGET MODE"}
           </div>
         )}
 
@@ -281,16 +311,22 @@ export default function Battle() {
           onClose={() => setTacticalOpen(false)}
           heroes={state.heroes}
           selectedHero={selectedManualHero}
+          commandMode={commandMode}
           onSelectHero={(i) => {
             setSelectedManualHero(i);
+            engineRef.current?.setSelectedHero(i);
             forceTick((t) => t + 1);
           }}
+          onManual={enableManual}
+          onAuto={enableAuto}
+          onCommandMode={setCommandMode}
           gold={sim?.gold ?? state.gold}
-          onAuto={(i) => toggleCombatMode(i, "auto")}
           onRetreat={retreatHero}
           onRally={rallyHeroes}
           onRevive={reviveHero}
           onDetails={openHeroCard}
+          opaque={hudOpaque}
+          onToggleOpaque={toggleHudOpaque}
         />
       </div>
 
@@ -319,7 +355,7 @@ export default function Battle() {
               }`}
               style={{ borderBottom: `2px solid ${cls.color}`, opacity: h.alive ? 1 : 0.35 }}
             >
-              <div className="w-6 h-7 rounded mb-1" style={{ background: cls.color, boxShadow: `0 0 8px ${cls.color}` }} />
+              <HeroMiniSprite cls={state.heroes[i].cls} color={cls.color} size="sm" dead={!h.alive} />
               <span className="font-mono-g text-[9px]" style={{ color: cls.color }}>{cls.name}</span>
               <StatBar frac={(h.hp || 0) / (h.maxHp || 1)} color={cls.color} height={3} />
               {state.heroes[i].manual && <span className="font-mono-g text-[8px] text-fuchsia-400">MANUAL</span>}
