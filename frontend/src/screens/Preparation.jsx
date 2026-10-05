@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useGame } from "@/context/GameProvider";
-import { NeonButton, TopResourceHUD, SectionTitle, StatBar } from "@/components/ui-kit";
+import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "@/components/ui-kit";
 import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
 import DebugPanel from "@/components/DebugPanel";
@@ -161,7 +161,7 @@ export default function Preparation() {
                     return (
                       <button key={cls} data-testid={`recruit-${cls}`} onClick={() => act((s) => recruitHero(s, cls), `${c.name} recruited`)}
                         className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40" style={{ borderColor: c.color + "55" }}>
-                        <div className="w-6 h-7 rounded" style={{ background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
+                        <HeroMiniSprite cls={cls} color={c.color} size="sm" />
                         <div className="text-left">
                           <div className="font-mono-g text-xs font-bold" style={{ color: c.color }}>{c.name}</div>
                           <div className="font-mono-g text-[9px] text-slate-400 flex items-center gap-1"><UserPlus size={9} />{C.recruitCost(owned)}g</div>
@@ -180,7 +180,7 @@ export default function Preparation() {
                       const c = C.HERO_CLASSES[h.cls];
                       return (
                         <div key={h.id} className="flex items-center gap-2 p-2 rounded-lg bg-black/30" style={{ borderLeft: `3px solid ${c.color}` }} data-testid={`bench-hero-${bi}`}>
-                          <button onClick={() => setOpenHero({ list: "bench", idx: bi })} className="w-7 h-8 rounded shrink-0" style={{ background: c.color, boxShadow: `0 0 8px ${c.color}` }} data-testid={`bench-card-${bi}`} />
+                          <button onClick={() => setOpenHero({ list: "bench", idx: bi })} className="w-9 h-9 rounded shrink-0 flex items-center justify-center" style={{ border: `1px solid ${c.color}55` }} data-testid={`bench-card-${bi}`}><HeroMiniSprite cls={h.cls} color={c.color} size="sm" dead={h.hp <= 0} /></button>
                           <span className="font-mono-g text-xs flex-1" style={{ color: c.color }}>{c.name} <span className="text-slate-500">L{h.level}</span></span>
                           <span className="font-mono-g text-[9px] text-slate-500 flex items-center gap-0.5"><ArrowRightLeft size={9} /></span>
                           {[0, 1, 2, 3].map((si) => state.heroes[si] && (
@@ -252,7 +252,7 @@ function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
       className="glass-card rounded-xl p-3 flex items-center gap-3 text-left w-full"
       style={{ borderLeft: `3px solid ${cls.color}` }}>
       <button onClick={onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-        <div className="w-9 h-11 rounded" style={{ background: cls.color, boxShadow: `0 0 12px ${cls.color}` }} />
+        <HeroMiniSprite cls={h.cls} color={cls.color} size="md" dead={defeated} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-display font-bold" style={{ color: cls.color }}>{cls.name}</span>
