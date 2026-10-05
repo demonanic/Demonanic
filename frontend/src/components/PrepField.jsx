@@ -100,6 +100,10 @@ export default function PrepField({ state, handlers }) {
                 pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
+              <div className="absolute left-1 right-1 -bottom-1 h-1 rounded bg-black/80 overflow-hidden border border-white/10">
+                <div className="h-full" style={{ width: `${Math.max(0, Math.min(100, (tw.hp / Math.max(1, towerDerived(tw).maxHp)) * 100))}%`, background: tw.hp <= 0 ? "#FF0055" : t.color }} />
+              </div>
+              {tw.hp <= 0 && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[7px] font-mono-g text-rose-400">DESTROYED</span>}
               {tw.pending > 0 && <span className="absolute -top-1 -right-1 text-[8px] text-yellow-300 animate-pulse-glow">⬆</span>}
             </button>
           );
