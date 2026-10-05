@@ -188,19 +188,34 @@ export default function Battle() {
     forceTick((t) => t + 1);
   };
 
-  const handleBattlefieldTap = (e) => {
+  const handleBattlefieldPointerDown = (e) => {
     if (phase !== "combat" || !engineRef.current) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    e.preventDefault();
+
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (LAYOUT.W / rect.width);
-    const y = (e.clientY - rect.top) * (LAYOUT.H / rect.height);
+    if (!rect.width || !rect.height) return;
+
+    // Convert the phone's CSS pixels back into the engine's 420x760 logical space.
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
     const heroIndex = selectedManualHero;
-    if (heroIndex == null || !state.heroes[heroIndex]?.manual) return;
+    if (heroIndex == null || !state.heroes[heroIndex] || state.heroes[heroIndex].hp <= 0) return;
+
+    // A battlefield command is an explicit manual-control gesture. This removes
+    // the old requirement to press MANUAL first, which was easy to miss on phone.
+    if (!engineRef.current.heroes[heroIndex]?.manual) {
+      engineRef.current.setHeroManual(heroIndex, true);
+      setSelectedManualHero(heroIndex);
+    }
 
     const accepted = commandMode === "target"
       ? engineRef.current.commandHeroAttackAt(heroIndex, x, y)
       : engineRef.current.commandHeroMoveTo(heroIndex, x, y);
+
     if (accepted) {
       engineRef.current.setSelectedHero(heroIndex);
       forceTick((t) => t + 1);
@@ -269,10 +284,16 @@ export default function Battle() {
           ref={canvasRef}
           width={LAYOUT.W}
           height={LAYOUT.H}
-          onClick={handleBattlefieldTap}
+          onPointerDown={handleBattlefieldPointerDown}
           data-testid="battlefield-canvas"
           className="h-full max-h-full cursor-crosshair"
-          style={{ aspectRatio: `${LAYOUT.W}/${LAYOUT.H}`, imageRendering: "auto" }}
+          style={{
+            aspectRatio: `${LAYOUT.W}/${LAYOUT.H}`,
+            imageRendering: "auto",
+            touchAction: "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
         />
 
         {phase === "combat" && selectedManualHero != null && state.heroes[selectedManualHero]?.manual && (
