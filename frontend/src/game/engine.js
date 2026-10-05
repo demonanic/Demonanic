@@ -202,17 +202,16 @@ export class Engine {
     const target = this.active.reduce((best, e) => {
       if (e.hp <= 0) return best;
       const d = Math.hypot(e.x - x, e.y - y);
-      if (d > 55) return best;
+      // Give phone taps a generous target radius without making distant
+      // enemies accidentally selectable.
+      if (d > 80) return best;
       if (!best) return e;
       return d < Math.hypot(best.x - x, best.y - y) ? e : best;
     }, null);
 
-    // Manual battlefield taps have two meanings:
-    // - tap an enemy -> attack that exact enemy
-    // - tap open ground -> move to that exact battlefield position
-    return target
-      ? this.commandHeroAttack(index, target)
-      : this.commandHeroMoveTo(index, x, y);
+    // TARGET mode is intentionally target-only. Tapping empty ground does not
+    // silently turn into a MOVE command.
+    return target ? this.commandHeroAttack(index, target) : false;
   }
 
   injectEnemy(e) {
