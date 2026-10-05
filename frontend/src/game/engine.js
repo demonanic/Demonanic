@@ -585,13 +585,37 @@ export class Engine {
   _applyHit(p) {
     const e = p.target;
     const affinity = C.affinityMultiplier(e, p.damageType);
-    if (affinity <= 0 || (p.magic && e.magicImmune)) { this._float(e.x, e.y, "IMMUNE", "#39FF14"); return; }
+    if (affinity <= 0 || (p.magic && e.magicImmune)) {
+      this._float(e.x, e.y - 4, "IMMUNE", "#39FF14");
+      this.effects.push({ kind: "immune", x: e.x, y: e.y, r: 12, life: 0.32, color: "#39FF14" });
+      return;
+    }
+
     let dmg = p.dmg * affinity;
     const crit = Math.random() < C.BASE_CRIT;
     if (crit) dmg *= C.CRIT_MULT;
+
     e.hp = Math.max(0, e.hp - dmg);
     e.dmgBy[p.sourceId] = (e.dmgBy[p.sourceId] || 0) + dmg;
-    this._float(e.x, e.y, (crit ? "!" : "") + Math.round(dmg), crit ? "#FFE600" : "#FFFFFF");
+
+    const affinityColor =
+      affinity >= 1.25 ? "#FF66CC" :
+      affinity <= 0.3 ? "#FF8A00" :
+      affinity <= 0.6 ? "#00F3FF" :
+      "#FFFFFF";
+
+    const label = crit ? "CRIT " + Math.round(dmg) : Math.round(dmg);
+    this._float(e.x, e.y - 4, label, crit ? "#FFE600" : affinityColor);
+    this.effects.push({
+      kind: "hit",
+      x: e.x,
+      y: e.y,
+      r: crit ? 15 : 10,
+      life: crit ? 0.32 : 0.22,
+      color: crit ? "#FFE600" : affinityColor,
+      crit,
+    });
+
     if (e.hp <= 0) this._killEnemy(e, p.sourceId);
   }
 
@@ -880,9 +904,26 @@ export class Engine {
         ctx.moveTo(p.x - 12, p.y + 5);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
+      } else if (p.magic) {
+        // Arcane shots are diamonds so they remain visually distinct from arrows.
+        ctx.shadowBlur = 14; ctx.shadowColor = p.color;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - 5); ctx.lineTo(p.x + 5, p.y);
+        ctx.lineTo(p.x, p.y + 5); ctx.lineTo(p.x - 5, p.y); ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 0.8; ctx.stroke();
       } else {
-        ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.magic ? 4 : 3, 0, 7); ctx.fill();
+        // Physical shots get a short directional streak.
+        ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.strokeStyle = p.color;
+        ctx.lineWidth = 2.5;
+        const dx = p.tx - p.x, dy = p.ty - p.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        ctx.beginPath();
+        ctx.moveTo(p.x - ux * 7, p.y - uy * 7);
+        ctx.lineTo(p.x + ux * 3, p.y + uy * 3);
+        ctx.stroke();
       }
       ctx.restore();
     }
@@ -928,6 +969,34 @@ export class Engine {
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r + (1 - fx.life) * 18, 0, 7); ctx.stroke();
         ctx.strokeStyle = "#FFE600";
         ctx.beginPath(); ctx.arc(fx.x, fx.y, 8 + (1 - fx.life) * 10, 0, 7); ctx.stroke();
+      } else if (fx.kind === "hit") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = fx.crit ? 2.5 : 1.8;
+        ctx.shadowBlur = 14; ctx.shadowColor = fx.color;
+        const radius = fx.r + (1 - fx.life) * (fx.crit ? 12 : 8);
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, radius, 0, 7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(fx.x - radius * 0.8, fx.y);
+        ctx.lineTo(fx.x + radius * 0.8, fx.y);
+        ctx.moveTo(fx.x, fx.y - radius * 0.8);
+        ctx.lineTo(fx.x, fx.y + radius * 0.8);
+        ctx.stroke();
+      } else if (fx.kind === "immune") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 14; ctx.shadowColor = fx.color;
+        const radius = fx.r + (1 - fx.life) * 10;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, radius, 0, 7);
+        ctx.moveTo(fx.x - radius, fx.y);
+        ctx.lineTo(fx.x + radius, fx.y);
+        ctx.moveTo(fx.x, fx.y - radius);
+        ctx.lineTo(fx.x, fx.y + radius);
+        ctx.stroke();
       } else {
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = fx.color; ctx.lineWidth = 2; ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
