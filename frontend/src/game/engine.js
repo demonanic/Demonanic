@@ -251,7 +251,7 @@ export class Engine {
       if (t.ref.hp <= 0) continue;
       t.cd -= dt;
       if (t.cd <= 0) {
-        const target = this._nearestEnemy(t.x, t.y, t.d.range);
+        const target = this._selectTowerTarget(t);
         if (target) { this._fire("T" + t.slot, t, target, t.d); t.cd = 1 / t.d.fireRate; }
       }
       if (t.ref.underfunded) t.ref.hp = Math.max(0, t.ref.hp - t.d.maxHp * C.UNDERFUNDED.hpLossPerMin * dt / 60);
@@ -564,6 +564,10 @@ export class Engine {
     this.projectiles.push({
       sourceId, x: src.x, y: src.y, tx: target.x, ty: target.y, target,
       spd: d.magic ? 340 : 460, dmg: d.damage || d.attack, magic: !!d.magic,
+      damageType: d.damageType || (src.ref?.cls === "knight" ? C.DAMAGE_TYPES.KNIGHT_MELEE
+        : src.ref?.cls === "rouge" ? C.DAMAGE_TYPES.ROUGE_MELEE
+        : src.ref?.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED
+        : d.magic ? C.DAMAGE_TYPES.ARCANE : C.DAMAGE_TYPES.ARCHER_RANGED),
       color: isHero ? d.color : d.color, t: 0,
     });
     this.effects.push({ x: src.x, y: src.y, r: 8, life: 0.18, color: d.color, ring: true });
@@ -571,8 +575,9 @@ export class Engine {
 
   _applyHit(p) {
     const e = p.target;
-    if (p.magic && e.magicImmune) { this._float(e.x, e.y, "IMMUNE", "#39FF14"); return; }
-    let dmg = p.dmg;
+    const affinity = C.affinityMultiplier(e, p.damageType);
+    if (affinity <= 0 || (p.magic && e.magicImmune)) { this._float(e.x, e.y, "IMMUNE", "#39FF14"); return; }
+    let dmg = p.dmg * affinity;
     const crit = Math.random() < C.BASE_CRIT;
     if (crit) dmg *= C.CRIT_MULT;
     e.hp = Math.max(0, e.hp - dmg);
@@ -637,6 +642,35 @@ export class Engine {
     }
     return best;
   }
+  _selectTowerTarget(tower) {
+    const cfg = tower.d;
+    const pool = this.active.filter((e) => Math.hypot(e.x - tower.x, e.y - tower.y) <= cfg.range);
+    if (!pool.length) return null;
+    if (cfg.targetPriority === "elite_boss") {
+      return pool.reduce((best, e) => {
+        if (!best) return e;
+        const rank = e.boss ? 3 : e.tier === "elite" ? 2 : 1;
+        const bestRank = best.boss ? 3 : best.tier === "elite" ? 2 : 1;
+        return rank > bestRank || (rank === bestRank && e.maxHp > best.maxHp) ? e : best;
+      }, null);
+    }
+    if (cfg.targetPriority === "vulnerable") {
+      return pool.reduce((best, e) => {
+        if (!best) return e;
+        return C.affinityMultiplier(e, cfg.damageType) > C.affinityMultiplier(best, cfg.damageType) ? e : best;
+      }, null);
+    }
+    if (cfg.targetPriority === "cluster") {
+      return pool.reduce((best, e) => {
+        const radius = cfg.splash || 55;
+        const score = this.active.filter((other) => other !== e && Math.hypot(other.x - e.x, other.y - e.y) <= radius).length;
+        const bestScore = best ? this.active.filter((other) => other !== best && Math.hypot(other.x - best.x, other.y - best.y) <= radius).length : -1;
+        return score > bestScore ? e : best;
+      }, null);
+    }
+    return pool.reduce((best, e) => !best || Math.hypot(e.x - tower.x, e.y - tower.y) < Math.hypot(best.x - tower.x, best.y - tower.y) ? e : best, null);
+  }
+
   // targeting tactics driven by the hero's attack configuration
   _selectTarget(h) {
     const cfg = h.ref.attackConfig || "";
