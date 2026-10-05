@@ -333,6 +333,7 @@ function makeEnemy(id, base, hpS, dmgS, group, objective) {
     hp: maxHp, maxHp, speed: base.speed, damage: base.damage * dmgS,
     color: base.color, floats: !!base.floats, magicImmune: !!base.magicImmune,
     boss: !!base.boss, group, objective,
+    affinities: { ...(base.affinities || {}) },
   };
 }
 
