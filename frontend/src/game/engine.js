@@ -65,6 +65,7 @@ export class Engine {
         manual: !!h.manual,
         manualTarget: null,
         rallyPoint: null,
+        rallyHold: false,
         retreating: false,
       };
     });
@@ -94,6 +95,7 @@ export class Engine {
     h.ref.manual = !!manual;
     if (!h.manual) h.manualTarget = null;
     h.rallyPoint = null;
+    h.rallyHold = false;
     h.retreating = false;
     return true;
   }
@@ -104,6 +106,8 @@ export class Engine {
     h.manual = true;
     h.ref.manual = true;
     h.manualTarget = target;
+    h.rallyPoint = null;
+    h.rallyHold = false;
     return true;
   }
 
@@ -114,6 +118,7 @@ export class Engine {
     h.ref.manual = true;
     h.manualTarget = null;
     h.rallyPoint = null;
+    h.rallyHold = false;
     h.retreating = true;
     return true;
   }
@@ -121,13 +126,20 @@ export class Engine {
   rallyHeroes(index) {
     const leader = this.heroes[index];
     if (!leader || !leader.alive) return false;
+
+    // The hero issuing RALLY is the rally anchor. Everyone else moves to
+    // that hero's current position; the caller itself must NOT fall back
+    // to its original home position after issuing the command.
     const point = { x: leader.x, y: leader.y };
+
     for (const h of this.heroes) {
       if (!h.alive) continue;
-      h.rallyPoint = { ...point };
       h.retreating = false;
       h.manualTarget = null;
+      h.rallyHold = h === leader;
+      h.rallyPoint = h === leader ? null : { ...point };
     }
+
     return true;
   }
 
@@ -240,6 +252,17 @@ export class Engine {
           continue;
         }
         h.rallyPoint = null;
+      }
+
+      // A rally caller is the anchor of the regroup. Keep that hero at the
+      // rally location instead of sending it back to its starting position.
+      if (h.rallyHold && !h.manualTarget) {
+        const nearbyRallyTarget = this._nearestEnemy(h.x, h.y, 220);
+        if (nearbyRallyTarget) {
+          h.manualTarget = nearbyRallyTarget;
+        } else {
+          continue;
+        }
       }
       // Mage support/barrier config: mend or shield allies (works pre-breach too)
       if (support) {
