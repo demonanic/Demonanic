@@ -46,6 +46,7 @@ export class Engine {
     this.xpGains = { heroes: {}, towers: {} };
     this.time = 0;
     this.ended = false;
+    this.selectedHero = null;
 
     // hero runtime
     const n = sim.heroes.length || 1;
@@ -89,6 +90,11 @@ export class Engine {
   stop() { this.running = false; }
   setSpeed(s) { this.speed = s; }
 
+  setSelectedHero(index) {
+    this.selectedHero = Number.isInteger(index) ? index : null;
+    return true;
+  }
+
   setHeroManual(index, manual) {
     const h = this.heroes[index];
     if (!h) return false;
@@ -101,6 +107,7 @@ export class Engine {
     h.rallyPoint = null;
     h.rallyHold = false;
     h.retreating = false;
+    this.selectedHero = index;
     return true;
   }
 
@@ -113,6 +120,7 @@ export class Engine {
     h.manualPoint = null;
     h.rallyPoint = null;
     h.rallyHold = false;
+    this.selectedHero = index;
     return true;
   }
 
@@ -126,6 +134,7 @@ export class Engine {
     h.rallyPoint = null;
     h.rallyHold = false;
     h.retreating = true;
+    this.selectedHero = index;
     return true;
   }
 
@@ -185,6 +194,7 @@ export class Engine {
     h.rallyPoint = null;
     h.rallyHold = false;
     h.retreating = false;
+    this.selectedHero = index;
     return true;
   }
 
@@ -808,8 +818,48 @@ export class Engine {
 
     // heroes — top-down sprites face UP toward incoming enemies.
     for (const h of this.heroes) {
+      if (h.i === this.selectedHero && h.alive) {
+        ctx.save();
+        ctx.strokeStyle = h.manual ? "#F0ABFC" : h.d.color;
+        ctx.lineWidth = h.manual ? 2 : 1.5;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = h.manual ? "#D946EF" : h.d.color;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y + 2, 22, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
       this._drawHeroSprite(h);
       this._bar(h.x - 18, h.y + 20, 36, 4, Math.max(0, h.ref.hp) / h.d.maxHp, h.d.color);
+    }
+
+    // Manual command markers make every battlefield command visually verifiable.
+    for (const h of this.heroes) {
+      if (!h.manual || !h.alive) continue;
+      if (h.manualPoint) {
+        ctx.save();
+        ctx.strokeStyle = "#00F3FF";
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#00F3FF";
+        ctx.beginPath();
+        ctx.arc(h.manualPoint.x, h.manualPoint.y, 9 + 2 * Math.sin(this.time * 8), 0, Math.PI * 2);
+        ctx.moveTo(h.manualPoint.x - 14, h.manualPoint.y); ctx.lineTo(h.manualPoint.x + 14, h.manualPoint.y);
+        ctx.moveTo(h.manualPoint.x, h.manualPoint.y - 14); ctx.lineTo(h.manualPoint.x, h.manualPoint.y + 14);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (h.manualTarget && h.manualTarget.hp > 0) {
+        ctx.save();
+        ctx.strokeStyle = "#FFE600";
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#FFE600";
+        ctx.beginPath();
+        ctx.arc(h.manualTarget.x, h.manualTarget.y, 18 + 2 * Math.sin(this.time * 9), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // projectiles
