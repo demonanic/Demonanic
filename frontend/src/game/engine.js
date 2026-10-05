@@ -1054,48 +1054,61 @@ export class Engine {
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.shadowBlur = 9;
+    ctx.shadowBlur = 10;
     ctx.shadowColor = color;
-
-    ctx.fillStyle = "#171A24";
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.8;
 
-    ctx.beginPath();
-    ctx.arc(0, 4, 15, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
+    // Common tower base: every tower now reads as the same neon-defense family.
+    ctx.fillStyle = "#111720";
+    ctx.beginPath(); ctx.arc(0, 5, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    const mount = () => {
+      ctx.fillStyle = "#1C2430";
+      ctx.beginPath(); ctx.arc(0, 3, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color; ctx.stroke();
+    };
+    const barrel = (width = 3) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.shadowBlur = 8; ctx.shadowColor = color;
+      ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, -21); ctx.stroke();
+    };
 
     if (t.ref.type === "archer") {
-      ctx.fillStyle = "#252A36";
-      ctx.fillRect(-9, -8, 18, 15);
-      ctx.strokeRect(-9, -8, 18, 15);
-      ctx.strokeStyle = color; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, -19); ctx.stroke();
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(-6, -13); ctx.lineTo(0, -19); ctx.lineTo(6, -13); ctx.stroke();
+      // Twin-arrow tower.
+      mount(); barrel(2.5);
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-7, -12); ctx.lineTo(0, -20); ctx.lineTo(7, -12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-4, -15); ctx.lineTo(-4, -23); ctx.moveTo(4, -15); ctx.lineTo(4, -23); ctx.stroke();
     } else if (t.ref.type === "catapult") {
+      // Heavy siege frame and scoop.
       ctx.fillStyle = "#30251C";
-      ctx.fillRect(-10, -3, 20, 11);
-      ctx.strokeRect(-10, -3, 20, 11);
-      ctx.strokeStyle = color; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, -20); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, -18, 4, Math.PI, 0); ctx.stroke();
+      ctx.fillRect(-11, -1, 22, 10); ctx.strokeRect(-11, -1, 22, 10);
+      ctx.strokeStyle = color; ctx.lineWidth = 2.8;
+      ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -19); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -19, 5, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = "#080A0F"; ctx.beginPath(); ctx.arc(0, -19, 2.5, 0, Math.PI * 2); ctx.fill();
     } else if (t.ref.type === "wizard") {
-      ctx.fillStyle = "#211735";
-      ctx.beginPath(); ctx.moveTo(-11, 9); ctx.lineTo(-8, -8); ctx.lineTo(0, -16);
-      ctx.lineTo(8, -8); ctx.lineTo(11, 9); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(6, -4); ctx.lineTo(0, 3); ctx.lineTo(-6, -4); ctx.closePath(); ctx.fill();
+      // Arcane crystal tower, intentionally distinct from physical weapons.
+      ctx.fillStyle = "#1D1630";
+      ctx.beginPath(); ctx.moveTo(-11, 10); ctx.lineTo(-8, -8); ctx.lineTo(0, -17);
+      ctx.lineTo(8, -8); ctx.lineTo(11, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color; ctx.shadowBlur = 14; ctx.shadowColor = color;
+      ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(6, -4); ctx.lineTo(0, 4); ctx.lineTo(-6, -4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 1); ctx.stroke();
     } else {
-      ctx.fillStyle = "#24151A";
-      ctx.fillRect(-11, -5, 22, 12);
-      ctx.strokeRect(-11, -5, 22, 12);
-      ctx.strokeStyle = color; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, -20); ctx.stroke();
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(-9, -16); ctx.lineTo(9, -16); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-4, -20); ctx.lineTo(4, -20); ctx.stroke();
+      // Ballista: heavier, longer weapon profile for elite/boss hunting.
+      ctx.fillStyle = "#25161A";
+      ctx.fillRect(-12, -2, 24, 11); ctx.strokeRect(-12, -2, 24, 11);
+      barrel(3.5);
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-10, -16); ctx.lineTo(10, -16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-5, -20); ctx.lineTo(5, -20); ctx.stroke();
+    }
+
+    if (t.ref.underfunded && active) {
+      ctx.strokeStyle = "#FFE600"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 5, 19, 0, Math.PI * 2); ctx.stroke();
     }
 
     if (!active) {
@@ -1105,121 +1118,152 @@ export class Engine {
     }
     ctx.restore();
   }
-
   _drawEnemySprite(e) {
     const ctx = this.ctx;
     const color = e.color;
     const boss = !!e.boss;
     const elite = e.tier === "elite";
-    const s = boss ? 1.8 : elite ? 1.3 : 1;
-    const faceY = 5 * s;
+    const s = boss ? 1.85 : elite ? 1.35 : 1;
 
     ctx.save();
     ctx.translate(e.x, e.y);
     ctx.scale(s, s);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.shadowBlur = boss ? 16 : 10;
+    ctx.shadowBlur = boss ? 18 : elite ? 13 : 9;
     ctx.shadowColor = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.8;
 
-    if (e.type === "ghost") {
+    const outline = () => { ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.stroke(); };
+    const neon = (width = 2) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.shadowBlur = 8; ctx.shadowColor = color; };
+    const eye = (x, y, r = 2) => {
       ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(0, -11); ctx.bezierCurveTo(-10, -7, -11, 6, -8, 10);
-      ctx.lineTo(-4, 6); ctx.lineTo(0, 11); ctx.lineTo(4, 6); ctx.lineTo(8, 10);
-      ctx.bezierCurveTo(11, 6, 10, -7, 0, -11); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#05070C";
-      ctx.beginPath(); ctx.arc(-3, faceY, 2.1, 0, Math.PI * 2); ctx.arc(3, faceY, 2.1, 0, Math.PI * 2); ctx.fill();
-    } else if (e.type === "slime") {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(-11, 8); ctx.quadraticCurveTo(-12, -7, 0, -11);
-      ctx.quadraticCurveTo(12, -7, 11, 8);
-      ctx.quadraticCurveTo(7, 13, 0, 11);
-      ctx.quadraticCurveTo(-7, 13, -11, 8); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#061006";
-      ctx.beginPath(); ctx.arc(-3, 3, 2, 0, Math.PI * 2); ctx.arc(3, 3, 2, 0, Math.PI * 2); ctx.fill();
-    } else if (e.type === "goblin" || e.type === "gnome") {
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(-14, -10); ctx.lineTo(-8, 1); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(7, -5); ctx.lineTo(14, -10); ctx.lineTo(8, 1); ctx.closePath(); ctx.fill();
-      if (e.type === "gnome") {
-        ctx.beginPath(); ctx.moveTo(-8, -5); ctx.lineTo(0, -17); ctx.lineTo(8, -5); ctx.closePath(); ctx.fill(); ctx.stroke();
-      }
-      ctx.fillStyle = "#100A02";
-      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(7, 7); ctx.lineTo(13, -2); ctx.stroke();
-    } else if (e.type === "skeleton" || e.type === "zombie") {
-      ctx.fillStyle = e.type === "skeleton" ? "#18202A" : "#171327";
-      ctx.beginPath(); ctx.arc(0, -3, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(-7, 5); ctx.lineTo(-9, 12); ctx.moveTo(7, 5); ctx.lineTo(9, 12);
-      ctx.moveTo(-4, 8); ctx.lineTo(0, 14); ctx.lineTo(4, 8); ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(-3, 3, 1.8, 0, Math.PI * 2); ctx.arc(3, 3, 1.8, 0, Math.PI * 2); ctx.fill();
-      if (e.type === "skeleton") {
-        ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(-5, 1); ctx.lineTo(5, 1); ctx.moveTo(-5, 5); ctx.lineTo(5, 5); ctx.stroke();
-      }
-    } else if (e.type === "orc") {
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#0B0E08";
-      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.moveTo(-7, 5); ctx.lineTo(-12, 11); ctx.lineTo(-5, 9); ctx.closePath();
-      ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(12, 11); ctx.lineTo(5, 9); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(15, -9); ctx.stroke();
-    } else if (e.type === "reaper" || e.type === "lieutenant") {
-      ctx.fillStyle = e.type === "reaper" ? "#12051B" : "#101A24";
-      ctx.beginPath(); ctx.moveTo(-10, 11); ctx.lineTo(-8, -5); ctx.lineTo(0, -13);
-      ctx.lineTo(8, -5); ctx.lineTo(10, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(14, -13); ctx.stroke();
-      if (e.type === "lieutenant") {
-        ctx.strokeStyle = color; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(-11, 7, 6, 0, Math.PI * 2); ctx.stroke();
-      }
-    } else {
-      // Boss silhouette: broad body with a distinctive upper silhouette.
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(-20, 12); ctx.lineTo(-17, -5); ctx.lineTo(-28, -13);
-      ctx.lineTo(-12, -11); ctx.lineTo(0, -18); ctx.lineTo(12, -11);
-      ctx.lineTo(28, -13); ctx.lineTo(17, -5); ctx.lineTo(20, 12);
-      ctx.lineTo(0, 19); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    };
 
-      ctx.fillStyle = "#090309";
-      ctx.beginPath(); ctx.arc(-9, 3, 3, 0, Math.PI * 2); ctx.arc(9, 3, 3, 0, Math.PI * 2); ctx.fill();
+    if (e.type === "ghost") {
+      // Floating sheet silhouette with a clear face and trailing tail.
+      ctx.fillStyle = "#10131D";
+      ctx.beginPath();
+      ctx.moveTo(0, -14);
+      ctx.bezierCurveTo(-10, -12, -12, -3, -10, 6);
+      ctx.lineTo(-7, 12); ctx.lineTo(-3, 7); ctx.lineTo(0, 13);
+      ctx.lineTo(4, 7); ctx.lineTo(8, 12); ctx.lineTo(10, 5);
+      ctx.bezierCurveTo(12, -5, 9, -12, 0, -14);
+      ctx.closePath(); ctx.fill(); outline();
+      eye(-3, 0, 2.2); eye(3, 0, 2.2);
+      neon(1.4); ctx.beginPath(); ctx.moveTo(-3, 7); ctx.lineTo(0, 9); ctx.lineTo(3, 7); ctx.stroke();
+    } else if (e.type === "slime") {
+      // Low, translucent-looking toxic blob with crown-like drips.
+      ctx.fillStyle = "#102016";
+      ctx.beginPath();
+      ctx.moveTo(-13, 8); ctx.quadraticCurveTo(-12, -5, -7, -9);
+      ctx.quadraticCurveTo(0, -14, 7, -9); ctx.quadraticCurveTo(12, -5, 13, 8);
+      ctx.lineTo(8, 11); ctx.lineTo(4, 8); ctx.lineTo(0, 13);
+      ctx.lineTo(-4, 8); ctx.lineTo(-9, 11); ctx.closePath();
+      ctx.fill(); outline();
+      eye(-4, 0, 2); eye(4, 0, 2);
+      neon(1.4); ctx.beginPath(); ctx.moveTo(-6, 5); ctx.quadraticCurveTo(0, 8, 6, 5); ctx.stroke();
+    } else if (e.type === "goblin") {
+      // Small angular raider: ears, brow, torso and a short blade.
+      ctx.fillStyle = "#152016";
+      ctx.beginPath(); ctx.moveTo(-7, 1); ctx.lineTo(-8, -7); ctx.lineTo(0, -11);
+      ctx.lineTo(8, -7); ctx.lineTo(7, 1); ctx.lineTo(5, 8); ctx.lineTo(-5, 8); ctx.closePath();
+      ctx.fill(); outline();
+      ctx.fillStyle = "#17261A";
+      ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(-16, -11); ctx.lineTo(-10, 1); ctx.closePath();
+      ctx.moveTo(7, -5); ctx.lineTo(16, -11); ctx.lineTo(10, 1); ctx.closePath(); ctx.fill(); outline();
+      eye(-3, 0, 1.8); eye(3, 0, 1.8);
+      neon(2.3); ctx.beginPath(); ctx.moveTo(8, 7); ctx.lineTo(16, -5); ctx.stroke();
+    } else if (e.type === "gnome") {
+      // Same family as goblin, but with the distinctive tall neon cap.
+      ctx.fillStyle = "#172019";
+      ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill(); outline();
+      ctx.fillStyle = "#10171D";
+      ctx.beginPath(); ctx.moveTo(-8, -5); ctx.lineTo(0, -20); ctx.lineTo(9, -5); ctx.closePath(); ctx.fill(); outline();
+      neon(1.2); ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -6); ctx.stroke();
+      eye(-3, 3, 1.8); eye(3, 3, 1.8);
+      neon(2); ctx.beginPath(); ctx.moveTo(7, 7); ctx.lineTo(14, -3); ctx.stroke();
+    } else if (e.type === "skeleton") {
+      // Minimal skull/ribcage silhouette — intentionally readable at small size.
+      ctx.fillStyle = "#111922";
+      ctx.beginPath(); ctx.arc(0, -5, 8.5, 0, Math.PI * 2); ctx.fill(); outline();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(-3, -5, 2, 0, Math.PI * 2); ctx.arc(3, -5, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111922";
+      ctx.beginPath(); ctx.moveTo(-7, 3); ctx.lineTo(7, 3); ctx.lineTo(6, 12); ctx.lineTo(0, 15); ctx.lineTo(-6, 12); ctx.closePath(); ctx.fill();
+      neon(1.4);
+      for (let y = 5; y <= 11; y += 3) { ctx.beginPath(); ctx.moveTo(-5, y); ctx.lineTo(5, y); ctx.stroke(); }
+      neon(2); ctx.beginPath(); ctx.moveTo(8, 9); ctx.lineTo(15, -8); ctx.stroke();
+    } else if (e.type === "zombie") {
+      // Slumped humanoid silhouette with a torn shoulder and reaching arm.
+      ctx.fillStyle = "#171429";
+      ctx.beginPath(); ctx.arc(0, -6, 8.5, 0, Math.PI * 2); ctx.fill(); outline();
+      ctx.fillStyle = "#0E1420";
+      ctx.beginPath(); ctx.moveTo(-7, 1); ctx.lineTo(7, 1); ctx.lineTo(9, 12); ctx.lineTo(-9, 12); ctx.closePath(); ctx.fill(); outline();
+      eye(-3, -5, 2); eye(3, -3, 1.2);
+      neon(2.3); ctx.beginPath(); ctx.moveTo(8, 5); ctx.lineTo(16, 1); ctx.lineTo(19, 6); ctx.stroke();
+      neon(1.2); ctx.beginPath(); ctx.moveTo(-5, 4); ctx.lineTo(-10, 10); ctx.stroke();
+    } else if (e.type === "orc") {
+      // Broad armored brute with tusks and a heavy axe.
+      ctx.fillStyle = "#101A16";
+      ctx.beginPath(); ctx.moveTo(-11, -3); ctx.lineTo(-8, -11); ctx.lineTo(0, -14);
+      ctx.lineTo(8, -11); ctx.lineTo(11, -3); ctx.lineTo(9, 10); ctx.lineTo(-9, 10); ctx.closePath();
+      ctx.fill(); outline();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-9, 11); ctx.lineTo(-2, 9);
+      ctx.moveTo(5, 5); ctx.lineTo(9, 11); ctx.lineTo(2, 9); ctx.fill();
+      eye(-3, -1, 2); eye(3, -1, 2);
+      neon(2.8); ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(16, -10); ctx.stroke();
+      neon(2); ctx.beginPath(); ctx.moveTo(13, -14); ctx.lineTo(20, -10); ctx.stroke();
+    } else if (e.type === "reaper") {
+      // Hooded elite with scythe — deliberately different from the lieutenant.
+      ctx.fillStyle = "#12081B";
+      ctx.beginPath(); ctx.moveTo(-10, 10); ctx.lineTo(-9, -6); ctx.lineTo(0, -16);
+      ctx.lineTo(9, -6); ctx.lineTo(10, 10); ctx.closePath(); ctx.fill(); outline();
+      ctx.fillStyle = "#05050A";
+      ctx.beginPath(); ctx.arc(0, -3, 6, 0, Math.PI * 2); ctx.fill();
+      eye(-3, -2, 1.8); eye(3, -2, 1.8);
+      neon(2.4); ctx.beginPath(); ctx.moveTo(7, 9); ctx.lineTo(17, -14); ctx.stroke();
+      ctx.beginPath(); ctx.arc(19, -14, 7, Math.PI * 0.9, Math.PI * 1.8); ctx.stroke();
+    } else if (e.type === "lieutenant") {
+      // Armored elite commander with a ringed shoulder and spear.
+      ctx.fillStyle = "#101923";
+      ctx.beginPath(); ctx.moveTo(-11, 10); ctx.lineTo(-9, -7); ctx.lineTo(0, -15);
+      ctx.lineTo(9, -7); ctx.lineTo(11, 10); ctx.closePath(); ctx.fill(); outline();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(-3, -2, 1.8, 0, Math.PI * 2); ctx.arc(3, -2, 1.8, 0, Math.PI * 2); ctx.fill();
+      neon(2.2); ctx.beginPath(); ctx.moveTo(8, 9); ctx.lineTo(14, -17); ctx.stroke();
+      neon(1.6); ctx.beginPath(); ctx.arc(-12, 7, 6, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      // Boss silhouettes keep a common Demonanic frame but have unique crowns.
+      ctx.fillStyle = "#170A14";
+      ctx.beginPath();
+      ctx.moveTo(-21, 12); ctx.lineTo(-19, -5); ctx.lineTo(-30, -14);
+      ctx.lineTo(-13, -12); ctx.lineTo(0, -20); ctx.lineTo(13, -12);
+      ctx.lineTo(30, -14); ctx.lineTo(19, -5); ctx.lineTo(21, 12);
+      ctx.lineTo(0, 20); ctx.closePath(); ctx.fill(); outline();
+      eye(-9, 2, 2.8); eye(9, 2, 2.8);
 
       if (e.type === "demon") {
-        ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.moveTo(-12, -10); ctx.lineTo(-22, -22); ctx.moveTo(12, -10); ctx.lineTo(22, -22); ctx.stroke();
-        ctx.fillStyle = "#0A0303";
-        ctx.beginPath(); ctx.arc(0, 1, 5, 0, Math.PI * 2); ctx.fill();
+        neon(2.7);
+        ctx.beginPath(); ctx.moveTo(-12, -10); ctx.lineTo(-23, -25);
+        ctx.moveTo(12, -10); ctx.lineTo(23, -25); ctx.stroke();
+        ctx.fillStyle = "#080309"; ctx.beginPath(); ctx.arc(0, 2, 5, 0, Math.PI * 2); ctx.fill();
       } else if (e.type === "imperialNecromancer") {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(-19, 2, 4, 0, Math.PI * 2); ctx.arc(19, 2, 4, 0, Math.PI * 2); ctx.stroke();
+        neon(1.7);
+        ctx.beginPath(); ctx.arc(0, -7, 6, 0, Math.PI * 2);
+        ctx.moveTo(-20, 3); ctx.lineTo(-13, -4); ctx.moveTo(20, 3); ctx.lineTo(13, -4); ctx.stroke();
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, -7, 3, 0, Math.PI * 2); ctx.fill();
       } else if (e.type === "nuclearBehemoth") {
-        ctx.fillStyle = "#091307";
-        ctx.beginPath(); ctx.arc(-11, 6, 5, 0, Math.PI * 2); ctx.arc(11, 6, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0A1710";
+        ctx.beginPath(); ctx.arc(-11, 5, 6, 0, Math.PI * 2); ctx.arc(11, 5, 6, 0, Math.PI * 2); ctx.fill();
+        neon(2.4);
+        ctx.beginPath(); ctx.moveTo(-14, -10); ctx.lineTo(-22, -20); ctx.moveTo(14, -10); ctx.lineTo(22, -20); ctx.stroke();
       }
     }
 
     ctx.restore();
   }
-
   _neonLine(x1, y1, x2, y2, color, w) {
     const ctx = this.ctx;
     ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = color;
