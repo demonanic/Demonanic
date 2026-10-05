@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { GameProvider, useGame } from "@/context/GameProvider";
 import { Toaster } from "@/components/ui/sonner";
+import LoadingAnimation from "@/components/LoadingAnimation";
 import Login from "@/screens/Login";
 import Home from "@/screens/Home";
 import SquadSelect from "@/screens/SquadSelect";
@@ -13,17 +14,18 @@ import Profile from "@/screens/Profile";
 function Splash({ label = "SUMMONING..." }) {
   return (
     <div className="h-full w-full flex items-center justify-center bg-[#0a0b10]">
-      <div className="text-center animate-pulse-glow">
-        <div className="font-display text-4xl font-black text-fuchsia-500 text-glow-magenta tracking-widest">DEMONANIC</div>
-        <div className="font-mono-g text-cyan-400 mt-3 tracking-[0.3em] text-xs">{label}</div>
-      </div>
+      <LoadingAnimation
+        type="summoning"
+        label={label}
+        imageClassName="w-80 h-80"
+      />
     </div>
   );
 }
 
 function GameRouter() {
   const { loading, screen } = useGame();
-  if (loading) return <Splash label="LOADING CASTLE..." />;
+  if (loading) return <Splash label="SUMMONING..." />;
   switch (screen) {
     case "home": return <Home />;
     case "squad": return <SquadSelect />;
