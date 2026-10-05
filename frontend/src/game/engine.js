@@ -1075,7 +1075,7 @@ export class Engine {
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.8;
 
-    if (e.type === "ghost" || e.floats && !boss) {
+    if (e.type === "ghost") {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(0, -11); ctx.bezierCurveTo(-10, -7, -11, 6, -8, 10);
