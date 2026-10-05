@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { NeonButton } from "@/components/ui-kit";
 import { Input } from "@/components/ui/input";
-import { Loader2, Skull } from "lucide-react";
+import { Skull } from "lucide-react";
+import LoadingAnimation from "@/components/LoadingAnimation";
 
 export default function Login() {
   const { login, register, error } = useAuth();
@@ -33,6 +34,16 @@ export default function Login() {
             "radial-gradient(circle at 30% 20%, rgba(255,0,127,0.25), transparent 45%), radial-gradient(circle at 75% 80%, rgba(0,243,255,0.2), transparent 45%)",
         }}
       />
+
+      {busy && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0b10]/95 backdrop-blur-sm">
+          <LoadingAnimation
+            type="entering"
+            label={mode === "login" ? "ENTERING THE KEEP..." : "FORGING ACCOUNT..."}
+            imageClassName="w-72 h-72"
+          />
+        </div>
+      )}
 
       <div className="relative w-[92%] max-w-sm animate-rise">
         <div className="text-center mb-6">
@@ -118,7 +129,6 @@ export default function Login() {
           >
             {busy ? (
               <span className="flex items-center justify-center gap-2">
-                <Loader2 size={18} className="animate-spin" />
                 <span>{mode === "login" ? "Entering the Keep..." : "Forging Account..."}</span>
               </span>
             ) : mode === "login" ? (
