@@ -5,7 +5,7 @@ import { HeroCard, TowerCard } from "@/components/cards";
 import TacticalMenu from "@/components/TacticalMenu";
 import DebugPanel from "@/components/DebugPanel";
 import { NeonButton, StatBar } from "@/components/ui-kit";
-import { Coins, Wheat, Mountain, Terminal, Skull } from "lucide-react";
+import { Coins, Terminal, Skull, Crosshair } from "lucide-react";
 import { TIME } from "@/game/config";
 import * as C from "@/game/config";
 import {
@@ -103,11 +103,18 @@ export default function Battle() {
       if (engineRef.current) engineRef.current.setSpeed(1); setSlowed(false);
     }, TIME.tacticalSlowdown * 1000);
   };
+
   const endSlow = () => {
     if (slowTimer.current) clearTimeout(slowTimer.current);
     if (engineRef.current) engineRef.current.setSpeed(1); setSlowed(false);
   };
-  const openHeroCard = (i) => { setOpenHero(i); triggerSlow(); };
+
+  const openHeroCard = (i) => {
+    setTacticalOpen(false);
+    setOpenHero(i);
+    triggerSlow();
+  };
+
   const openTowerCard = (slot) => { setOpenTower(slot); triggerSlow(); };
   const closeCard = () => { setOpenHero(null); setOpenTower(null); endSlow(); };
 
@@ -115,8 +122,10 @@ export default function Battle() {
     const hero = state.heroes[i];
     if (!hero) return;
     setSelectedManualHero(i);
-    setOpenHero(i);
-    triggerSlow();
+    setOpenHero(null);
+    setOpenTower(null);
+    setTacticalOpen(true);
+    forceTick((t) => t + 1);
   };
 
   const retreatHero = (i) => {
@@ -218,7 +227,7 @@ export default function Battle() {
       {hud?.boss && (
         <div className="px-3 py-1.5 border-b border-rose-500/30 bg-rose-950/20" data-testid="boss-hud">
           <div className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1 animate-pulse-glow">
-            <Skull size={12} /> {hud.boss.name.toUpperCase()} · {Math.round(hud.boss.hp)}/{hud.boss.maxHp}
+            <Skull size={12} /> {hud.boss.name.toUpperCase()} · {Math.round(hud.boss.hp)}/{Math.round(hud.boss.maxHp)}
           </div>
           <StatBar frac={hud.boss.hp / hud.boss.maxHp} color="#FF0055" height={7} />
         </div>
@@ -249,40 +258,43 @@ export default function Battle() {
             <div className="font-mono-g text-slate-400 text-xs mt-2">Wave {waveNum.current} incoming...</div>
           </div>
         )}
+
+        {/* Floating tactical HUD: stays in one corner so the battlefield remains visible. */}
+        {!tacticalOpen && (
+          <button
+            onClick={() => {
+              setOpenHero(null);
+              setOpenTower(null);
+              endSlow();
+              setTacticalOpen(true);
+            }}
+            className="absolute right-2 bottom-2 z-40 rounded-full border border-fuchsia-400/45 bg-black/50 backdrop-blur-md px-3 py-2 shadow-[0_0_18px_rgba(217,70,239,0.12)] text-fuchsia-300 font-mono-g text-[8px] tracking-wider flex items-center gap-1.5"
+            data-testid="tactical-command-toggle"
+          >
+            <Crosshair size={12} />
+            TACTICAL
+          </button>
+        )}
+
+        <TacticalMenu
+          open={tacticalOpen}
+          onClose={() => setTacticalOpen(false)}
+          heroes={state.heroes}
+          selectedHero={selectedManualHero}
+          onSelectHero={(i) => {
+            setSelectedManualHero(i);
+            forceTick((t) => t + 1);
+          }}
+          gold={sim?.gold ?? state.gold}
+          onAuto={(i) => toggleCombatMode(i, "auto")}
+          onRetreat={retreatHero}
+          onRally={rallyHeroes}
+          onRevive={reviveHero}
+          onDetails={openHeroCard}
+        />
       </div>
 
       {/* tower quick access */}
-      <div className="px-2 py-1 border-t border-white/10" data-testid="tactical-command-bar">
-        <NeonButton
-          color="magenta"
-          className="w-full !py-2 !text-[10px] tracking-[0.2em]"
-          onClick={() => {
-            setOpenHero(null);
-            endSlow();
-            setTacticalOpen((v) => !v);
-          }}
-          data-testid="tactical-command-toggle"
-        >
-          {tacticalOpen ? "CLOSE TACTICAL COMMAND" : "TACTICAL COMMANDS"}
-        </NeonButton>
-      </div>
-
-      <TacticalMenu
-        open={tacticalOpen}
-        onClose={() => setTacticalOpen(false)}
-        heroes={state.heroes}
-        selectedHero={selectedManualHero}
-        onSelectHero={(i) => {
-          setSelectedManualHero(i);
-          forceTick((t) => t + 1);
-        }}
-        gold={sim?.gold ?? state.gold}
-        onAuto={(i) => toggleCombatMode(i, "auto")}
-        onRetreat={retreatHero}
-        onRally={rallyHeroes}
-        onRevive={reviveHero}
-      />
-
       <div className="px-2 py-1 flex gap-1.5 border-t border-white/10 overflow-x-auto no-scrollbar" data-testid="tower-rack">
         {state.towers.map((tw, slot) => tw ? (
           <button key={slot} onClick={() => openTowerCard(slot)} data-testid={`battle-tower-${slot}`}
@@ -302,7 +314,9 @@ export default function Battle() {
               key={i}
               onClick={() => selectManualHero(i)}
               data-testid={`battle-hero-${i}`}
-              className={`glass-card rounded-lg p-1.5 flex flex-col items-center ${selectedManualHero === i && state.heroes[i].manual ? "ring-1 ring-fuchsia-400" : ""}`}
+              className={`glass-card rounded-lg p-1.5 flex flex-col items-center ${
+                selectedManualHero === i ? "ring-1 ring-fuchsia-400" : ""
+              }`}
               style={{ borderBottom: `2px solid ${cls.color}`, opacity: h.alive ? 1 : 0.35 }}
             >
               <div className="w-6 h-7 rounded mb-1" style={{ background: cls.color, boxShadow: `0 0 8px ${cls.color}` }} />
@@ -337,9 +351,11 @@ export default function Battle() {
           onClose={closeCard}
         />
       )}
+
       {openTower != null && sim && sim.towers[openTower] && (
         <TowerCard tower={sim.towers[openTower]} editable={false} slowed={slowed} onUpgrade={() => {}} onClose={closeCard} />
       )}
+
       {debug && <DebugPanel onClose={() => setDebug(false)} battleActions={battleActions} />}
     </div>
   );
