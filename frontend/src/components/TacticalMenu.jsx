@@ -1,4 +1,4 @@
-import { Heart, Swords, Shield, Sparkles, FlaskConical, Backpack, Coins, X } from "lucide-react";
+import { Heart, Swords, Shield, Sparkles, Crosshair, UsersRound, Coins, X } from "lucide-react";
 import { NeonButton } from "@/components/ui-kit";
 import * as C from "@/game/config";
 
@@ -13,55 +13,78 @@ export default function TacticalMenu({
   onRetreat,
   onRally,
   onRevive,
+  onDetails,
 }) {
   if (!open) return null;
 
   const selected = selectedHero != null ? heroes[selectedHero] : null;
   const selectedDead = !!selected && selected.hp <= 0;
+  const cls = selected ? C.HERO_CLASSES[selected.cls] : null;
   const reviveCost = selected ? C.paidRevivalCost(selected.level) : 0;
 
   return (
-    <div className="absolute inset-x-2 bottom-[148px] z-40" data-testid="tactical-menu">
-      <div className="glass rounded-2xl border border-fuchsia-400/40 shadow-[0_0_28px_rgba(217,70,239,0.18)] p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="font-display font-black text-lg text-fuchsia-300 tracking-wider">
-              TACTICAL COMMAND
+    <div
+      className="absolute top-2 right-2 z-50 w-[min(224px,calc(100%-16px))] pointer-events-auto"
+      data-testid="tactical-menu"
+    >
+      <div className="rounded-xl border border-fuchsia-400/35 bg-black/55 backdrop-blur-md shadow-[0_0_24px_rgba(217,70,239,0.14)] overflow-hidden">
+        <div className="flex items-center gap-2 px-2.5 py-2 border-b border-white/10">
+          <div
+            className="w-7 h-7 shrink-0 rounded-md border border-white/20"
+            style={{
+              background: cls?.color || "#A855F7",
+              boxShadow: cls ? `0 0 10px ${cls.color}` : "0 0 8px #A855F7",
+            }}
+          />
+          <div className="min-w-0 flex-1">
+            <div
+              className="font-mono-g text-[10px] font-bold tracking-wider truncate"
+              style={{ color: cls?.color || "#E879F9" }}
+            >
+              {cls ? cls.name.toUpperCase() : "SELECT HERO"}
             </div>
-            <div className="font-mono-g text-[9px] text-slate-500 tracking-widest">
-              SELECT A HERO · ISSUE ORDERS · MANAGE SURVIVAL
+            <div className="font-mono-g text-[8px] text-slate-400 truncate">
+              {cls ? cls.role : "Choose a hero below"}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white"
+            className="shrink-0 text-slate-500 hover:text-white p-1"
             aria-label="Close tactical menu"
             data-testid="tactical-close"
           >
-            <X size={18} />
+            <X size={14} />
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 mb-3">
+        <div className="px-2 py-1.5 flex gap-1 border-b border-white/10">
           {heroes.map((hero, i) => {
-            const cls = C.HERO_CLASSES[hero.cls];
+            const heroCls = C.HERO_CLASSES[hero.cls];
             const dead = hero.hp <= 0;
             return (
               <button
                 key={hero.id || i}
                 onClick={() => onSelectHero(i)}
-                className={`rounded-lg border px-1.5 py-2 text-center ${selectedHero === i ? "border-fuchsia-400 bg-fuchsia-500/15" : "border-white/10 bg-black/25"} ${dead ? "opacity-60" : ""}`}
+                className={`flex-1 min-w-0 rounded-md border px-1 py-1.5 transition-all ${
+                  selectedHero === i
+                    ? "border-fuchsia-300/80 bg-fuchsia-500/15"
+                    : "border-white/10 bg-white/[0.02]"
+                } ${dead ? "opacity-45" : ""}`}
                 data-testid={`tactical-hero-${i}`}
+                aria-label={`Select ${heroCls.name}`}
               >
                 <div
-                  className="mx-auto mb-1 w-6 h-6 rounded"
-                  style={{ background: cls.color, boxShadow: `0 0 8px ${cls.color}` }}
+                  className="mx-auto w-4 h-4 rounded-sm"
+                  style={{
+                    background: heroCls.color,
+                    boxShadow: selectedHero === i ? `0 0 8px ${heroCls.color}` : "none",
+                  }}
                 />
-                <div className="font-mono-g text-[9px]" style={{ color: cls.color }}>
-                  {cls.name}
-                </div>
-                <div className={`font-mono-g text-[8px] ${dead ? "text-rose-400" : "text-slate-500"}`}>
-                  {dead ? "FALLEN" : `${Math.round(hero.hp)}/${hero.maxHp}`}
+                <div
+                  className="mt-0.5 font-mono-g text-[7px] truncate"
+                  style={{ color: heroCls.color }}
+                >
+                  {heroCls.name}
                 </div>
               </button>
             );
@@ -69,99 +92,98 @@ export default function TacticalMenu({
         </div>
 
         {selected ? (
-          <>
-            <div className="flex items-center justify-between px-2 py-1.5 mb-2 rounded bg-black/30 border border-white/10">
-              <span className="font-mono-g text-[10px] text-slate-300">
-                SELECTED: <b style={{ color: C.HERO_CLASSES[selected.cls].color }}>{C.HERO_CLASSES[selected.cls].name.toUpperCase()}</b>
-              </span>
-              <span className="flex items-center gap-1 font-mono-g text-[10px] text-yellow-300">
-                <Coins size={11} /> {Math.floor(gold)}G
-              </span>
+          <div className="p-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="font-mono-g text-[8px] text-slate-500 uppercase tracking-wider">
+                {selectedDead ? "STATUS · FALLEN" : `HP · ${Math.round(selected.hp)}/${Math.round(selected.maxHp)}`}
+              </div>
+              <div className="flex items-center gap-1 font-mono-g text-[8px] text-yellow-300">
+                <Coins size={10} /> {Math.floor(gold)}G
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
+            {!selectedDead && (
+              <div className="mb-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles size={11} style={{ color: cls.color }} />
+                  <span className="font-mono-g text-[9px] font-bold" style={{ color: cls.color }}>
+                    {cls.ability.name.toUpperCase()}
+                  </span>
+                </div>
+                <div className="font-mono-g text-[7px] text-slate-500 mt-0.5 leading-tight">
+                  {cls.ability.desc}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-1">
               <NeonButton
                 color="cyan"
-                className="!px-2 !py-2 !text-[9px]"
+                className="!px-1 !py-1.5 !text-[8px]"
                 onClick={() => onAuto(selectedHero)}
                 disabled={selectedDead}
                 data-testid="tactical-auto"
               >
-                AUTO
+                <Crosshair size={10} /> AUTO
               </NeonButton>
+
               <NeonButton
                 color="red"
-                className="!px-2 !py-2 !text-[9px]"
+                className="!px-1 !py-1.5 !text-[8px]"
                 onClick={() => onRetreat(selectedHero)}
                 disabled={selectedDead}
                 data-testid="tactical-retreat"
               >
-                <Shield size={11} /> RETREAT
+                <Shield size={10} /> RETREAT
               </NeonButton>
+
               <NeonButton
                 color="green"
-                className="!px-2 !py-2 !text-[9px]"
+                className="!px-1 !py-1.5 !text-[8px]"
                 onClick={() => onRally(selectedHero)}
                 disabled={selectedDead}
                 data-testid="tactical-rally"
               >
-                <Swords size={11} /> RALLY
+                <UsersRound size={10} /> RALLY
               </NeonButton>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+            <div className="grid grid-cols-2 gap-1 mt-1">
               <button
                 disabled
-                className="rounded border border-cyan-400/20 bg-cyan-500/5 px-2 py-2 font-mono-g text-[9px] text-cyan-400/50"
-                title="Direct healing will be connected to hero abilities next."
-                data-testid="tactical-heal"
+                className="rounded border border-fuchsia-400/20 bg-fuchsia-500/5 px-2 py-1.5 font-mono-g text-[8px] text-fuchsia-400/45"
+                title="Hero abilities will be connected in the next combat ability pass."
+                data-testid="tactical-ability"
               >
-                <Heart size={11} className="mx-auto mb-0.5" /> HEAL
+                <Sparkles size={10} className="inline mr-1" /> ABILITY
               </button>
-              <button
-                disabled
-                className="rounded border border-fuchsia-400/20 bg-fuchsia-500/5 px-2 py-2 font-mono-g text-[9px] text-fuchsia-400/50"
-                title="Spell controls will be connected to hero abilities next."
-                data-testid="tactical-spells"
-              >
-                <Sparkles size={11} className="mx-auto mb-0.5" /> SPELLS
-              </button>
-              <button
-                disabled
-                className="rounded border border-yellow-400/20 bg-yellow-500/5 px-2 py-2 font-mono-g text-[9px] text-yellow-400/50"
-                title="Potion and item inventory will be connected next."
-                data-testid="tactical-items"
-              >
-                <FlaskConical size={11} className="mx-auto mb-0.5" /> POTIONS
-              </button>
-            </div>
 
-            {selectedDead && (
-              <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-950/20 p-2">
-                <div className="font-mono-g text-[9px] text-rose-300 mb-1.5">
-                  {C.HERO_CLASSES[selected.cls].name.toUpperCase()} IS FALLEN
-                </div>
+              {selectedDead ? (
                 <NeonButton
                   color="magenta"
-                  className="w-full !py-2 !text-[10px]"
+                  className="!px-1 !py-1.5 !text-[8px]"
                   onClick={() => onRevive(selectedHero)}
                   disabled={gold < reviveCost}
                   data-testid="tactical-revive"
                 >
-                  <Heart size={12} /> REVIVE · {reviveCost}G
+                  <Heart size={10} /> REVIVE · {reviveCost}G
                 </NeonButton>
-              </div>
-            )}
-          </>
+              ) : (
+                <button
+                  onClick={() => onDetails?.(selectedHero)}
+                  className="rounded border border-cyan-400/20 bg-cyan-500/5 px-2 py-1.5 font-mono-g text-[8px] text-cyan-300/75 hover:text-cyan-200"
+                  data-testid="tactical-details"
+                >
+                  DETAILS
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="font-mono-g text-[10px] text-slate-500 text-center py-2">
-            Select a hero to issue tactical commands.
+          <div className="px-2 py-3 text-center font-mono-g text-[8px] text-slate-500">
+            Tap a hero to change commands.
           </div>
         )}
-
-        <div className="mt-2 text-center font-mono-g text-[8px] text-slate-600 tracking-wider">
-          HEAL · SPELLS · POTIONS ARE RESERVED FOR THE NEXT ABILITY/ITEM PASS
-        </div>
       </div>
     </div>
   );
