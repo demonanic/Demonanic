@@ -6,12 +6,13 @@ import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft } from "lucide-react";
+import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull } from "lucide-react";
 import * as C from "@/game/config";
+import { gameApi } from "@/api";
 import {
   castlePower, slotCap, buildTower, dismantleTower, repairTower, applyTowerUpgrade, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
-  recruitHero, swapHero, heroDerived, productionRates,
+  recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
 
 export default function Preparation() {
@@ -39,6 +40,33 @@ export default function Preparation() {
   };
 
   const startWave = () => { saveNow(); setScreen("battle"); };
+
+  const heal = (list, idx) => act(
+    (s) => healHero(s, list === "squad" ? s.heroes[idx] : s.bench[idx]),
+    "Hero fully healed",
+    "Not enough Food or hero is not wounded"
+  );
+
+  const revive = (list, idx) => act(
+    (s) => reviveHero(s, list === "squad" ? s.heroes[idx] : s.bench[idx]),
+    "Hero revived at 50% HP",
+    "Not enough Gold or hero is not defeated"
+  );
+
+  const adRevive = async (list, idx) => {
+    try {
+      const { data } = await gameApi.reward("revive_hero", "mock_admob", { wave: state.wave, prep: true });
+      if (!data?.granted) throw new Error("Reward not granted");
+      mutate((s) => {
+        const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
+        if (!h || h.hp > 0) return;
+        h.hp = Math.max(1, Math.round(heroDerived(h).maxHp * 0.75));
+      });
+      toast.success("Reward granted — hero revived at 75% HP");
+    } catch {
+      toast.error("Revival reward unavailable");
+    }
+  };
   const hero = openHero ? (openHero.list === "squad" ? state.heroes[openHero.idx] : state.bench[openHero.idx]) : null;
 
   return (
@@ -79,8 +107,36 @@ export default function Preparation() {
 
             {/* SQUAD + RECRUIT */}
             <TabsContent value="heroes">
+              <div className="glass-card rounded-xl p-3 mb-3" data-testid="recovery-panel">
+                <div className="flex items-center justify-between">
+                  <SectionTitle color="green">Castle Recovery</SectionTitle>
+                  <span className="font-mono-g text-[10px] text-green-400">MORALE +{C.RECOVERY.moralePerHour}/h</span>
+                </div>
+                <p className="font-mono-g text-[10px] text-slate-500 mt-1">
+                  Wounded heroes recover +{C.RECOVERY.heroHpPercentPerHour}% max HP/h while resting. Defeated heroes stay down until revived.
+                </p>
+                <div className="mt-2 font-mono-g text-[11px] text-slate-300">
+                  Morale <b className="text-green-400">{Math.round(state.morale)}/100</b>
+                  <span className="text-slate-600 mx-2">·</span>
+                  Food <b className="text-yellow-300">{Math.floor(state.food)}</b>
+                  <span className="text-slate-600 mx-2">·</span>
+                  Resting recovery is active
+                </div>
+              </div>
+
               <div className="grid gap-2.5" data-testid="hero-list">
-                {state.heroes.map((h, i) => <HeroRow key={h.id} h={h} onClick={() => setOpenHero({ list: "squad", idx: i })} testid={`hero-slot-${i}`} />)}
+                {state.heroes.map((h, i) => (
+                  <HeroRow
+                    key={h.id}
+                    h={h}
+                    onClick={() => setOpenHero({ list: "squad", idx: i })}
+                    onHeal={() => heal("squad", i)}
+                    onRevive={() => revive("squad", i)}
+                    onAdRevive={() => adRevive("squad", i)}
+                    food={state.food}
+                    testid={"hero-slot-" + i}
+                  />
+                ))}
               </div>
 
               <div className="glass-card rounded-xl p-3 mt-3" data-testid="recruit-panel">
@@ -171,22 +227,49 @@ export default function Preparation() {
   );
 }
 
-function HeroRow({ h, onClick, testid }) {
+function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
   const d = heroDerived(h);
   const cls = C.HERO_CLASSES[h.cls];
+  const wounded = h.hp > 0 && h.hp < d.maxHp;
+  const defeated = h.hp <= 0;
+  const healCost = Math.ceil(Math.max(0, d.maxHp - h.hp) / 10) * C.HERO_HEAL_FOOD_PER_10HP;
+
   return (
-    <button onClick={onClick} data-testid={testid}
-      className="glass-card rounded-xl p-3 flex items-center gap-3 text-left w-full" style={{ borderLeft: `3px solid ${cls.color}` }}>
-      <div className="w-9 h-11 rounded" style={{ background: cls.color, boxShadow: `0 0 12px ${cls.color}` }} />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-display font-bold" style={{ color: cls.color }}>{cls.name}</span>
-          <span className="font-mono-g text-[10px] text-slate-400">L{h.level}</span>
-          {(h.sp > 0 || h.ap > 0) && <span className="font-mono-g text-[9px] text-fuchsia-400 animate-pulse-glow">SP{h.sp} AP{h.ap}</span>}
+    <div data-testid={testid}
+      className="glass-card rounded-xl p-3 flex items-center gap-3 text-left w-full"
+      style={{ borderLeft: `3px solid ${cls.color}` }}>
+      <button onClick={onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+        <div className="w-9 h-11 rounded" style={{ background: cls.color, boxShadow: `0 0 12px ${cls.color}` }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-display font-bold" style={{ color: cls.color }}>{cls.name}</span>
+            <span className="font-mono-g text-[10px] text-slate-400">L{h.level}</span>
+            {defeated && <span className="font-mono-g text-[9px] text-rose-400">DEFEATED</span>}
+            {wounded && <span className="font-mono-g text-[9px] text-yellow-300">WOUNDED</span>}
+            {(h.sp > 0 || h.ap > 0) && <span className="font-mono-g text-[9px] text-fuchsia-400 animate-pulse-glow">SP{h.sp} AP{h.ap}</span>}
+          </div>
+          <div className="font-mono-g text-[10px] text-slate-500">{h.attackConfig} · {Math.round(h.hp)}/{d.maxHp} HP</div>
+          <StatBar frac={h.hp / d.maxHp} color={defeated ? "#FF0055" : cls.color} height={4} />
         </div>
-        <div className="font-mono-g text-[10px] text-slate-500">{h.attackConfig} · {Math.round(h.hp)}/{d.maxHp} HP</div>
-        <StatBar frac={h.hp / d.maxHp} color={cls.color} height={3} />
+      </button>
+
+      <div className="flex flex-col gap-1 shrink-0">
+        {wounded && (
+          <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" disabled={food < healCost} onClick={onHeal} data-testid={testid + "-heal"}>
+            <Heart size={10} className="mr-1" /> Heal {healCost}f
+          </NeonButton>
+        )}
+        {defeated && (
+          <>
+            <NeonButton color="yellow" className="!px-2 !py-1 !text-[9px]" onClick={onRevive} data-testid={testid + "-revive"}>
+              Revive {C.paidRevivalCost(h.level)}g
+            </NeonButton>
+            <NeonButton color="magenta" className="!px-2 !py-1 !text-[9px]" onClick={onAdRevive} data-testid={testid + "-ad-revive"}>
+              <Skull size={10} className="mr-1" /> Ad Revive
+            </NeonButton>
+          </>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
