@@ -76,6 +76,88 @@ export function TopResourceHUD({ state, compact }) {
   );
 }
 
+
+export function HeroMiniSprite({ cls = "knight", color, size = "md", dead = false }) {
+  const c = color || ({
+    knight: "#00F3FF",
+    rouge: "#FF007F",
+    mage: "#A855F7",
+    archer: "#39FF14",
+  }[cls] || "#00F3FF");
+  const scale = size === "sm" ? 0.72 : size === "lg" ? 1.15 : 1;
+  const shell = {
+    width: (32 * scale) + "px",
+    height: (36 * scale) + "px",
+    "--hero-color": c,
+    opacity: dead ? 0.3 : 1,
+    filter: dead ? "grayscale(0.6)" : ("drop-shadow(0 0 6px " + c + ")"),
+  };
+
+  return (
+    <div className="relative shrink-0 flex items-center justify-center" style={shell} aria-hidden="true">
+      <div
+        className="absolute rounded-t-[45%] rounded-b-[35%] border"
+        style={{
+          width: (19 * scale) + "px",
+          height: (22 * scale) + "px",
+          top: (7 * scale) + "px",
+          background: "rgba(7,10,18,.92)",
+          borderColor: c,
+          boxShadow: "0 0 5px " + c,
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: (8 * scale) + "px",
+          height: (6 * scale) + "px",
+          top: (11 * scale) + "px",
+          background: c,
+          boxShadow: "0 0 5px " + c,
+        }}
+      />
+      <div
+        className="absolute"
+        style={{
+          width: (24 * scale) + "px",
+          height: (10 * scale) + "px",
+          bottom: (3 * scale) + "px",
+          borderRadius: "45% 45% 25% 25%",
+          background: "rgba(12,18,28,.96)",
+          border: "1.5px solid " + c,
+          boxShadow: "0 0 5px " + c,
+        }}
+      />
+      {cls === "knight" && (
+        <div className="absolute rounded-sm" style={{ width: (4 * scale) + "px", height: (15 * scale) + "px", right: (1 * scale) + "px", top: (3 * scale) + "px", background: c, boxShadow: "0 0 5px " + c, transform: "rotate(18deg)" }} />
+      )}
+      {cls === "rouge" && (
+        <>
+          <div className="absolute" style={{ width: (2 * scale) + "px", height: (15 * scale) + "px", left: (2 * scale) + "px", top: (2 * scale) + "px", background: c, transform: "rotate(-24deg)" }} />
+          <div className="absolute" style={{ width: (2 * scale) + "px", height: (15 * scale) + "px", right: (2 * scale) + "px", top: (2 * scale) + "px", background: c, transform: "rotate(24deg)" }} />
+        </>
+      )}
+      {cls === "mage" && (
+        <div className="absolute rounded-full" style={{ width: (7 * scale) + "px", height: (7 * scale) + "px", right: (1 * scale) + "px", top: (1 * scale) + "px", background: c, boxShadow: "0 0 8px " + c }} />
+      )}
+      {cls === "archer" && (
+        <div className="absolute rounded-full border" style={{ width: (16 * scale) + "px", height: (16 * scale) + "px", right: (-2 * scale) + "px", top: (5 * scale) + "px", borderColor: c, borderLeftColor: "transparent", transform: "rotate(-18deg)" }} />
+      )}
+      {dead && <div className="absolute inset-0 flex items-center justify-center text-rose-500 font-black text-lg">×</div>}
+    </div>
+  );
+}
+
+export const TACTICAL_HUD_KEY = "demonanic.tacticalHudOpaque";
+
+export function getTacticalHudOpaque() {
+  try { return localStorage.getItem(TACTICAL_HUD_KEY) === "1"; } catch { return false; }
+}
+
+export function setTacticalHudOpaque(value) {
+  try { localStorage.setItem(TACTICAL_HUD_KEY, value ? "1" : "0"); } catch {}
+}
+
 export const TowerIcon = ({ type, size = 18 }) => {
   const map = { archer: <Users size={size} />, catapult: <Hammer size={size} />, wizard: <Heart size={size} />, ballista: <Shield size={size} /> };
   return map[type] || <Hammer size={size} />;
