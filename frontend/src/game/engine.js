@@ -131,6 +131,26 @@ export class Engine {
     return true;
   }
 
+  reviveHero(index) {
+    const h = this.heroes[index];
+    if (!h || h.alive || h.ref.hp > 0) return false;
+    const cost = C.paidRevivalCost(h.ref.level);
+    if (this.sim.gold < cost) return false;
+
+    this.sim.gold -= cost;
+    h.ref.hp = h.d.maxHp;
+    h.alive = true;
+    h.protect = C.REVIVE_PROTECT_S;
+    h.manual = false;
+    h.ref.manual = false;
+    h.manualTarget = null;
+    h.rallyPoint = null;
+    h.retreating = false;
+    h.x = h.home.x;
+    h.y = h.home.y;
+    return true;
+  }
+
   commandHeroAttackAt(index, x, y) {
     const target = this.active.reduce((best, e) => {
       if (e.hp <= 0) return best;
