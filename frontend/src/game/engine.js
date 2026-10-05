@@ -782,24 +782,17 @@ export class Engine {
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
 
-    // towers (placed freely on the field)
+    // towers — compact top-down gameplay sprites, weapon direction points UP toward enemies.
     for (const t of this.towers) {
-      this._bracketSquare(t.x, t.y, 30, t.d.color);
-      if (t.ref.hp > 0) {
-        this._glowShape(t.x, t.y, 10, t.d.color, t.ref.underfunded ? 0.4 : 1);
-        this._bar(t.x - 15, t.y + 14, 30, 3, t.ref.hp / t.d.maxHp, t.d.color);
-      }
+      this._drawTowerSprite(t);
+      this._bar(t.x - 18, t.y + 17, 36, 3, t.ref.hp / t.d.maxHp, t.d.color);
     }
 
-    // enemies
+    // enemies — top-down sprites face DOWN toward the player/castle.
     for (const e of this.active) {
-      const r = e.boss ? 22 : e.tier === "elite" ? 14 : 9;
-      this._glowShape(e.x, e.y, r, e.color, 1, e.floats);
-      if (e.boss) { // three-headed motif
-        this._glowShape(e.x - 12, e.y - 6, 8, e.color, 1);
-        this._glowShape(e.x + 12, e.y - 6, 8, e.color, 1);
-      }
-      this._bar(e.x - r, e.y - r - 5, r * 2, 3, e.hp / e.maxHp, e.color);
+      const r = e.boss ? 25 : e.tier === "elite" ? 16 : 11;
+      this._drawEnemySprite(e);
+      this._bar(e.x - r, e.y - r - 7, r * 2, 3, e.hp / e.maxHp, e.color);
       if (this.heroes.some((h) => h.manual && h.manualTarget === e)) {
         ctx.save();
         ctx.strokeStyle = "#FFFFFF";
@@ -813,15 +806,10 @@ export class Engine {
       }
     }
 
-    // heroes
+    // heroes — top-down sprites face UP toward incoming enemies.
     for (const h of this.heroes) {
-      ctx.save();
-      ctx.shadowBlur = 16; ctx.shadowColor = h.d.color;
-      ctx.globalAlpha = h.alive ? (h.protect > 0 ? 0.5 : 1) : 0.2;
-      ctx.fillStyle = h.d.color;
-      roundRect(ctx, h.x - 11, h.y - 15, 22, 30, 6); ctx.fill();
-      ctx.restore();
-      this._bar(h.x - 14, h.y + 18, 28, 4, Math.max(0, h.ref.hp) / h.d.maxHp, h.d.color);
+      this._drawHeroSprite(h);
+      this._bar(h.x - 18, h.y + 20, 36, 4, Math.max(0, h.ref.hp) / h.d.maxHp, h.d.color);
     }
 
     // projectiles
@@ -904,6 +892,283 @@ export class Engine {
       ctx.save(); ctx.globalAlpha = Math.max(0, f.life * 1.4);
       ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y); ctx.restore();
     }
+  }
+
+  _drawHeroSprite(h) {
+    const ctx = this.ctx;
+    const color = h.d.color;
+    const alive = h.alive;
+    const alpha = alive ? (h.protect > 0 ? 0.5 : 1) : 0.2;
+    const cls = h.ref.cls;
+
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.globalAlpha = alpha;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = color;
+
+    const stroke = () => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+    };
+    const fill = () => {
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+
+    if (cls === "knight") {
+      // Back-facing helmet, cape, shield and sword all point toward the enemy lane (UP).
+      ctx.beginPath();
+      ctx.moveTo(-10, 9); ctx.lineTo(-8, -7); ctx.lineTo(0, -13);
+      ctx.lineTo(8, -7); ctx.lineTo(10, 9); ctx.lineTo(5, 14);
+      ctx.lineTo(-5, 14); ctx.closePath(); fill(); stroke();
+
+      ctx.fillStyle = "#07111A";
+      ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color; ctx.stroke();
+
+      ctx.fillStyle = "#101820";
+      ctx.beginPath();
+      ctx.moveTo(-14, 8); ctx.lineTo(-7, 4); ctx.lineTo(-6, 13); ctx.lineTo(-13, 15); ctx.closePath();
+      ctx.fill(); stroke();
+
+      ctx.strokeStyle = color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(7, 8); ctx.lineTo(12, -13); ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(10, -13); ctx.lineTo(12, -17); ctx.lineTo(14, -13); ctx.stroke();
+    } else if (cls === "rouge") {
+      // Hooded back silhouette with twin blades angled forward.
+      ctx.beginPath();
+      ctx.moveTo(-10, 12); ctx.lineTo(-8, -6); ctx.lineTo(0, -14);
+      ctx.lineTo(8, -6); ctx.lineTo(10, 12); ctx.lineTo(0, 16); ctx.closePath();
+      fill(); stroke();
+
+      ctx.fillStyle = "#09020D";
+      ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(-7, 6); ctx.lineTo(-15, -12); ctx.moveTo(7, 6); ctx.lineTo(15, -12); ctx.stroke();
+    } else if (cls === "mage") {
+      // Robed back silhouette, staff and arcane orb pointed toward the enemy.
+      ctx.beginPath();
+      ctx.moveTo(-12, 13); ctx.lineTo(-8, -4); ctx.lineTo(0, -12);
+      ctx.lineTo(8, -4); ctx.lineTo(12, 13); ctx.closePath();
+      fill(); stroke();
+
+      ctx.fillStyle = "#090313";
+      ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(9, 13); ctx.lineTo(12, -12); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(12, -15, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10, -13, 2.2, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Archer: hood/back silhouette, bow on the side, arrow aimed UP.
+      ctx.beginPath();
+      ctx.moveTo(-9, 13); ctx.lineTo(-8, -5); ctx.lineTo(0, -13);
+      ctx.lineTo(8, -5); ctx.lineTo(9, 13); ctx.closePath();
+      fill(); stroke();
+
+      ctx.fillStyle = "#071305";
+      ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(10, 0, 10, -1.15, 1.15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(10, 10); ctx.stroke();
+
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(1, -3); ctx.lineTo(1, -16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(1, -16); ctx.lineTo(-1, -12); ctx.moveTo(1, -16); ctx.lineTo(3, -12); ctx.stroke();
+    }
+
+    if (!alive) {
+      ctx.strokeStyle = "#FF0055";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(8, 8); ctx.moveTo(8, -8); ctx.lineTo(-8, 8); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  _drawTowerSprite(t) {
+    const ctx = this.ctx;
+    const color = t.d.color;
+    const active = t.ref.hp > 0;
+    const alpha = active ? (t.ref.underfunded ? 0.45 : 1) : 0.18;
+
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.globalAlpha = alpha;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.shadowBlur = 9;
+    ctx.shadowColor = color;
+
+    ctx.fillStyle = "#171A24";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(0, 4, 15, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    if (t.ref.type === "archer") {
+      ctx.fillStyle = "#252A36";
+      ctx.fillRect(-9, -8, 18, 15);
+      ctx.strokeRect(-9, -8, 18, 15);
+      ctx.strokeStyle = color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, -19); ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-6, -13); ctx.lineTo(0, -19); ctx.lineTo(6, -13); ctx.stroke();
+    } else if (t.ref.type === "catapult") {
+      ctx.fillStyle = "#30251C";
+      ctx.fillRect(-10, -3, 20, 11);
+      ctx.strokeRect(-10, -3, 20, 11);
+      ctx.strokeStyle = color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, -20); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -18, 4, Math.PI, 0); ctx.stroke();
+    } else if (t.ref.type === "wizard") {
+      ctx.fillStyle = "#211735";
+      ctx.beginPath(); ctx.moveTo(-11, 9); ctx.lineTo(-8, -8); ctx.lineTo(0, -16);
+      ctx.lineTo(8, -8); ctx.lineTo(11, 9); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(6, -4); ctx.lineTo(0, 3); ctx.lineTo(-6, -4); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.fillStyle = "#24151A";
+      ctx.fillRect(-11, -5, 22, 12);
+      ctx.strokeRect(-11, -5, 22, 12);
+      ctx.strokeStyle = color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, -20); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-9, -16); ctx.lineTo(9, -16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-4, -20); ctx.lineTo(4, -20); ctx.stroke();
+    }
+
+    if (!active) {
+      ctx.strokeStyle = "#FF0055";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-11, -11); ctx.lineTo(11, 11); ctx.moveTo(11, -11); ctx.lineTo(-11, 11); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  _drawEnemySprite(e) {
+    const ctx = this.ctx;
+    const color = e.color;
+    const boss = !!e.boss;
+    const elite = e.tier === "elite";
+    const s = boss ? 1.8 : elite ? 1.3 : 1;
+    const faceY = 5 * s;
+
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.scale(s, s);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.shadowBlur = boss ? 16 : 10;
+    ctx.shadowColor = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+
+    if (e.type === "ghost" || e.floats && !boss) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, -11); ctx.bezierCurveTo(-10, -7, -11, 6, -8, 10);
+      ctx.lineTo(-4, 6); ctx.lineTo(0, 11); ctx.lineTo(4, 6); ctx.lineTo(8, 10);
+      ctx.bezierCurveTo(11, 6, 10, -7, 0, -11); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#05070C";
+      ctx.beginPath(); ctx.arc(-3, faceY, 2.1, 0, Math.PI * 2); ctx.arc(3, faceY, 2.1, 0, Math.PI * 2); ctx.fill();
+    } else if (e.type === "slime") {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(-11, 8); ctx.quadraticCurveTo(-12, -7, 0, -11);
+      ctx.quadraticCurveTo(12, -7, 11, 8);
+      ctx.quadraticCurveTo(7, 13, 0, 11);
+      ctx.quadraticCurveTo(-7, 13, -11, 8); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#061006";
+      ctx.beginPath(); ctx.arc(-3, 3, 2, 0, Math.PI * 2); ctx.arc(3, 3, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (e.type === "goblin" || e.type === "gnome") {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(-14, -10); ctx.lineTo(-8, 1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(7, -5); ctx.lineTo(14, -10); ctx.lineTo(8, 1); ctx.closePath(); ctx.fill();
+      if (e.type === "gnome") {
+        ctx.beginPath(); ctx.moveTo(-8, -5); ctx.lineTo(0, -17); ctx.lineTo(8, -5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      ctx.fillStyle = "#100A02";
+      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(7, 7); ctx.lineTo(13, -2); ctx.stroke();
+    } else if (e.type === "skeleton" || e.type === "zombie") {
+      ctx.fillStyle = e.type === "skeleton" ? "#18202A" : "#171327";
+      ctx.beginPath(); ctx.arc(0, -3, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-7, 5); ctx.lineTo(-9, 12); ctx.moveTo(7, 5); ctx.lineTo(9, 12);
+      ctx.moveTo(-4, 8); ctx.lineTo(0, 14); ctx.lineTo(4, 8); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(-3, 3, 1.8, 0, Math.PI * 2); ctx.arc(3, 3, 1.8, 0, Math.PI * 2); ctx.fill();
+      if (e.type === "skeleton") {
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-5, 1); ctx.lineTo(5, 1); ctx.moveTo(-5, 5); ctx.lineTo(5, 5); ctx.stroke();
+      }
+    } else if (e.type === "orc") {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#0B0E08";
+      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(-7, 5); ctx.lineTo(-12, 11); ctx.lineTo(-5, 9); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(12, 11); ctx.lineTo(5, 9); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(15, -9); ctx.stroke();
+    } else if (e.type === "reaper" || e.type === "lieutenant") {
+      ctx.fillStyle = e.type === "reaper" ? "#12051B" : "#101A24";
+      ctx.beginPath(); ctx.moveTo(-10, 11); ctx.lineTo(-8, -5); ctx.lineTo(0, -13);
+      ctx.lineTo(8, -5); ctx.lineTo(10, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(-3, 4, 2, 0, Math.PI * 2); ctx.arc(3, 4, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(14, -13); ctx.stroke();
+      if (e.type === "lieutenant") {
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-11, 7, 6, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else {
+      // Boss silhouette: broad body with a distinctive upper silhouette.
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(-20, 12); ctx.lineTo(-17, -5); ctx.lineTo(-28, -13);
+      ctx.lineTo(-12, -11); ctx.lineTo(0, -18); ctx.lineTo(12, -11);
+      ctx.lineTo(28, -13); ctx.lineTo(17, -5); ctx.lineTo(20, 12);
+      ctx.lineTo(0, 19); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = "#090309";
+      ctx.beginPath(); ctx.arc(-9, 3, 3, 0, Math.PI * 2); ctx.arc(9, 3, 3, 0, Math.PI * 2); ctx.fill();
+
+      if (e.type === "demon") {
+        ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-12, -10); ctx.lineTo(-22, -22); ctx.moveTo(12, -10); ctx.lineTo(22, -22); ctx.stroke();
+        ctx.fillStyle = "#0A0303";
+        ctx.beginPath(); ctx.arc(0, 1, 5, 0, Math.PI * 2); ctx.fill();
+      } else if (e.type === "imperialNecromancer") {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(-19, 2, 4, 0, Math.PI * 2); ctx.arc(19, 2, 4, 0, Math.PI * 2); ctx.stroke();
+      } else if (e.type === "nuclearBehemoth") {
+        ctx.fillStyle = "#091307";
+        ctx.beginPath(); ctx.arc(-11, 6, 5, 0, Math.PI * 2); ctx.arc(11, 6, 5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    ctx.restore();
   }
 
   _neonLine(x1, y1, x2, y2, color, w) {
