@@ -33,20 +33,79 @@ export function castleEfficiency(hpFrac) {
 export function farmerCost(owned) { return Math.ceil(50 * Math.pow(1.18, owned)); }
 export function workerCost(owned) { return Math.ceil(75 * Math.pow(1.20, owned)); }
 
-// Section E — towers
+// Section E — combat damage affinities and towers
+export const DAMAGE_TYPES = {
+  KNIGHT_MELEE: "knight_melee",
+  ROUGE_MELEE: "rouge_melee",
+  ARCHER_RANGED: "archer_ranged",
+  ARCANE: "arcane",
+  FIRE: "fire",
+  LIGHTNING: "lightning",
+  FROST: "frost",
+  DARK_SOUL: "dark_soul",
+};
+
+export const AFFINITY_MULTIPLIERS = {
+  susceptible: 1.25,
+  normal: 1,
+  tolerant: 0.6,
+  resistant: 0.3,
+  immune: 0,
+};
+
+export function affinityMultiplier(target, damageType) {
+  return AFFINITY_MULTIPLIERS[target?.affinities?.[damageType] || "normal"] ?? 1;
+}
+
+const NORMAL_AFFINITIES = {
+  [DAMAGE_TYPES.KNIGHT_MELEE]: "normal",
+  [DAMAGE_TYPES.ROUGE_MELEE]: "normal",
+  [DAMAGE_TYPES.ARCHER_RANGED]: "normal",
+  [DAMAGE_TYPES.ARCANE]: "normal",
+  [DAMAGE_TYPES.FIRE]: "normal",
+  [DAMAGE_TYPES.LIGHTNING]: "normal",
+  [DAMAGE_TYPES.FROST]: "normal",
+  [DAMAGE_TYPES.DARK_SOUL]: "normal",
+};
+
+export const BOSS_AFFINITIES = {
+  threeHeadedDemon: {
+    ...NORMAL_AFFINITIES,
+    [DAMAGE_TYPES.ARCANE]: "tolerant",
+    [DAMAGE_TYPES.FIRE]: "resistant",
+    [DAMAGE_TYPES.DARK_SOUL]: "tolerant",
+  },
+  imperialNecromancer: {
+    ...NORMAL_AFFINITIES,
+    [DAMAGE_TYPES.KNIGHT_MELEE]: "susceptible",
+    [DAMAGE_TYPES.ARCANE]: "tolerant",
+    [DAMAGE_TYPES.LIGHTNING]: "tolerant",
+    [DAMAGE_TYPES.FROST]: "tolerant",
+    [DAMAGE_TYPES.DARK_SOUL]: "resistant",
+  },
+  nuclearBehemoth: {
+    ...NORMAL_AFFINITIES,
+    [DAMAGE_TYPES.ARCHER_RANGED]: "susceptible",
+    [DAMAGE_TYPES.ARCANE]: "resistant",
+    [DAMAGE_TYPES.LIGHTNING]: "resistant",
+    [DAMAGE_TYPES.FROST]: "resistant",
+    [DAMAGE_TYPES.DARK_SOUL]: "resistant",
+  },
+};
+
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
     construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
-    baseHp: 500, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#39FF14" },
+    role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 500, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#39FF14" },
   catapult: { key: "catapult", name: "Catapult", icon: "axe",
     construction: { gold: 150, stone: 35, food: 30 }, upkeep: { gold: 12, stone: 3 },
-    baseHp: 650, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
+    role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 650, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
   wizard:   { key: "wizard",   name: "Wizard Tower", icon: "sun",
     construction: { gold: 175, stone: 30, food: 35 }, upkeep: { gold: 14, stone: 3 },
-    baseHp: 575, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
+    role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 575, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
   ballista: { key: "ballista", name: "Ballista / Tower 4", icon: "gear",
     construction: { gold: 225, stone: 50, food: 40 }, upkeep: { gold: 18, stone: 5 },
-    baseHp: 700, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#00F3FF" },
+    role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 700, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#00F3FF" },
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
 
@@ -161,14 +220,16 @@ export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
 
 // Enemy archetypes (base stats; scaled at spawn). Neon roster from reference art.
 export const ENEMIES = {
-  ghost:    { key: "ghost",    name: "Ghost",    tier: "basic",       hp: 40,  speed: 34, damage: 6,  color: "#FF007F", floats: true },
-  slime:    { key: "slime",    name: "Slime",    tier: "basic",       hp: 55,  speed: 22, damage: 8,  color: "#39FF14", magicImmune: true },
+  ghost:    { key: "ghost", name: "Ghost", tier: "basic", hp: 40, speed: 34, damage: 6, color: "#FF007F", floats: true, affinities: { [DAMAGE_TYPES.DARK_SOUL]: "tolerant" } },
+  slime:    { key: "slime", name: "Slime", tier: "basic", hp: 55, speed: 22, damage: 8, color: "#39FF14", magicImmune: true, affinities: { [DAMAGE_TYPES.ARCANE]: "immune", [DAMAGE_TYPES.LIGHTNING]: "resistant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
   goblin:   { key: "goblin",   name: "Goblin",   tier: "basic",       hp: 45,  speed: 40, damage: 7,  color: "#FFE600" },
   skeleton: { key: "skeleton", name: "Skeleton", tier: "specialized", hp: 70,  speed: 30, damage: 12, color: "#E2E8F0" },
-  orc:      { key: "orc",      name: "Orc",      tier: "specialized", hp: 120, speed: 24, damage: 18, color: "#FF6600" },
-  reaper:   { key: "reaper",   name: "Reaper",   tier: "specialized", hp: 90,  speed: 32, damage: 15, color: "#A855F7", floats: true },
+  orc:      { key: "orc", name: "Orc", tier: "specialized", hp: 120, speed: 24, damage: 18, color: "#FF6600", affinities: { [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.FROST]: "susceptible" } },
+  reaper:   { key: "reaper", name: "Reaper", tier: "specialized", hp: 90, speed: 32, damage: 15, color: "#A855F7", floats: true, affinities: { [DAMAGE_TYPES.KNIGHT_MELEE]: "tolerant", [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
   lieutenant:{ key: "lieutenant", name: "Lieutenant", tier: "elite",  hp: 300, speed: 26, damage: 30, color: "#FF3366" },
-  demon:    { key: "demon",    name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true, attackFx: "napalm", attackRange: 420, splashRadius: 68 },
+  demon: { key: "demon", name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true, attackFx: "napalm", attackRange: 420, splashRadius: 68, affinities: BOSS_AFFINITIES.threeHeadedDemon },
+imperialNecromancer: { key: "imperialNecromancer", name: "Imperial Necromancer", tier: "boss", hp: 3000, speed: 18, damage: 48, color: "#8B5CF6", boss: true, affinities: BOSS_AFFINITIES.imperialNecromancer },
+nuclearBehemoth: { key: "nuclearBehemoth", name: "Nuclear Behemoth", tier: "boss", hp: 3400, speed: 16, damage: 60, color: "#84CC16", boss: true, affinities: BOSS_AFFINITIES.nuclearBehemoth },
 };
 export const BASIC_POOL = ["ghost", "slime", "goblin"];
 export const SPEC_POOL = ["skeleton", "orc", "reaper"];
