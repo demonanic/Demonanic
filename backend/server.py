@@ -49,6 +49,31 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
     workers_gold = int(state.get("workersGold", 0))
     workers_stone = int(state.get("workersStone", 0))
     farmers = int(state.get("farmers", 0))
+
+    # Rest/recovery loop: morale recovers while away, and wounded heroes
+    # recover without automatically reviving defeated heroes.
+    recovery_hours = elapsed_min / 60.0
+    morale_before = float(state.get("morale", 50))
+    morale_after = min(100.0, morale_before + gc.RECOVERY_MORALE_PER_HOUR * recovery_hours)
+    state["morale"] = morale_after
+
+    hero_recovery = 0.0
+    base_hp = {"knight": 320, "rouge": 240, "mage": 210, "archer": 230}
+    for roster_key in ("heroes", "bench"):
+        for hero in state.get(roster_key, []) or []:
+            if float(hero.get("hp", 0)) <= 0:
+                continue
+            cls = hero.get("cls") or hero.get("key") or "knight"
+            stats = hero.get("stats") or {}
+            level = int(hero.get("level", 1))
+            defense = float(stats.get("defense", 10))
+            max_hp = float(hero.get("maxHp") or (base_hp.get(cls, 320) + (level - 1) * 28 + defense * 3))
+            old_hp = float(hero.get("hp", 0))
+            if old_hp < max_hp:
+                new_hp = min(max_hp, old_hp + max_hp * (gc.RECOVERY_HERO_HP_PERCENT_PER_HOUR / 100.0) * recovery_hours)
+                hero["hp"] = new_hp
+                hero_recovery += new_hp - old_hp
+
     morale_frac = float(state.get("morale", 50)) / 100.0
     castle_hp = float(state.get("castleHp", 1000))
     castle_max = float(state.get("castleMaxHp", 1000)) or 1000
@@ -68,6 +93,8 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
         "gold": round(gold_gain, 1),
         "stone": round(stone_gain, 1),
         "food": round(food_gain, 1),
+        "moraleRecovered": round(morale_after - morale_before, 1),
+        "heroHpRecovered": round(hero_recovery, 1),
     }
     return state
 
