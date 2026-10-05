@@ -1,14 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useGame } from "@/context/GameProvider";
-import { NeonButton, TopResourceHUD } from "@/components/ui-kit";
+import { NeonButton, TopResourceHUD, getTacticalHudOpaque, setTacticalHudOpaque } from "@/components/ui-kit";
 import { castlePower, slotCap, deployedTowers } from "@/game/logic";
-import { Swords, User, LogOut, Zap, Skull } from "lucide-react";
+import { Swords, User, LogOut, Zap, Skull, Settings2, Eye, EyeOff } from "lucide-react";
 
 export default function Home() {
   const { logout } = useAuth();
+  const [hudOpaque, setHudOpaque] = useState(false);
   const { state, setScreen, offlineGains, setOfflineGains } = useGame();
+
+  useEffect(() => {
+    setHudOpaque(getTacticalHudOpaque());
+  }, []);
 
   useEffect(() => {
     if (offlineGains) {
@@ -28,10 +33,19 @@ export default function Home() {
         style={{ background: "radial-gradient(circle at 50% 0%, rgba(255,0,85,0.25), transparent 55%)" }} />
       <div className="relative flex items-center justify-between p-4">
         <TopResourceHUD state={state} />
-        <NeonButton color="red" onClick={logout} data-testid="logout-button"><LogOut size={14} /></NeonButton>
+        <div className="flex items-center gap-2">
+          <NeonButton color="cyan" onClick={() => { const next = !hudOpaque; setHudOpaque(next); setTacticalHudOpaque(next); }} data-testid="tactical-hud-setting" title="Tactical HUD opacity">
+            <Settings2 size={14} />
+          </NeonButton>
+          <NeonButton color="red" onClick={logout} data-testid="logout-button"><LogOut size={14} /></NeonButton>
+        </div>
       </div>
 
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <div className="absolute top-3 right-4 glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5 font-mono-g text-[8px] text-slate-400" data-testid="tactical-hud-setting-status">
+          {hudOpaque ? <EyeOff size={11} className="text-fuchsia-400" /> : <Eye size={11} className="text-cyan-400" />}
+          TACTICAL HUD · {hudOpaque ? "OPAQUE" : "FLOATING"}
+        </div>
         <Skull className="text-fuchsia-500 mb-3 animate-pulse-glow" size={64} style={{ filter: "drop-shadow(0 0 22px #FF007F)" }} />
         <h1 className="font-display text-6xl font-black text-fuchsia-500 text-glow-magenta tracking-wider">DEMONANIC</h1>
         <p className="font-mono-g text-cyan-400 tracking-[0.3em] text-xs mt-2 mb-8">DEFEND THE KEEP</p>
