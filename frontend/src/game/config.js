@@ -9,6 +9,15 @@ export const TIME = {
   offlineCapHours: 12,      // LOCKED baseline
 };
 
+// Section A2 — castle recovery / return loop
+// Baseline values are intentionally conservative and should be simulated before final balance lock.
+export const RECOVERY = {
+  moralePerHour: 4,         // passive morale recovery while resting
+  heroHpPercentPerHour: 8,  // wounded heroes recover this % of max HP per hour
+  offlineCapHours: 12,      // recovery uses the same offline cap as production
+  reviveHpPercent: 50,      // paid/manual revive returns a defeated hero at 50% HP
+};
+
 // Section B — starting economy & workforce
 export const STARTING = {
   gold: 500, food: 300, stone: 150,
@@ -126,6 +135,7 @@ export const TOWER_UPGRADE_CHOICES = {
 // Repair: 1 Food per 10 missing HP
 export const REPAIR_FOOD_PER_10HP = 1;
 export function repairFoodCost(missingHp) { return Math.ceil(missingHp / 10); }
+export const HERO_HEAL_FOOD_PER_10HP = 1;
 
 // Section F — tower slot progression (CP thresholds)
 export const SLOT_THRESHOLDS = [0, 8, 15, 24, 36]; // slot 1..5
