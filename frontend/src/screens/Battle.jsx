@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "@/context/GameProvider";
 import { Engine, LAYOUT } from "@/game/engine";
 import { HeroCard, TowerCard } from "@/components/cards";
+import TacticalMenu from "@/components/TacticalMenu";
 import DebugPanel from "@/components/DebugPanel";
 import { NeonButton, StatBar } from "@/components/ui-kit";
 import { Coins, Wheat, Mountain, Terminal, Skull } from "lucide-react";
@@ -29,6 +30,7 @@ export default function Battle() {
   const [slowed, setSlowed] = useState(false);
   const [debug, setDebug] = useState(false);
   const [selectedManualHero, setSelectedManualHero] = useState(null);
+  const [tacticalOpen, setTacticalOpen] = useState(false);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -126,6 +128,19 @@ export default function Battle() {
 
   const rallyHeroes = (i) => {
     if (engineRef.current?.rallyHeroes(i)) {
+      setSelectedManualHero(i);
+      forceTick((t) => t + 1);
+    }
+  };
+
+  const reviveHero = (i) => {
+    if (engineRef.current?.reviveHero(i)) {
+      const revived = simRef.current?.heroes?.[i];
+      if (revived) {
+        state.heroes[i].hp = revived.hp;
+        state.heroes[i].manual = false;
+        state.gold = simRef.current.gold;
+      }
       setSelectedManualHero(i);
       forceTick((t) => t + 1);
     }
@@ -237,6 +252,37 @@ export default function Battle() {
       </div>
 
       {/* tower quick access */}
+      <div className="px-2 py-1 border-t border-white/10" data-testid="tactical-command-bar">
+        <NeonButton
+          color="magenta"
+          className="w-full !py-2 !text-[10px] tracking-[0.2em]"
+          onClick={() => {
+            setOpenHero(null);
+            endSlow();
+            setTacticalOpen((v) => !v);
+          }}
+          data-testid="tactical-command-toggle"
+        >
+          {tacticalOpen ? "CLOSE TACTICAL COMMAND" : "TACTICAL COMMANDS"}
+        </NeonButton>
+      </div>
+
+      <TacticalMenu
+        open={tacticalOpen}
+        onClose={() => setTacticalOpen(false)}
+        heroes={state.heroes}
+        selectedHero={selectedManualHero}
+        onSelectHero={(i) => {
+          setSelectedManualHero(i);
+          forceTick((t) => t + 1);
+        }}
+        gold={sim?.gold ?? state.gold}
+        onAuto={(i) => toggleCombatMode(i, "auto")}
+        onRetreat={retreatHero}
+        onRally={rallyHeroes}
+        onRevive={reviveHero}
+      />
+
       <div className="px-2 py-1 flex gap-1.5 border-t border-white/10 overflow-x-auto no-scrollbar" data-testid="tower-rack">
         {state.towers.map((tw, slot) => tw ? (
           <button key={slot} onClick={() => openTowerCard(slot)} data-testid={`battle-tower-${slot}`}
