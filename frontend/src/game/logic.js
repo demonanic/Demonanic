@@ -139,7 +139,29 @@ export function spend(state, cost) {
 }
 
 // continuous production: returns delta resources for dt seconds
+export function recoverOverTime(state, dtSeconds) {
+  if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
+  const hours = dtSeconds / 3600;
+
+  // Morale recovers while the castle is resting. This is deliberately separate
+  // from the morale multiplier so recovery itself never creates a runaway loop.
+  state.morale = Math.min(100, state.morale + C.RECOVERY.moralePerHour * hours);
+
+  // Wounded heroes recover over time, but defeated heroes remain defeated until
+  // the player explicitly revives them. This preserves a meaningful prep decision.
+  const hpFrac = (C.RECOVERY.heroHpPercentPerHour / 100) * hours;
+  for (const h of state.heroes || []) {
+    const maxHp = heroDerived(h).maxHp;
+    if (h.hp > 0 && h.hp < maxHp) h.hp = Math.min(maxHp, h.hp + maxHp * hpFrac);
+  }
+  for (const h of state.bench || []) {
+    const maxHp = heroDerived(h).maxHp;
+    if (h.hp > 0 && h.hp < maxHp) h.hp = Math.min(maxHp, h.hp + maxHp * hpFrac);
+  }
+}
+
 export function produce(state, dtSeconds) {
+  recoverOverTime(state, dtSeconds);
   const moraleMul = C.moraleMultiplier(state.morale / 100);
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff * (dtSeconds / 60);
@@ -273,9 +295,35 @@ export function buyPerk(hero, perk, tier = 1) {
   hero.ap -= cost; hero.perks.push(perk); return true;
 }
 
-// ---- morale ----
+// ---- recovery / morale ----
 export function addMorale(state, delta) {
   state.morale = Math.max(0, Math.min(100, state.morale + delta));
+}
+
+export function healHero(state, hero) {
+  if (!hero || hero.hp <= 0) return false;
+  const maxHp = heroDerived(hero).maxHp;
+  const missing = maxHp - hero.hp;
+  if (missing <= 0) return false;
+  const cost = Math.ceil(missing / 10) * C.HERO_HEAL_FOOD_PER_10HP;
+  if (state.food < cost) return false;
+  state.food -= cost;
+  hero.hp = maxHp;
+  return true;
+}
+
+export function reviveHero(state, hero) {
+  if (!hero || hero.hp > 0) return false;
+  const cost = C.paidRevivalCost(hero.level);
+  if (state.gold < cost) return false;
+  const maxHp = heroDerived(hero).maxHp;
+  state.gold -= cost;
+  hero.hp = Math.max(1, Math.round(maxHp * (C.RECOVERY.reviveHpPercent / 100)));
+  return true;
+}
+
+export function recoverAllWounded(state) {
+  recoverOverTime(state, 3600);
 }
 
 // ---- castle repair (prep) ----
