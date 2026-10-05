@@ -105,7 +105,7 @@ export const BOSS_AFFINITIES = {
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
     construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
-    role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 500, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#39FF14" },
+    role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 500, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#00F3FF" },
   catapult: { key: "catapult", name: "Catapult", icon: "axe",
     construction: { gold: 150, stone: 35, food: 30 }, upkeep: { gold: 12, stone: 3 },
     role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 650, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
@@ -114,7 +114,7 @@ export const TOWERS = {
     role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 575, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
   ballista: { key: "ballista", name: "Ballista / Tower 4", icon: "gear",
     construction: { gold: 225, stone: 50, food: 40 }, upkeep: { gold: 18, stone: 5 },
-    role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 700, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#00F3FF" },
+    role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 700, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#FF0055" },
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
 
@@ -165,7 +165,7 @@ export const HERO_CLASSES = {
     mods: { defense: 3 }, baseHp: 320, attackRange: 70, attackRate: 1.1,
     ability: { name: "Shield Bash", desc: "Stuns and deals bonus melee damage." },
     perks: ["Bulwark (+DEF)", "Cleave (hit 2 targets)", "Iron Wall (+15% max HP)"] },
-  rouge: { key: "rouge", name: "Rouge", role: "Blitz", color: "#39FF14",
+  rouge: { key: "rouge", name: "Rouge", role: "Blitz", color: "#FF007F",
     mods: { agility: 3 }, baseHp: 240, attackRange: 90, attackRate: 0.5,
     ability: { name: "Blitz Strike", desc: "Rapid multi-hit on nearest enemy." },
     perks: ["Flurry (+atk speed)", "Backstab (+crit)", "Evasion (+dodge)"] },
@@ -173,7 +173,7 @@ export const HERO_CLASSES = {
     mods: { intelligence: 3 }, baseHp: 210, attackRange: 300, attackRate: 1.6, magic: true,
     ability: { name: "Arcane Bolt", desc: "Magic damage; configurable to heal/buff." },
     perks: ["Firestorm (AoE)", "Mend (heal squad)", "Barrier (shield)"] },
-  archer: { key: "archer", name: "Archer", role: "Sniper / Targeting", color: "#FFE600",
+  archer: { key: "archer", name: "Archer", role: "Sniper / Targeting", color: "#39FF14",
     mods: { attack: 3 }, baseHp: 230, attackRange: 340, attackRate: 1.0,
     ability: { name: "Piercing Shot", desc: "Long-range shot; can snipe a type." },
     perks: ["Eagle Eye (+range)", "Rapid Draw (+atk speed)", "Focus Fire (+dmg vs low HP)"] },
@@ -230,13 +230,13 @@ export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
 
 // Enemy archetypes (base stats; scaled at spawn). Neon roster from reference art.
 export const ENEMIES = {
-  ghost:    { key: "ghost", name: "Ghost", tier: "basic", hp: 40, speed: 34, damage: 6, color: "#FF007F", floats: true, affinities: { [DAMAGE_TYPES.DARK_SOUL]: "tolerant" } },
+  ghost:    { key: "ghost", name: "Ghost", tier: "basic", hp: 40, speed: 34, damage: 6, color: "#00F3FF", floats: true, affinities: { [DAMAGE_TYPES.DARK_SOUL]: "tolerant" } },
   slime:    { key: "slime", name: "Slime", tier: "basic", hp: 55, speed: 22, damage: 8, color: "#39FF14", magicImmune: true, affinities: { [DAMAGE_TYPES.ARCANE]: "immune", [DAMAGE_TYPES.LIGHTNING]: "resistant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
   goblin:   { key: "goblin",   name: "Goblin",   tier: "basic",       hp: 45,  speed: 40, damage: 7,  color: "#FFE600" },
-  skeleton: { key: "skeleton", name: "Skeleton", tier: "specialized", hp: 70,  speed: 30, damage: 12, color: "#E2E8F0" },
+  skeleton: { key: "skeleton", name: "Skeleton", tier: "specialized", hp: 70,  speed: 30, damage: 12, color: "#FF3366" },
   orc:      { key: "orc", name: "Orc", tier: "specialized", hp: 120, speed: 24, damage: 18, color: "#FF6600", affinities: { [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.FROST]: "susceptible" } },
   reaper:   { key: "reaper", name: "Reaper", tier: "specialized", hp: 90, speed: 32, damage: 15, color: "#A855F7", floats: true, affinities: { [DAMAGE_TYPES.KNIGHT_MELEE]: "tolerant", [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
-  lieutenant:{ key: "lieutenant", name: "Lieutenant", tier: "elite",  hp: 300, speed: 26, damage: 30, color: "#FF3366" },
+  lieutenant:{ key: "lieutenant", name: "Lieutenant", tier: "elite",  hp: 300, speed: 26, damage: 30, color: "#00F3FF" },
   demon: { key: "demon", name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true, attackFx: "napalm", attackRange: 420, splashRadius: 68, affinities: BOSS_AFFINITIES.threeHeadedDemon },
 imperialNecromancer: { key: "imperialNecromancer", name: "Imperial Necromancer", tier: "boss", hp: 3000, speed: 18, damage: 48, color: "#8B5CF6", boss: true, affinities: BOSS_AFFINITIES.imperialNecromancer },
 nuclearBehemoth: { key: "nuclearBehemoth", name: "Nuclear Behemoth", tier: "boss", hp: 3400, speed: 16, damage: 60, color: "#84CC16", boss: true, affinities: BOSS_AFFINITIES.nuclearBehemoth },
