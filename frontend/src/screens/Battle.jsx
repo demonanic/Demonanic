@@ -4,7 +4,7 @@ import { Engine, LAYOUT } from "@/game/engine";
 import { HeroCard, TowerCard } from "@/components/cards";
 import TacticalMenu from "@/components/TacticalMenu";
 import DebugPanel from "@/components/DebugPanel";
-import { NeonButton, StatBar, HeroMiniSprite, getTacticalHudOpaque, setTacticalHudOpaque } from "@/components/ui-kit";
+import { NeonButton, StatBar, HeroMiniSprite, TowerIcon, getTacticalHudOpaque, setTacticalHudOpaque } from "@/components/ui-kit";
 import { Coins, Terminal, Skull, Crosshair } from "lucide-react";
 import { TIME } from "@/game/config";
 import * as C from "@/game/config";
@@ -355,8 +355,9 @@ export default function Battle() {
       <div className="px-2 py-1 flex gap-1.5 border-t border-white/10 overflow-x-auto no-scrollbar" data-testid="tower-rack">
         {state.towers.map((tw, slot) => tw ? (
           <button key={slot} onClick={() => openTowerCard(slot)} data-testid={`battle-tower-${slot}`}
-            className="shrink-0 bracket rounded px-2 py-1 flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: C.TOWERS[tw.type].color, boxShadow: `0 0 8px ${C.TOWERS[tw.type].color}` }} />
+            className="shrink-0 bracket rounded px-2 py-1 flex items-center gap-1"
+            style={{ color: C.TOWERS[tw.type].color }}>
+            <TowerIcon type={tw.type} size={13} />
             <span className="font-mono-g text-[9px] text-slate-300">L{tw.level}</span>
           </button>
         ) : null)}
