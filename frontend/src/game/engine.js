@@ -964,6 +964,10 @@ export class Engine {
     for (const t of this.towers) {
       this._drawTowerSprite(t);
       this._bar(t.x - 18, t.y + 17, 36, 3, t.ref.hp / t.d.maxHp, t.d.color);
+      const tr = C.TOWER_RESOURCE[t.ref.type];
+      const cur = tr.kind === "ammo" ? (t.ref.ammo || 0) : (t.ref.mana || 0);
+      const max = tr.kind === "ammo" ? t.d.maxAmmo : t.d.maxMana;
+      this._bar(t.x - 18, t.y + 22, 36, 2, max > 0 ? cur / max : 0, "#FFE600");
     }
 
     // enemies — top-down sprites face DOWN toward the player/castle.
@@ -981,6 +985,12 @@ export class Engine {
         ctx.arc(e.x, e.y, r + 4 + 2 * Math.sin(this.time * 6), 0, 7);
         ctx.stroke();
         ctx.restore();
+      } else if (e.type === "darkElf" && e.hp > 0) {
+        ctx.save(); ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 1.4; ctx.shadowBlur = 10; ctx.shadowColor = "#F43F5E";
+        ctx.beginPath(); ctx.arc(e.x, e.y, r + 5 + 2 * Math.sin(this.time * 8), 0, 7); ctx.stroke(); ctx.restore();
+      } else if (e.type === "warlock" && e.hp > 0) {
+        ctx.save(); ctx.strokeStyle = "#C026D3"; ctx.lineWidth = 1.4; ctx.shadowBlur = 10; ctx.shadowColor = "#C026D3"; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.arc(e.x, e.y, r + 6, 0, 7); ctx.stroke(); ctx.restore();
       } else if (e.type === "lieutenant" && e.hp > 0) {
         ctx.save();
         ctx.strokeStyle = "#00F3FF";
@@ -1451,6 +1461,22 @@ export class Engine {
       eye(-3, -1, 2); eye(3, -1, 2);
       neon(2.8); ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(16, -10); ctx.stroke();
       neon(2); ctx.beginPath(); ctx.moveTo(13, -14); ctx.lineTo(20, -10); ctx.stroke();
+    } else if (e.type === "darkElf") {
+      ctx.fillStyle = "#160A16";
+      ctx.beginPath(); ctx.moveTo(-9, 11); ctx.lineTo(-8, -6); ctx.lineTo(0, -14); ctx.lineTo(8, -6); ctx.lineTo(9, 11); ctx.closePath(); ctx.fill(); outline();
+      ctx.fillStyle = "#05050A"; ctx.beginPath(); ctx.arc(0, -3, 6, 0, Math.PI * 2); ctx.fill();
+      eye(-3, -3, 2); eye(3, -3, 2);
+      neon(2.3); ctx.beginPath(); ctx.moveTo(-7, 7); ctx.lineTo(-16, -7); ctx.moveTo(7, 7); ctx.lineTo(16, -7); ctx.stroke();
+      neon(1.4); ctx.beginPath(); ctx.moveTo(-8, -7); ctx.lineTo(-15, -13); ctx.moveTo(8, -7); ctx.lineTo(15, -13); ctx.stroke();
+    } else if (e.type === "warlock") {
+      ctx.fillStyle = "#16091A";
+      ctx.beginPath(); ctx.moveTo(-10, 12); ctx.lineTo(-9, -4); ctx.lineTo(0, -15); ctx.lineTo(9, -4); ctx.lineTo(10, 12); ctx.closePath(); ctx.fill(); outline();
+      ctx.fillStyle = "#05030A"; ctx.beginPath(); ctx.arc(0, -5, 6, 0, Math.PI * 2); ctx.fill();
+      eye(-3, -5, 1.8); eye(3, -5, 1.8);
+      neon(2); ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(13, -15); ctx.stroke();
+      ctx.fillStyle = color; ctx.shadowBlur = 14; ctx.shadowColor = color;
+      ctx.beginPath(); ctx.arc(14, -18, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-9, 7, 2.5, 0, Math.PI * 2); ctx.fill();
     } else if (e.type === "reaper") {
       // Hooded elite with scythe — deliberately different from the lieutenant.
       ctx.fillStyle = "#12081B";
