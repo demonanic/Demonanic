@@ -284,6 +284,13 @@ export function equipItem(state, heroIndex, itemId, targetSlot = null) {
   const slot = targetSlot || item.slot;
   if (!EQUIPMENT_SLOTS.includes(slot)) return false;
 
+  // Ring I and Ring II are interchangeable physical slots. Every other item
+  // must be equipped in the slot it was generated for; callers cannot use
+  // targetSlot to turn armor into a weapon or vice versa.
+  const ringCompatible = (item.slot === "Ring1" || item.slot === "Ring2")
+    && (slot === "Ring1" || slot === "Ring2");
+  if (item.slot !== slot && !ringCompatible) return false;
+
   const old = hero.equipment?.[slot];
   hero.equipment = { ...(hero.equipment || {}), [slot]: item };
   state.vault.splice(itemIndex, 1);
