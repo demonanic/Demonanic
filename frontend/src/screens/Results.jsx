@@ -42,8 +42,16 @@ export default function Results() {
         ) : (
           <>
             <Skull className="mx-auto text-rose-500 mb-2 animate-pulse-glow" size={48} style={{ filter: "drop-shadow(0 0 16px #FF0055)" }} />
-            <h1 className="font-display font-black text-4xl text-rose-500 text-glow-red uppercase tracking-wider">Castle Fallen</h1>
-            <p className="font-mono-g text-xs text-slate-400 mb-4">The keep was breached on wave {r.wave}</p>
+            <h1 className="font-display font-black text-4xl text-rose-500 text-glow-red uppercase tracking-wider">
+              {r.reason === "heroes" ? "Squad Fallen" : r.reason === "breach" ? "Castle Breached" : "Castle Fallen"}
+            </h1>
+            <p className="font-mono-g text-xs text-slate-400 mb-4">
+              {r.reason === "heroes"
+                ? "All heroes fell in combat."
+                : r.reason === "breach"
+                  ? "A majority of the enemy wave reached the castle."
+                  : "The keep was destroyed on wave " + r.wave + "."}
+            </p>
           </>
         )}
 
