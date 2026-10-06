@@ -184,26 +184,29 @@ export function TowerCard({ tower, editable, onUpgrade, onClose, slowed }) {
         <div className="grid grid-cols-2 gap-2 font-mono-g text-xs mb-4">
           <Info label="HP" value={`${Math.round(tower.hp)}/${d.maxHp}`} color={t.color} />
           <Info label="DAMAGE" value={Math.round(d.damage)} color={t.color} />
+          <Info label={d.resourceLabel} value={d.resourceKind === "ammo" ? `${Math.round(tower.ammo || 0)}/${d.maxAmmo}` : `${Math.round(tower.mana || 0)}/${d.maxMana}`} color="#FFE600" />
           <Info label="RANGE" value={d.range} color={t.color} />
           <Info label="FIRE RATE" value={`${d.fireRate.toFixed(1)}/s`} color={t.color} />
-          <Info label="UPKEEP" value={`${t.upkeep.gold}g ${t.upkeep.stone}s`} color="#FFE600" />
+          <Info label="UPKEEP / WAVE" value={`${Math.ceil(t.upkeep.gold * (1 + Math.max(0, tower.level - 1) * 0.15))}g ${Math.ceil(t.upkeep.stone * (1 + Math.max(0, tower.level - 1) * 0.15))}s`} color="#FFE600" />
           <Info label="SPY" value={`${Math.round((C.SCOUT.towerSpyBase + t.spyBonus / 100) * 100)}%`} color="#00F3FF" />
         </div>
         {editable && tower.pending > 0 ? (
           <div>
-            <div className="font-mono-g text-[10px] text-yellow-300 uppercase tracking-widest mb-2 animate-pulse-glow">⬆ {tower.pending} Level-Up Choice(s) available</div>
-            <div className="flex gap-2">
-              {Object.values(C.TOWER_UPGRADE_CHOICES).map((ch) => (
-                <button key={ch.key} onClick={() => onUpgrade(ch.key)} data-testid={`tower-upgrade-${ch.key}`}
-                  className="flex-1 p-2 rounded-lg border border-cyan-400/40 bg-black/40 hover:bg-cyan-500/20 text-left">
-                  <div className="font-mono-g text-xs font-bold text-cyan-300">{ch.label}</div>
-                  <div className="font-mono-g text-[10px] text-slate-400">{ch.desc}</div>
+            <div className="font-mono-g text-[10px] text-yellow-300 uppercase tracking-widest mb-2 animate-pulse-glow">⬆ {tower.pending} Tower Upgrade{tower.pending > 1 ? "s" : ""} Available</div>
+            {(() => {
+              const cost = C.towerUpgradeCost(tower);
+              return (
+                <button onClick={onUpgrade} data-testid="tower-upgrade"
+                  className="w-full p-2 rounded-lg border border-cyan-400/40 bg-black/40 hover:bg-cyan-500/20 text-left">
+                  <div className="font-mono-g text-xs font-bold text-cyan-300">UPGRADE TO LVL {tower.level + 1}</div>
+                  <div className="font-mono-g text-[10px] text-slate-400">+10% max HP · +10% damage · +12% ammo/mana capacity</div>
+                  <div className="font-mono-g text-[10px] text-yellow-300 mt-1">Cost {cost.gold}g · {cost.stone}s</div>
                 </button>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         ) : (
-          <div className="font-mono-g text-[10px] text-slate-500">Towers earn XP from kills and level up. Upgrade choices appear here.</div>
+          <div className="font-mono-g text-[10px] text-slate-500">Tower XP unlocks paid upgrades. Each upgrade increases HP, damage, and ammo/mana capacity.</div>
         )}
         {tower.choices.length > 0 && (
           <div className="mt-3 font-mono-g text-[10px] text-slate-400">Upgrades: {tower.choices.join(", ")}</div>
