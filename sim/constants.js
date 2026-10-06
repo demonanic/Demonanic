@@ -35,15 +35,15 @@ export const HERO_CLASSES = {
 };
 
 export const ENEMY_SCALING = {
-  hpMultiplier:     (wave, cp) => 1 + 0.045 * (wave - 1) + 0.02 * cp,
-  damageMultiplier: (wave, cp) => 1 + 0.035 * (wave - 1) + 0.015 * cp,
+  hpMultiplier:     (wave, cp) => 1 + 0.05 * (wave - 1) + 0.02 * cp,
+  damageMultiplier: (wave, cp) => 1 + 0.032 * (wave - 1) + 0.015 * cp,
   enemyCount:       (wave, cp) => Math.max(6, Math.round(12 + 2.5 * wave + 0.75 * cp)),
 };
 
 export const BOSS_BASE = {
-  ThreeHeadedDemon:    { wave: 5, hp: 2600, damage: 55 },
-  ImperialNecromancer: { wave: 10, hp: 3000, damage: 48 },
-  NuclearBehemoth:     { wave: 15, hp: 3400, damage: 60 },
+  ThreeHeadedDemon:    { wave: 5, hp: 2800, damage: 55 },
+  ImperialNecromancer: { wave: 10, hp: 3300, damage: 48 },
+  NuclearBehemoth:     { wave: 15, hp: 3800, damage: 60 },
 };
 
 export const TOWERS = {
