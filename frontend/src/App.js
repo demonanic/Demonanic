@@ -10,6 +10,7 @@ import Preparation from "@/screens/Preparation";
 import Battle from "@/screens/Battle";
 import Results from "@/screens/Results";
 import Profile from "@/screens/Profile";
+import Armory from "@/screens/Armory";
 
 function Splash({ label = "SUMMONING..." }) {
   return (
@@ -34,6 +35,7 @@ function GameRouter() {
     case "battle": return <Battle />;
     case "results": return <Results />;
     case "profile": return <Profile />;
+    case "armory": return <Armory />;
     default: return <Home />;
   }
 }
