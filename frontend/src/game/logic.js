@@ -398,7 +398,11 @@ export function buildWave(state, seedRand = Math.random) {
     for (let i = 0; i < elites; i++)
       enemies.push(makeEnemy(idCounter++, C.ENEMIES.lieutenant, hpS, dmgS, 0, "squad"));
   }
-  if (bossWave) enemies.push(makeEnemy(idCounter++, C.ENEMIES.demon, hpS, dmgS, 0, "castle"));
+  if (bossWave) {
+    const bossCycle = ["demon", "imperialNecromancer", "nuclearBehemoth"];
+    const bossKey = bossCycle[(Math.floor(state.wave / 5) - 1) % bossCycle.length];
+    enemies.push(makeEnemy(idCounter++, C.ENEMIES[bossKey], hpS, dmgS, 0, "castle"));
+  }
 
   return { enemies, total: enemies.length, groups, hasBoss: bossWave };
 }
@@ -427,7 +431,12 @@ export function freeLife(state) {
   state.food = Math.floor(state.food * C.FREE_LIFE.keepResourceFrac);
   state.stone = Math.floor(state.stone * C.FREE_LIFE.keepResourceFrac);
   for (const h of state.heroes) { const d = heroDerived(h); h.hp = d.maxHp; }
-  for (const t of state.towers) if (t) t.hp = towerDerived(t).maxHp;
+  for (const t of state.towers) if (t) {
+    const d = towerDerived(t);
+    t.hp = d.maxHp;
+    if (d.resourceKind === "ammo") { t.maxAmmo = d.maxAmmo; t.ammo = d.maxAmmo; }
+    else { t.maxMana = d.maxMana; t.mana = d.maxMana; }
+  }
   state.castleHp = state.castleMaxHp;
   state.morale = C.FREE_LIFE.moraleReset;
   state.freeLifeUsed = true;
