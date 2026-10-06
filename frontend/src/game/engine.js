@@ -75,6 +75,11 @@ export class Engine {
     // tower runtime (free placement: use each tower's own x,y)
     this.towers = sim.towers.map((t, idx) => {
       const d = towerDerived(t);
+      const r = C.TOWER_RESOURCE[t.type];
+      if (r.kind === "ammo" && t.ammo == null) t.ammo = d.maxAmmo;
+      if (r.kind === "ammo" && t.maxAmmo == null) t.maxAmmo = d.maxAmmo;
+      if (r.kind === "mana" && t.mana == null) t.mana = d.maxMana;
+      if (r.kind === "mana" && t.maxMana == null) t.maxMana = d.maxMana;
       return { slot: idx, ref: t, x: t.x, y: t.y, d, cd: 0 };
     });
 
