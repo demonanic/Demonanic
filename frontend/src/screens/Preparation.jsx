@@ -10,7 +10,7 @@ import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Sk
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
-  castlePower, slotCap, buildTower, dismantleTower, repairTower, applyTowerUpgrade, repositionTower,
+  castlePower, slotCap, buildTower, dismantleTower, repairTower, upgradeTower, resupplyTower, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
   recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
@@ -34,6 +34,8 @@ export default function Preparation() {
     reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
     dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
     repairTower: (index) => act((s) => repairTower(s, index), "Repaired"),
+    upgradeTower: (index) => act((s) => upgradeTower(s, index), "Tower upgraded"),
+    resupplyTower: (index) => act((s) => resupplyTower(s, index), "Tower fully resupplied"),
     openCard: (index) => setOpenTower(index),
     buyBarricade: (pos, g) => act((s) => buyBarricade(s, pos, g), `+${g * C.BARRICADE.goldToHp} HP`),
     repairBarricade: (pos) => act((s) => repairBarricade(s, pos), "Repaired"),
@@ -232,7 +234,7 @@ export default function Preparation() {
       )}
       {openTower != null && state.towers[openTower] && (
         <TowerCard tower={state.towers[openTower]} editable
-          onUpgrade={(ch) => mutate((s) => { if (!applyTowerUpgrade(s, openTower, ch)) toast.error("No pending upgrade"); else toast.success("Tower upgraded"); })}
+          onUpgrade={() => { if (!handlers.upgradeTower(openTower)) toast.error("Need the upgrade resources"); }}
           onClose={() => setOpenTower(null)} />
       )}
       {debug && <DebugPanel onClose={() => setDebug(false)} />}
