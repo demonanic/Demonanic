@@ -102,6 +102,31 @@ export const BOSS_AFFINITIES = {
   },
 };
 
+export const TOWER_RESOURCE = {
+  archer: { kind: "ammo", label: "AMMO", max: 120, shotCost: 1, resupplyGold: 1, resupplyStone: 0 },
+  catapult: { kind: "ammo", label: "AMMO", max: 30, shotCost: 3, resupplyGold: 4, resupplyStone: 1 },
+  wizard: { kind: "mana", label: "MANA", max: 100, shotCost: 8, resupplyGold: 3, resupplyStone: 0 },
+  ballista: { kind: "ammo", label: "BOLTS", max: 40, shotCost: 2, resupplyGold: 3, resupplyStone: 1 },
+};
+
+export const TOWER_UPGRADE = {
+  hpMult: 0.10,
+  damageMult: 0.10,
+  resourceMult: 0.12,
+  baseGold: 180,
+  baseStone: 45,
+  levelScale: 1.32,
+};
+
+export function towerUpgradeCost(tower) {
+  const t = TOWERS[tower.type];
+  const level = Math.max(1, tower.level || 1);
+  return {
+    gold: Math.ceil((t.construction.gold * 0.9 + TOWER_UPGRADE.baseGold) * Math.pow(TOWER_UPGRADE.levelScale, level - 1)),
+    stone: Math.ceil((t.construction.stone * 0.9 + TOWER_UPGRADE.baseStone) * Math.pow(TOWER_UPGRADE.levelScale, level - 1)),
+  };
+}
+
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
     construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
@@ -148,7 +173,8 @@ export function slotCapacity(cp) {
 // Section G — barricades (5 positions)
 export const BARRICADE = {
   positions: 5, goldToHp: 2, minGold: 25, maxGold: 500, maxHp: 1000,
-  collisionDamage: 8, // OPEN: collision damage/sec placeholder
+  collisionDamage: 8,
+  repairFoodPer10Hp: 1,
 };
 
 // Section H — hero progression
@@ -236,13 +262,15 @@ export const ENEMIES = {
   skeleton: { key: "skeleton", name: "Skeleton", tier: "specialized", hp: 70,  speed: 30, damage: 12, color: "#FF3366" },
   orc:      { key: "orc", name: "Orc", tier: "specialized", hp: 120, speed: 24, damage: 18, color: "#FF6600", affinities: { [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.FROST]: "susceptible" } },
   reaper:   { key: "reaper", name: "Reaper", tier: "specialized", hp: 90, speed: 32, damage: 15, color: "#A855F7", floats: true, affinities: { [DAMAGE_TYPES.KNIGHT_MELEE]: "tolerant", [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
+  darkElf: { key: "darkElf", name: "Dark Elf", tier: "specialized", hp: 105, speed: 38, damage: 17, color: "#F43F5E", affinities: { [DAMAGE_TYPES.DARK_SOUL]: "susceptible", [DAMAGE_TYPES.ARCHER_RANGED]: "tolerant" } },
+  warlock: { key: "warlock", name: "Warlock", tier: "specialized", hp: 115, speed: 20, damage: 13, color: "#C026D3", affinities: { [DAMAGE_TYPES.ARCANE]: "tolerant", [DAMAGE_TYPES.DARK_SOUL]: "resistant" } },
   lieutenant:{ key: "lieutenant", name: "Lieutenant", tier: "elite",  hp: 300, speed: 26, damage: 30, color: "#00F3FF" },
   demon: { key: "demon", name: "Three-Headed Demon", tier: "boss", hp: 2600, speed: 20, damage: 55, color: "#FF0055", boss: true, attackFx: "napalm", attackRange: 420, splashRadius: 68, affinities: BOSS_AFFINITIES.threeHeadedDemon },
 imperialNecromancer: { key: "imperialNecromancer", name: "Imperial Necromancer", tier: "boss", hp: 3000, speed: 18, damage: 48, color: "#8B5CF6", boss: true, affinities: BOSS_AFFINITIES.imperialNecromancer },
 nuclearBehemoth: { key: "nuclearBehemoth", name: "Nuclear Behemoth", tier: "boss", hp: 3400, speed: 16, damage: 60, color: "#84CC16", boss: true, affinities: BOSS_AFFINITIES.nuclearBehemoth },
 };
 export const BASIC_POOL = ["ghost", "slime", "goblin"];
-export const SPEC_POOL = ["skeleton", "orc", "reaper"];
+export const SPEC_POOL = ["skeleton", "orc", "reaper", "darkElf", "warlock"];
 
 // Section O — surrender / revival
 export function surrenderTaxRate(wave) { return Math.min(0.25, 0.05 + 0.02 * Math.floor(wave / 5)); }
