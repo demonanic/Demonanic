@@ -12,9 +12,9 @@ export function runCombatMatrix(opts={}){
     if(!v.pass||!e.pass){rows.push({cp,family,equip,wave,mode,discarded:true,failures:[...v.failures,...e.failures]});continue}
     const samples=[];
     for(let i=0;i<trials;i++){const boss=bossForWave(wave);const b=simulateCombat(state,wave,cp,boss,mode,{rngSeed:seedBase+i});samples.push(summarize(b,state))}
-    rows.push({cp,family,equip,wave,mode,integrationStatus:equip==='E0'?'ENGINE-FAITHFUL':'PROJECTION',enemyBehaviorMode:mode===D.RANGED_MODE.A?'MODE_A_ENGINE_FAITHFUL':'MODE_B_PROPOSED',discarded:false,samples});
+    rows.push({cp,family,equip,wave,mode,integrationStatus:equip==='E0'?'ENGINE-FAITHFUL':'ENGINE-FAITHFUL_CURRENT_CATALOG',enemyBehaviorMode:mode===D.RANGED_MODE.A?'MODE_A_ENGINE_FAITHFUL':'MODE_B_PROPOSED',discarded:false,samples});
   }
-  return {header:{generatedAt:new Date().toISOString(),simulatorVersion:'combat-v0.1',declaration:'sim/COMBAT_DECLARATION.md',trialsPerScenario:trials,seedBase,primaryGeometrySensitivity:D.GEOMETRY_SENSITIVITY_PRIMARY,primaryMode:'MODE_A_ENGINE_FAITHFUL',modeBAvailable:false,equipmentCritStatus:'RESOLVED_PROJECTION'},rows};
+  return {header:{generatedAt:new Date().toISOString(),simulatorVersion:'combat-v0.1',declaration:'sim/COMBAT_DECLARATION.md',trialsPerScenario:trials,seedBase,primaryGeometrySensitivity:D.GEOMETRY_SENSITIVITY_PRIMARY,primaryMode:'MODE_A_ENGINE_FAITHFUL',modeBAvailable:false,equipmentCritStatus:'ENGINE_INTEGRATED_AND_SIMULATED'},rows};
 }
 function summarize(b,state){const h=b.metrics;return {heroLevels:state.heroes.map(x=>x.level),towerComposition:state.towers.map(x=>({type:x.type,level:x.level})),victory:h.victory,duration:b.time,heroDeaths:h.heroDeaths,towerDeaths:h.towerDeaths,castleHpRemaining:h.castleHpRemaining,castleHpFraction:h.castleHpFraction,heroDamage:h.heroDamageTotal,towerDamage:h.towerDamageTotal,damageShare:{hero:h.heroDamageTotal/(h.heroDamageTotal+h.towerDamageTotal||1),tower:h.towerDamageTotal/(h.heroDamageTotal+h.towerDamageTotal||1)},enemyKills:h.kills,killsByType:h.killsByType,resourceConsumption:h.towerResourceSpent,primaryFailure:h.failureCause,timedOut:h.timedOut,equipmentCritUnresolved:h.equipmentCritUnresolved};}
 function bossForWave(w){return{5:'ThreeHeadedDemon',10:'ImperialNecromancer',15:'NuclearBehemoth'}[w]??null}
