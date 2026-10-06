@@ -13,7 +13,9 @@ export function createHero(classKey) {
     key: classKey, name: cls.name, cls: classKey,
     level: 1, xp: 0, sp: 0, ap: 0,
     stats, perks: [], attackConfig: C.ATTACK_CONFIGS[classKey][0],
-    equipment: {}, hp: maxHp, maxHp,
+    equipment: {},
+    quickSlots: [null, null, null],
+    hp: maxHp, maxHp,
   };
 }
 
