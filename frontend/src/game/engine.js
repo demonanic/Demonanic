@@ -44,6 +44,7 @@ export class Engine {
     this.floaters = [];
     this.effects = [];
     this.killed = 0;
+    this.castleEscaped = 0;
     this.xpGains = { heroes: {}, towers: {} };
     this.sim.vault = Array.isArray(this.sim.vault) ? this.sim.vault : [];
     this.time = 0;
@@ -528,7 +529,9 @@ export class Engine {
     // advance downward
     e.y += moveSpeed * dt;
     if (e.y >= CASTLE_Y) {
-      // reached castle -> damage it
+      // Reaching the castle is a permanent breach. Track every escaped enemy
+      // so a wave cannot be won simply because the remaining defenders died.
+      this.castleEscaped += 1;
       this._damageCastle(e.damage * 4);
       this._killEnemy(e, null, true);
     }
@@ -938,6 +941,8 @@ export class Engine {
     this.cb.onHud({
       total: this.wave.total, killed: this.killed,
       remaining: this.active.length + this.spawnQueue.length,
+      castleEscaped: this.castleEscaped,
+      castleEscapeLimit: Math.floor(this.wave.total / 2) + 1,
       castleHp: this.sim.castleHp, castleMaxHp: this.sim.castleMaxHp,
       morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
       heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
@@ -947,14 +952,63 @@ export class Engine {
 
   _checkEnd() {
     if (this.ended) return;
-    if (this.sim.castleHp <= 0) { this.ended = true; this.stop(); this.cb.onEnd && this.cb.onEnd({ victory: false, xpGains: this.xpGains, killed: this.killed }); return; }
+
+    // Absolute defeat conditions. Towers are supporting defenses, but they are
+    // not themselves a victory condition: once the entire hero squad is dead,
+    // the wave is lost even if some towers remain.
     const anyHero = this.heroes.some((h) => h.alive);
-    const allDead = !anyHero && this.towers.every((t) => t.ref.hp <= 0);
+    if (!anyHero) {
+      this.ended = true;
+      this.stop();
+      this.cb.onEnd && this.cb.onEnd({
+        victory: false,
+        reason: "heroes",
+        xpGains: this.xpGains,
+        killed: this.killed,
+      });
+      return;
+    }
+
+    // The castle is lost either by HP depletion or by a strict majority of the
+    // wave reaching it. Example: 10 enemies -> 6 breaches required; 9 -> 5.
+    const castleEscapeLimit = Math.floor(this.wave.total / 2) + 1;
+    if (this.sim.castleHp <= 0) {
+      this.ended = true;
+      this.stop();
+      this.cb.onEnd && this.cb.onEnd({
+        victory: false,
+        reason: "castle",
+        xpGains: this.xpGains,
+        killed: this.killed,
+      });
+      return;
+    }
+
+    if (this.castleEscaped >= castleEscapeLimit) {
+      this.ended = true;
+      this.stop();
+      this.cb.onEnd && this.cb.onEnd({
+        victory: false,
+        reason: "breach",
+        xpGains: this.xpGains,
+        killed: this.killed,
+        castleEscaped: this.castleEscaped,
+        castleEscapeLimit,
+      });
+      return;
+    }
+
+    // Victory requires the entire wave to be resolved while at least one hero
+    // is still alive and the castle has not crossed either defeat threshold.
     if (this.spawnQueue.length === 0 && this.active.length === 0) {
-      this.ended = true; this.stop();
-      this.cb.onEnd && this.cb.onEnd({ victory: true, xpGains: this.xpGains, killed: this.killed });
-    } else if (allDead && this.active.length > 0) {
-      // no defenders left but enemies keep coming -> they will erode castle; keep running
+      this.ended = true;
+      this.stop();
+      this.cb.onEnd && this.cb.onEnd({
+        victory: true,
+        reason: "cleared",
+        xpGains: this.xpGains,
+        killed: this.killed,
+      });
     }
   }
 
