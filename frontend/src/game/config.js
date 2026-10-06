@@ -217,7 +217,7 @@ export const ATTACK_CONFIGS = {
   mage: ["Offensive Spells", "Support / Heal", "Defensive Barrier"],
   archer: ["Sniper (strongest)", "Closest Enemy"],
 };
-export const EQUIP_SLOTS = ["Helm", "Armor", "Weapon", "Cloak", "Ring"];
+export const EQUIP_SLOTS = ["Helm", "Chest", "Legs", "Arms", "Boots", "PrimaryWeapon", "SecondaryWeapon", "Cloak", "Ring1", "Ring2", "Necklace"];
 
 // Section I — combat math
 export function damageAfterDefense(raw, def) { return raw * 100 / (100 + def); }
