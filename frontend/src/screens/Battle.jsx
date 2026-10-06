@@ -99,7 +99,9 @@ export default function Battle() {
     });
     const totalXp = Object.values(gainsHeroes).reduce((a, b) => a + b, 0) + Object.values(gainsTowers).reduce((a, b) => a + b, 0);
     setLastResult({
-      victory: res.victory, wave: waveNum.current, killed: res.killed,
+      victory: res.victory,
+      reason: res.reason || (res.victory ? "cleared" : "castle"),
+      wave: waveNum.current, killed: res.killed,
       totalXp: Math.round(totalXp),
       goldAfter: Math.round(sim.gold), foodAfter: Math.round(sim.food), stoneAfter: Math.round(sim.stone),
       morale: Math.round(sim.morale), castleHp: Math.round(sim.castleHp),
