@@ -131,8 +131,13 @@ export default function PrepField({ state, handlers }) {
               <div className="flex-1">
                 <div className="font-mono-g text-xs font-bold" style={{ color: t.color }}>{t.name} L{tw.level} {tw.pending > 0 && <span className="text-yellow-300 animate-pulse-glow">⬆{tw.pending}</span>}</div>
                 <StatBar frac={tw.hp / d.maxHp} color={t.color} height={4} />
+                <div className="font-mono-g text-[8px] text-slate-400 mt-1">
+                  {d.resourceLabel} {d.resourceKind === "ammo" ? Math.round(tw.ammo || 0) : Math.round(tw.mana || 0)}/{d.resourceKind === "ammo" ? d.maxAmmo : d.maxMana}
+                  {tw.warlockDebuff > 0 && <span className="text-fuchsia-400 ml-2">WARLOCK DRAIN</span>}
+                </div>
               </div>
               <NeonButton color="cyan" className="!px-2 !py-1 !text-[9px]" onClick={() => handlers.openCard(sel.idx)} data-testid={`field-tower-card-${sel.idx}`}>Card</NeonButton>
+              <NeonButton color="yellow" className="!px-2 !py-1 !text-[9px]" onClick={() => handlers.resupplyTower(sel.idx)} data-testid={`field-resupply-tower-${sel.idx}`}>Supply</NeonButton>
               <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" onClick={() => handlers.repairTower(sel.idx)} data-testid={`field-repair-tower-${sel.idx}`}><Wrench size={11} /></NeonButton>
               <NeonButton color="red" className="!px-2 !py-1 !text-[9px]" onClick={() => { handlers.dismantle(sel.idx); setSel(null); }} data-testid={`field-dismantle-${sel.idx}`}><Trash2 size={11} /></NeonButton>
             </div>
