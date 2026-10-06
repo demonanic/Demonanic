@@ -37,22 +37,34 @@ export function heroDerived(hero) {
 let _towerSeq = 0;
 export function createTower(type, x, y) {
   const t = C.TOWERS[type];
+  const r = C.TOWER_RESOURCE[type];
   return {
     id: `tw-${Date.now().toString(36)}-${_towerSeq++}`,
     type, x, y, level: 1, xp: 0, hp: t.baseHp, maxHp: t.baseHp,
+    ammo: r.kind === "ammo" ? r.max : 0,
+    maxAmmo: r.kind === "ammo" ? r.max : 0,
+    mana: r.kind === "mana" ? r.max : 0,
+    maxMana: r.kind === "mana" ? r.max : 0,
     choices: [], pending: 0, underfunded: false,
   };
 }
 
 export function towerDerived(tower) {
   const t = C.TOWERS[tower.type];
-  const lvlMul = 1 + (tower.level - 1) * 0.12;
-  let dmg = t.damage * lvlMul;
+  const lvl = Math.max(1, tower.level || 1);
+  const combatMul = Math.pow(1 + C.TOWER_UPGRADE.damageMult, lvl - 1);
+  const hpMul = Math.pow(1 + C.TOWER_UPGRADE.hpMult, lvl - 1);
+  const resourceMul = Math.pow(1 + C.TOWER_UPGRADE.resourceMult, lvl - 1);
+  let dmg = t.damage * combatMul;
   let rate = t.fireRate;
   if (tower.underfunded) { dmg *= C.UNDERFUNDED.damageMult; rate *= C.UNDERFUNDED.fireRateMult; }
+  const r = C.TOWER_RESOURCE[tower.type];
   return {
     ...t, damage: dmg, fireRate: rate,
-    maxHp: Math.round(t.baseHp * (1 + (tower.level - 1) * 0.08)),
+    maxHp: Math.round(t.baseHp * hpMul),
+    resourceKind: r.kind, resourceLabel: r.label, shotCost: r.shotCost,
+    maxAmmo: r.kind === "ammo" ? Math.round(r.max * resourceMul) : 0,
+    maxMana: r.kind === "mana" ? Math.round(r.max * resourceMul) : 0,
   };
 }
 
@@ -222,14 +234,20 @@ export function dismantleTower(state, index) {
 export function addTowerXp(tower, xp) {
   tower.xp += xp;
   const nl = C.towerLevelForXp(tower.xp);
-  while (tower.level < nl) { tower.level += 1; tower.pending = (tower.pending || 0) + 1; }
-  tower.maxHp = towerDerived(tower).maxHp;
+  while (tower.level + (tower.pending || 0) < nl) tower.pending = (tower.pending || 0) + 1;
 }
-export function applyTowerUpgrade(state, slot, choice) {
+export function upgradeTower(state, slot) {
   const tw = state.towers[slot];
   if (!tw || !(tw.pending > 0)) return false;
-  tw.pending -= 1; tw.choices.push(choice);
-  tw.maxHp = towerDerived(tw).maxHp;
+  const cost = C.towerUpgradeCost(tw);
+  if (state.gold < cost.gold || state.stone < cost.stone) return false;
+  state.gold -= cost.gold; state.stone -= cost.stone;
+  tw.pending -= 1; tw.level += 1;
+  tw.choices = [...(tw.choices || []), `Lv${tw.level}`];
+  const d = towerDerived(tw);
+  tw.maxHp = d.maxHp; tw.hp = Math.min(d.maxHp, tw.hp + Math.round(d.maxHp * 0.10));
+  if (d.resourceKind === "ammo") { tw.maxAmmo = d.maxAmmo; tw.ammo = d.maxAmmo; }
+  else { tw.maxMana = d.maxMana; tw.mana = d.maxMana; }
   return true;
 }
 export function repairTower(state, slot) {
@@ -239,23 +257,34 @@ export function repairTower(state, slot) {
   const missing = d.maxHp - tw.hp;
   if (missing <= 0) return false;
   const cost = C.repairFoodCost(missing);
-  if (state.food < cost) {
-    const afford = Math.floor(state.food) * 10;
-    if (afford <= 0) return false;
-    state.food -= C.repairFoodCost(afford);
-    tw.hp = Math.min(d.maxHp, tw.hp + afford);
-    return true;
-  }
+  if (state.food < cost) return false;
   state.food -= cost; tw.hp = d.maxHp; return true;
+}
+export function resupplyTower(state, slot) {
+  const tw = state.towers[slot];
+  if (!tw) return false;
+  const d = towerDerived(tw), r = C.TOWER_RESOURCE[tw.type];
+  const current = r.kind === "ammo" ? (tw.ammo || 0) : (tw.mana || 0);
+  const max = r.kind === "ammo" ? d.maxAmmo : d.maxMana;
+  const missing = Math.max(0, max - current);
+  if (missing <= 0) return false;
+  const gold = Math.ceil(missing * r.resupplyGold);
+  const stone = Math.ceil(missing * r.resupplyStone);
+  if (state.gold < gold || state.stone < stone) return false;
+  state.gold -= gold; state.stone -= stone;
+  if (r.kind === "ammo") tw.ammo = max; else tw.mana = max;
+  return true;
 }
 // charged at wave start
 export function chargeUpkeep(state) {
   for (const tw of state.towers) {
     if (!tw) continue;
     const up = C.TOWERS[tw.type].upkeep;
-    if (state.gold >= up.gold && state.stone >= up.stone) {
-      state.gold -= up.gold; state.stone -= up.stone; tw.underfunded = false;
-    } else { tw.underfunded = true; }
+    const scale = 1 + Math.max(0, (tw.level || 1) - 1) * 0.15;
+    const gold = Math.ceil(up.gold * scale), stone = Math.ceil(up.stone * scale);
+    if (state.gold >= gold && state.stone >= stone) {
+      state.gold -= gold; state.stone -= stone; tw.underfunded = false;
+    } else tw.underfunded = true;
   }
 }
 
