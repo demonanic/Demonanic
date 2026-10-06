@@ -6,7 +6,7 @@ import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull } from "lucide-react";
+import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
@@ -78,6 +78,9 @@ export default function Preparation() {
         <TopResourceHUD state={state} />
         <div className="ml-auto flex gap-2">
           <NeonButton color="green" onClick={() => setDebug(true)} data-testid="debug-toggle-panel"><Terminal size={14} /></NeonButton>
+          <NeonButton color="yellow" className="!py-2.5 !px-3" onClick={() => { saveNow(); setScreen("armory"); }} data-testid="open-armory-button">
+            <Backpack size={14} />
+          </NeonButton>
           <NeonButton color="magenta" className="!py-2.5 !px-5" onClick={startWave} data-testid="start-wave-button">
             <Swords size={14} className="inline mr-1.5" /> Start Wave {state.wave}
           </NeonButton>
