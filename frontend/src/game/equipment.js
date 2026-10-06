@@ -27,6 +27,9 @@ export const EQUIPMENT_SLOTS = [
   "Necklace",
 ];
 
+export const QUICK_SLOT_COUNT = 3;
+export const QUICK_SLOT_LABELS = ["Q1", "Q2", "Q3"];
+
 export const EQUIPMENT_SLOT_LABELS = {
   Helm: "Helm",
   Chest: "Chest",
@@ -384,5 +387,8 @@ export function emptyEquipmentState(state) {
   if (!state.shoppe) state.shoppe = { inventory: [], nextRefreshAt: 0, lastRefreshAt: 0 };
   for (const hero of [...(state.heroes || []), ...(state.bench || [])]) {
     if (!hero.equipment || Array.isArray(hero.equipment)) hero.equipment = {};
+    if (!Array.isArray(hero.quickSlots) || hero.quickSlots.length !== QUICK_SLOT_COUNT) {
+      hero.quickSlots = Array.from({ length: QUICK_SLOT_COUNT }, (_, i) => hero.quickSlots?.[i] || null);
+    }
   }
 }
