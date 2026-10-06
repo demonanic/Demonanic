@@ -1,0 +1,36 @@
+name: Combat Simulation Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/equipment-vault-shoppe
+
+jobs:
+  combat-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run combat matrix
+        run: |
+          node --experimental-default-type=module sim/run-combat.js 3 > combat-report.json
+          node --experimental-default-type=module -e "
+            const fs=require('fs');
+            const r=JSON.parse(fs.readFileSync('combat-report.json','utf8'));
+            const rows=r.rows.filter(x=>!x.discarded);
+            const wins=rows.flatMap(x=>x.samples).filter(x=>x.victory).length;
+            const total=rows.flatMap(x=>x.samples).length;
+            console.log('scenarios='+rows.length);
+            console.log('trials='+total);
+            console.log('wins='+wins);
+            console.log('losses='+(total-wins));
+            console.log('winRate='+((wins/total*100).toFixed(2))+'%');
+          "
+      - name: Upload combat report
+        uses: actions/upload-artifact@v4
+        with:
+          name: combat-report
+          path: combat-report.json
