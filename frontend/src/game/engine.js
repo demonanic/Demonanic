@@ -4,6 +4,7 @@
 // accumulates XP gains, returned to the UI at wave end.
 import * as C from "./config";
 import { heroDerived, towerDerived, makeSingleEnemy } from "./logic";
+import { rollEquipmentDrop } from "./equipment";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -44,6 +45,7 @@ export class Engine {
     this.effects = [];
     this.killed = 0;
     this.xpGains = { heroes: {}, towers: {} };
+    this.sim.vault = Array.isArray(this.sim.vault) ? this.sim.vault : [];
     this.time = 0;
     this.ended = false;
     this.selectedHero = null;
@@ -672,6 +674,8 @@ export class Engine {
     this.projectiles.push({
       sourceId, x: src.x, y: src.y, tx: target.x, ty: target.y, target,
       spd: d.magic ? 340 : 460, dmg: d.damage || d.attack, magic: !!d.magic,
+      critChance: isHero ? (d.critChance ?? C.BASE_CRIT) : C.BASE_CRIT,
+      critMult: isHero ? (d.critMult ?? C.CRIT_MULT) : C.CRIT_MULT,
       damageType: d.damageType || (src.ref?.cls === "knight" ? C.DAMAGE_TYPES.KNIGHT_MELEE
         : src.ref?.cls === "rouge" ? C.DAMAGE_TYPES.ROUGE_MELEE
         : src.ref?.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED
@@ -691,8 +695,8 @@ export class Engine {
     }
 
     let dmg = p.dmg * affinity;
-    const crit = Math.random() < C.BASE_CRIT;
-    if (crit) dmg *= C.CRIT_MULT;
+    const crit = Math.random() < (p.critChance ?? C.BASE_CRIT);
+    if (crit) dmg *= (p.critMult ?? C.CRIT_MULT);
 
     e.hp = Math.max(0, e.hp - dmg);
     e.dmgBy[p.sourceId] = (e.dmgBy[p.sourceId] || 0) + dmg;
@@ -728,6 +732,11 @@ export class Engine {
     // reward gold continuously
     const tier = C.ENEMY_TIERS[e.tier] || C.ENEMY_TIERS.basic;
     this.sim.gold += tier.gold;
+
+    // Equipment drops are deposited directly into the community Vault.
+    // The drop/rarity economy is tuned separately from the verified gear stats.
+    const drop = rollEquipmentDrop(e, this.sim.wave || 1);
+    if (drop) this.sim.vault.push(drop);
 
     // XP attribution
     if (e.boss) {
