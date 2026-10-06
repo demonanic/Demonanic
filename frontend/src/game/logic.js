@@ -1,5 +1,6 @@
 // Pure game-state logic. No React, no rendering. Data-driven from config.js.
 import * as C from "./config";
+import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
 
 let _heroSeq = 0;
 export function createHero(classKey) {
@@ -22,15 +23,30 @@ export function heroMaxHp(cls, level, stats) {
 
 export function heroDerived(hero) {
   const cls = C.HERO_CLASSES[hero.cls];
-  const maxHp = heroMaxHp(cls, hero.level, hero.stats);
+  const gear = aggregateEquipmentStats(hero.equipment);
+  const effectiveStats = {
+    attack: hero.stats.attack + gear.attack,
+    defense: hero.stats.defense + gear.defense,
+    agility: hero.stats.agility + gear.agility,
+    intelligence: hero.stats.intelligence + gear.intelligence,
+  };
+  const maxHp = heroMaxHp(cls, hero.level, effectiveStats) + gear.maxHP;
   return {
     maxHp,
-    attack: hero.stats.attack + (hero.cls === "archer" ? hero.level * 2 : hero.level),
-    range: cls.attackRange, rate: cls.attackRate, magic: !!cls.magic,
-    critDmgBonus: Math.floor(hero.stats.attack / 10) * 0.01,
-    dodge: C.dodgeChance(hero.stats.agility),
-    healPower: 1 + hero.stats.intelligence / 100,
+    attack: effectiveStats.attack + (hero.cls === "archer" ? hero.level * 2 : hero.level),
+    range: cls.attackRange,
+    rate: cls.attackRate,
+    magic: !!cls.magic,
+    defense: effectiveStats.defense,
+    agility: effectiveStats.agility,
+    intelligence: effectiveStats.intelligence,
+    critChance: C.BASE_CRIT + (gear.critChance / 100),
+    critMult: C.CRIT_MULT + (gear.critDamage / 100),
+    critDmgBonus: Math.floor(effectiveStats.attack / 10) * 0.01 + (gear.critDamage / 100),
+    dodge: C.dodgeChance(effectiveStats.agility),
+    healPower: 1 + effectiveStats.intelligence / 100,
     color: cls.color,
+    gear,
   };
 }
 
@@ -81,6 +97,8 @@ export function createNewState(squadClasses) {
     wave: 1, highestWaveCleared: 0, freeLifeUsed: false,
     surrenderTaxRate: 0, surrenderDebtWave: 0,
     heroes, bench: [], needsSquad: !squadClasses,
+    vault: [],
+    shoppe: { inventory: [], nextRefreshAt: 0, lastRefreshAt: 0 },
     towers: [],
     barricades,
     scoutKnowledge: 0,
@@ -95,6 +113,7 @@ export function setSquad(state, classKeys) {
   state.heroes = classKeys.map(createHero);
   state.bench = state.bench || [];
   state.needsSquad = false;
+  emptyEquipmentState(state);
 }
 
 // recruit a new hero (Gold). Fills empty squad slots first, else goes to bench.
@@ -457,4 +476,31 @@ export function completeWave(state) {
     state.surrenderTaxRate = 0; state.surrenderDebtWave = 0;
   }
   state.wave += 1;
+}
+
+
+export function reconcileEquipmentHp(state, hero) {
+  if (!hero) return;
+  const d = heroDerived(hero);
+  if (hero.hp > 0) hero.hp = Math.min(hero.hp, d.maxHp);
+  hero.maxHp = d.maxHp;
+}
+
+export function equipHeroItem(state, heroIndex, itemId, targetSlot = null) {
+  const hero = state.heroes?.[heroIndex];
+  if (!hero) return false;
+  const beforeMax = heroDerived(hero).maxHp;
+  if (!equipStoredItem(state, heroIndex, itemId, targetSlot)) return false;
+  const afterMax = heroDerived(hero).maxHp;
+  if (hero.hp > 0) hero.hp = Math.min(afterMax, Math.round(hero.hp + Math.max(0, afterMax - beforeMax)));
+  hero.maxHp = afterMax;
+  return true;
+}
+
+export function unequipHeroItem(state, heroIndex, slot) {
+  const hero = state.heroes?.[heroIndex];
+  if (!hero) return false;
+  if (!unequipStoredItem(state, heroIndex, slot)) return false;
+  reconcileEquipmentHp(state, hero);
+  return true;
 }
