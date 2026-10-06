@@ -489,10 +489,12 @@ export function reconcileEquipmentHp(state, hero) {
 export function equipHeroItem(state, heroIndex, itemId, targetSlot = null) {
   const hero = state.heroes?.[heroIndex];
   if (!hero) return false;
-  const beforeMax = heroDerived(hero).maxHp;
   if (!equipStoredItem(state, heroIndex, itemId, targetSlot)) return false;
   const afterMax = heroDerived(hero).maxHp;
-  if (hero.hp > 0) hero.hp = Math.min(afterMax, Math.round(hero.hp + Math.max(0, afterMax - beforeMax)));
+
+  // Equipment changes modify the hero's maximum HP, but do not heal them.
+  // Preserve current HP and only clamp it if the new maximum is lower.
+  if (hero.hp > 0) hero.hp = Math.min(hero.hp, afterMax);
   hero.maxHp = afterMax;
   return true;
 }
