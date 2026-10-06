@@ -53,11 +53,17 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
           <div>
             <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1">Equipment</div>
             <div className="space-y-1">
-              {C.EQUIP_SLOTS.map((s) => (
-                <div key={s} className="bracket flex items-center justify-between px-2 py-1 rounded bg-black/30 text-[11px] font-mono-g">
-                  <span className="text-slate-400">{s}</span><span className="text-slate-600">— empty —</span>
-                </div>
-              ))}
+              {C.EQUIP_SLOTS.map((s) => {
+                const item = hero.equipment?.[s];
+                return (
+                  <div key={s} className="bracket flex items-center justify-between gap-2 px-2 py-1 rounded bg-black/30 text-[11px] font-mono-g">
+                    <span className="text-slate-400">{s}</span>
+                    <span className={item ? "text-cyan-300 truncate" : "text-slate-600"}>
+                      {item ? item.name : "— empty —"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div>
