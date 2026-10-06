@@ -4,8 +4,8 @@ Status: FROZEN CONTRACT — v0.2 balance update
 Branch: `feature/capacitor-android`  
 Scope: Combat simulation only  
 Construction layer: FROZEN — 72/72 validation PASS  
-Source baseline: current `feature/capacitor-android` engine/config/logic files  
-Combat simulator: NOT YET IMPLEMENTED
+Source baseline: current `feature/equipment-vault-shoppe` engine/config/logic files  
+Combat simulator: IMPLEMENTED
 
 > This document is the contract for `simulateCombat()`. The simulator must not silently introduce formulas or behavior that are absent here. If the live engine changes, this declaration must be reviewed and versioned before the simulator is changed.
 
@@ -19,7 +19,7 @@ What Demonanic does today, as extracted from the live engine.
 
 ### EQUIPMENT MODEL
 
-A simulator projection that applies the verified equipment stat package to an equivalent hero-derived function. This does **not** claim that the current live game already applies E1–E5 equipment during combat.
+The simulator mirrors the current live hero-derived equipment package. E1–E5 use the same neutral catalog stats currently consumed by live combat; unresolved secondary identity modifiers remain excluded.
 
 ### TUNING / MODELING
 
@@ -39,25 +39,17 @@ E0 represents the current live combat formulas without equipment-derived combat 
 
 ### E1–E5
 
-**Integration status: PROJECTION**
+**Integration status: ENGINE-FAITHFUL FOR CURRENT LIVE CATALOG**
 
-E1–E5 are equipment projections. The simulator applies the validated equipment stat package to an equivalent simulator-side hero-derived function.
+E1–E5 use the same neutral equipment stat package in the live engine and simulator.
 
-The simulator is **not** claiming:
-
-> "This is what the live game currently does with E5 equipped."
-
-It is claiming:
-
-> "This is what a hero carrying the E5 stat package would do when evaluated against the verified combat formulas."
-
-
+Secondary identity modifiers remain unresolved in the source specification, so the current catalog deliberately does not invent them.
 
 Required output metadata:
 
 ```
 E0: integrationStatus = "ENGINE-FAITHFUL"
-E1-E5: integrationStatus = "PROJECTION"
+E1-E5: integrationStatus = "ENGINE-FAITHFUL_CURRENT_CATALOG"
 ```
 
 ---
