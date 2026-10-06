@@ -81,7 +81,14 @@ export default function Battle() {
         h.manual = !!sim.heroes[i].manual;
         h.attackConfig = sim.heroes[i].attackConfig;
       });
-      s.towers.forEach((t, i) => { if (t && sim.towers[i]) t.hp = sim.towers[i].hp; });
+      s.towers.forEach((t, i) => {
+        if (!t || !sim.towers[i]) return;
+        t.hp = sim.towers[i].hp;
+        t.ammo = sim.towers[i].ammo;
+        t.mana = sim.towers[i].mana;
+        t.maxAmmo = sim.towers[i].maxAmmo;
+        t.maxMana = sim.towers[i].maxMana;
+      });
       for (const i in gainsHeroes) addHeroXp(s.heroes[i], gainsHeroes[i]);
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
       s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
