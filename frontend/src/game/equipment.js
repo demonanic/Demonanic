@@ -48,6 +48,18 @@ export const CLASS_SECONDARY_TYPE = {
   archer: "Arrows",
 };
 
+// Secondary identities are metadata only for now. Their identity modifiers
+// remain unresolved in the simulation/source specification and are NOT applied
+// here. The four identities are the locked class mapping from sim/equipment.js.
+export const SECONDARY_TYPES = ["Shield", "SecondDagger", "Wand", "Arrows"];
+
+export const SECONDARY_TYPE_LABELS = {
+  Shield: "Shield",
+  SecondDagger: "Second Dagger",
+  Wand: "Wand",
+  Arrows: "Arrows",
+};
+
 // Verified neutral stat templates from the equipment source.
 export const EQUIPMENT_CATALOG = {
   E1: {
@@ -187,13 +199,18 @@ export function equipmentScenarioForDrop(wave, tier, rng = Math.random) {
   return Math.min(maxByWave, min + Math.floor(bias * span));
 }
 
-export function createEquipmentItem(scenario, slot, rng = Math.random, source = "drop") {
+export function createEquipmentItem(scenario, slot, rng = Math.random, source = "drop", secondaryType = null) {
   const stats = EQUIPMENT_CATALOG[`E${scenario}`]?.[slot];
   if (!stats) throw new Error(`Unknown equipment scenario/slot: E${scenario}/${slot}`);
 
   const rarityKey = `E${scenario}`;
   const rarity = EQUIPMENT_RARITIES[rarityKey];
   const baseName = randomChoice(SLOT_NAMES[slot] || ["Unknown Gear"], rng);
+  const resolvedSecondaryType = slot === "SecondaryWeapon"
+    ? (secondaryType && SECONDARY_TYPES.includes(secondaryType)
+      ? secondaryType
+      : randomChoice(SECONDARY_TYPES, rng))
+    : null;
   const prefix = rarity.name === "Common" ? "" : `${rarity.name} `;
   const sellValue = EQUIPMENT_ECONOMY.sellValue[rarityKey];
 
@@ -203,6 +220,7 @@ export function createEquipmentItem(scenario, slot, rng = Math.random, source = 
     rarityName: rarity.name,
     slot,
     name: `${prefix}${baseName}`,
+    ...(resolvedSecondaryType ? { secondaryType: resolvedSecondaryType } : {}),
     stats: { ...stats },
     sellValue,
     buyPrice: sellValue * EQUIPMENT_ECONOMY.shopBuyMultiplier,
@@ -221,7 +239,16 @@ export function rollEquipmentDrop(enemy, wave, rng = Math.random) {
 
   const scenario = equipmentScenarioForDrop(wave, tier, rng);
   const slot = randomChoice(EQUIPMENT_SLOTS, rng);
-  return createEquipmentItem(scenario, slot, rng, `enemy:${enemy?.type || "unknown"}`);
+  const secondaryType = slot === "SecondaryWeapon"
+    ? randomChoice(SECONDARY_TYPES, rng)
+    : null;
+  return createEquipmentItem(
+    scenario,
+    slot,
+    rng,
+    `enemy:${enemy?.type || "unknown"}`,
+    secondaryType,
+  );
 }
 
 export function createShoppeRotation(state, rng = Math.random) {
@@ -232,7 +259,16 @@ export function createShoppeRotation(state, rng = Math.random) {
   for (let i = 0; i < EQUIPMENT_ECONOMY.shopSlots; i++) {
     const scenario = 1 + Math.floor(rng() * maxScenario);
     const slot = randomChoice(EQUIPMENT_SLOTS, rng);
-    items.push(createEquipmentItem(scenario, slot, rng, "kingdom-shoppe"));
+    const secondaryType = slot === "SecondaryWeapon"
+      ? randomChoice(SECONDARY_TYPES, rng)
+      : null;
+    items.push(createEquipmentItem(
+      scenario,
+      slot,
+      rng,
+      "kingdom-shoppe",
+      secondaryType,
+    ));
   }
 
   return items;
