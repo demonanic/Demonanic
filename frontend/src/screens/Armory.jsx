@@ -8,6 +8,8 @@ import {
   EQUIPMENT_RARITIES,
   EQUIPMENT_SLOTS,
   EQUIPMENT_SLOT_LABELS,
+  QUICK_SLOT_COUNT,
+  QUICK_SLOT_LABELS,
   CLASS_SECONDARY_TYPE,
   ensureShoppe,
   formatEquipmentStats,
@@ -63,6 +65,7 @@ function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel }
 
 function EquipmentSlots({ hero, onUnequip }) {
   return (
+    <>
     <div className="grid grid-cols-2 gap-1.5">
       {EQUIPMENT_SLOTS.map((slot) => {
         const item = hero.equipment?.[slot];
@@ -82,6 +85,22 @@ function EquipmentSlots({ hero, onUnequip }) {
         );
       })}
     </div>
+    <div className="mt-3">
+      <div className="font-mono-g text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">Quick Slots · {QUICK_SLOT_COUNT}</div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {QUICK_SLOT_LABELS.map((label, index) => {
+          const item = hero.quickSlots?.[index] || null;
+          return (
+            <div key={label} className="rounded-lg border border-yellow-400/15 bg-black/30 p-2 min-h-[48px]">
+              <div className="font-mono-g text-[8px] text-yellow-500/70">{label}</div>
+              <div className="font-mono-g text-[9px] truncate mt-0.5 text-slate-600">{item?.name || "EMPTY"}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="font-mono-g text-[8px] text-slate-600 mt-1">Three per-hero quick-use slots. Consumable assignment will populate these slots when consumables are available.</div>
+    </div>
+    </>
   );
 }
 
