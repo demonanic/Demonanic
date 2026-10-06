@@ -271,9 +271,20 @@ export class Engine {
     for (const t of this.towers) {
       if (t.ref.hp <= 0) continue;
       t.cd -= dt;
+      if (t.ref.warlockDebuff > 0) t.ref.warlockDebuff = Math.max(0, t.ref.warlockDebuff - dt);
       if (t.cd <= 0) {
         const target = this._selectTowerTarget(t);
-        if (target) { this._fire("T" + t.slot, t, target, t.d); t.cd = 1 / t.d.fireRate; }
+        const r = C.TOWER_RESOURCE[t.ref.type];
+        const current = r.kind === "ammo" ? (t.ref.ammo || 0) : (t.ref.mana || 0);
+        if (target && current >= r.shotCost) {
+          if (r.kind === "ammo") t.ref.ammo = current - r.shotCost;
+          else t.ref.mana = current - r.shotCost;
+          const fireData = t.ref.warlockDebuff > 0 ? { ...t.d, damage: t.d.damage * 0.8 } : t.d;
+          this._fire("T" + t.slot, t, target, fireData);
+          t.cd = 1 / t.d.fireRate;
+        } else if (!target) {
+          t.cd = 0.1;
+        }
       }
       if (t.ref.underfunded) t.ref.hp = Math.max(0, t.ref.hp - t.d.maxHp * C.UNDERFUNDED.hpLossPerMin * dt / 60);
     }
@@ -423,28 +434,47 @@ export class Engine {
     // and lieutenants reinforce nearby attackers.
     const tactical = this._selectEnemyTacticalTarget(e);
     const commanderBoost = e._commanderBoost || 1;
+    if (e.type === "warlock") {
+      e.abilityCd = (e.abilityCd == null ? 3 : e.abilityCd) - dt;
+      if (e.abilityCd <= 0) {
+        const target = this._nearestTower(e.x, e.y, 300);
+        if (target) {
+          const r = C.TOWER_RESOURCE[target.ref.type];
+          const current = r.kind === "ammo" ? (target.ref.ammo || 0) : (target.ref.mana || 0);
+          const max = r.kind === "ammo" ? target.d.maxAmmo : target.d.maxMana;
+          const drain = Math.min(current, Math.max(5, Math.ceil(max * 0.18)));
+          if (r.kind === "ammo") target.ref.ammo = Math.max(0, current - drain);
+          else target.ref.mana = Math.max(0, current - drain);
+          target.ref.warlockDebuff = 3;
+          this._float(target.x, target.y - 22, "DRAIN -" + drain, e.color);
+          this.effects.push({ kind: "immune", x: target.x, y: target.y, r: 15, life: 0.45, color: e.color });
+          e.abilityCd = 4.5;
+        } else e.abilityCd = 1;
+      }
+    }
     const moveSpeed =
       e.type === "goblin" ? e.speed * 1.18 * commanderBoost :
+      e.type === "darkElf" ? e.speed * 1.08 * commanderBoost :
       e.type === "slime" ? e.speed * 0.92 * commanderBoost :
       e.type === "reaper" ? e.speed * 1.05 * commanderBoost :
       e.speed * commanderBoost;
 
     // Floating enemies bypass barricades, preserving their distinct identity.
     // Reapers and lieutenants can peel toward heroes; orcs pressure towers.
-    if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost")) {
+    if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost" || e.type === "darkElf")) {
       const target = tactical.obj;
       const dist = Math.hypot(target.x - e.x, target.y - e.y) || 1;
-      const attackRange = e.type === "reaper" ? 34 : 30;
+      const attackRange = e.type === "reaper" ? 34 : e.type === "darkElf" ? 38 : 30;
       if (dist <= attackRange) {
         if (e.atkCd <= 0) {
           this._enemyAttack(e, tactical);
-          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "orc" ? 1.15 : 0.9;
+          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "darkElf" ? 0.8 : e.type === "orc" ? 1.15 : 0.9;
         }
         return;
       }
       // Reapers deliberately pursue wounded heroes; other tactical enemies
       // only peel when their preferred target is reasonably close.
-      const peelRange = e.type === "reaper" ? 260 : 150;
+      const peelRange = e.type === "reaper" ? 260 : e.type === "darkElf" ? 300 : 150;
       if (dist <= peelRange) {
         e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
         e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
@@ -596,13 +626,17 @@ export class Engine {
   _enemyAttack(e, blocker) {
     if (blocker.kind === "tower") {
       const t = blocker.obj;
-      t.ref.hp = Math.max(0, t.ref.hp - e.damage);
+      const damage = e.type === "darkElf" ? e.damage * 1.15 : e.damage;
+      t.ref.hp = Math.max(0, t.ref.hp - damage);
       if (t.ref.hp <= 0) {
         this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
         this.effects.push({ x: t.x, y: t.y, r: 30, life: 0.4, color: t.d.color });
       }
     } else {
       const h = blocker.obj;
+      if (e.type === "warlock") {
+        h.ref.shield = 0;
+      }
       if (Math.random() < h.d.dodge) { this._float(h.x, h.y - 20, "DODGE", "#00F3FF"); return; }
       let dmg = C.damageAfterDefense(e.damage, h.ref.stats.defense);
       if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
@@ -688,6 +722,9 @@ export class Engine {
     } else {
       let best = null, bestDmg = -1;
       for (const sid in e.dmgBy) if (e.dmgBy[sid] > bestDmg) { bestDmg = e.dmgBy[sid]; best = sid; }
+      for (let i = 0; i < this.heroes.length; i++) {
+        if (this.heroes[i].alive) this._awardXp("H" + i, Math.round(tier.xp * 0.35));
+      }
       if (best) this._awardXp(best, tier.xp);
       const m = e.tier === "elite" ? C.MORALE.eliteKill : e.tier === "specialized" ? C.MORALE.specialistKill : C.MORALE.heroKill;
       if (best && best[0] === "H") this.sim.morale = clamp(this.sim.morale + m);
@@ -846,6 +883,14 @@ export class Engine {
 
     if (e.type === "ghost") {
       return this._nearestHeroEntity(e.x, e.y, 120) || this._nearestTower(e.x, e.y, 120);
+    }
+
+    if (e.type === "darkElf") {
+      return this._nearestTower(e.x, e.y, 300) || this._nearestHeroEntity(e.x, e.y, 140);
+    }
+
+    if (e.type === "warlock") {
+      return this._nearestHeroEntity(e.x, e.y, 100);
     }
 
     return null;
