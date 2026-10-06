@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
 import { createNewState, produce } from "@/game/logic";
+import { emptyEquipmentState } from "@/game/equipment";
 
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
@@ -10,6 +11,7 @@ function normalizeState(s) {
   if (!s.bench) s.bench = [];
   if (Array.isArray(s.heroes)) s.heroes.forEach((h) => { if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`; });
   if (s.needsSquad === undefined) s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
+  emptyEquipmentState(s);
   // migrate fixed-slot towers -> free-placement list with x,y
   if (Array.isArray(s.towers)) {
     const defaults = [[60, 180], [360, 180], [60, 300], [360, 300], [210, 205]];
@@ -24,7 +26,7 @@ function normalizeState(s) {
 
 export function GameProvider({ children }) {
   const [state, setState] = useState(null);
-  const [screen, setScreen] = useState("home"); // home|prep|battle|results|profile
+  const [screen, setScreen] = useState("home"); // home|prep|battle|results|profile|armory
   const [loading, setLoading] = useState(true);
   const [offlineGains, setOfflineGains] = useState(null);
   const [lastResult, setLastResult] = useState(null);
