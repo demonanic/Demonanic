@@ -79,7 +79,7 @@ export default function Preparation() {
         <div className="ml-auto flex gap-2">
           <NeonButton color="green" onClick={() => setDebug(true)} data-testid="debug-toggle-panel"><Terminal size={14} /></NeonButton>
           <NeonButton color="yellow" className="!py-2.5 !px-3" onClick={() => { saveNow(); setScreen("armory"); }} data-testid="open-armory-button">
-            <Backpack size={14} />
+            <Backpack size={14} className="mr-1.5" /> ARMORY
           </NeonButton>
           <NeonButton color="magenta" className="!py-2.5 !px-5" onClick={startWave} data-testid="start-wave-button">
             <Swords size={14} className="inline mr-1.5" /> Start Wave {state.wave}
@@ -114,6 +114,14 @@ export default function Preparation() {
 
         <SectionTitle color="cyan">Battlefield · Place Defenses</SectionTitle>
         <p className="font-mono-g text-[10px] text-slate-500 mb-2">Tap strategic locations to build/upgrade towers and reinforce barricade lanes by hand.</p>
+        <div className="glass-card rounded-xl p-2.5 mb-3 border border-yellow-400/15 flex items-center gap-2">
+          <Backpack size={15} className="text-yellow-300 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="font-display font-bold text-xs text-yellow-300">KINGDOM ARMORY</div>
+            <div className="font-mono-g text-[9px] text-slate-500">Manage dropped gear, hero equipment, and the Shoppe.</div>
+          </div>
+          <NeonButton color="yellow" className="!py-1.5 !px-3 !text-[9px]" onClick={() => { saveNow(); setScreen("armory"); }} data-testid="open-armory-field-button">OPEN</NeonButton>
+        </div>
         <PrepField state={state} handlers={handlers} />
 
         <div className="mt-4">
