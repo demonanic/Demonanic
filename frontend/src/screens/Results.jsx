@@ -4,7 +4,7 @@ import { NeonButton } from "@/components/ui-kit";
 import { gameApi } from "@/api";
 import { freeLife, surrender } from "@/game/logic";
 import { heroDerived } from "@/game/logic";
-import { Trophy, Skull, Coins, Wheat, Mountain, Zap, Swords } from "lucide-react";
+import { Trophy, Skull, Coins, Wheat, Mountain, Zap, Swords, Backpack } from "lucide-react";
 
 export default function Results() {
   const { state, lastResult, mutate, setScreen, saveNow } = useGame();
@@ -54,6 +54,7 @@ export default function Results() {
           <Stat icon={<Wheat size={14} />} label="Food" value={r.foodAfter} color="#FF6600" />
           <Stat icon={<Mountain size={14} />} label="Stone" value={r.stoneAfter} color="#00F3FF" />
           <Stat icon={<Trophy size={14} />} label="Level-Ups" value={r.leveledUp} color="#A855F7" />
+          <Stat icon={<Backpack size={14} />} label="Gear to Vault" value={r.gearDrops || 0} color="#00F3FF" />
         </div>
 
         {r.victory ? (
