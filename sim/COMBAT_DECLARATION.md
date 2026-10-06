@@ -1,6 +1,6 @@
-# Demonanic Combat Formula Declaration v0.1
+# Demonanic Combat Formula Declaration v0.2
 
-Status: FROZEN CONTRACT  
+Status: FROZEN CONTRACT — v0.2 balance update  
 Branch: `feature/capacitor-android`  
 Scope: Combat simulation only  
 Construction layer: FROZEN — 72/72 validation PASS  
@@ -51,7 +51,7 @@ It is claiming:
 
 > "This is what a hero carrying the E5 stat package would do when evaluated against the verified combat formulas."
 
-Equipment does not modify live `frontend/src/game/logic.js :: heroDerived()` in this pass.
+
 
 Required output metadata:
 
@@ -765,7 +765,7 @@ Line numbers refer to the current `feature/capacitor-android` snapshot used to c
 These remain intentionally outside the frozen engine contract:
 
 1. Final live-game integration of E1–E5 equipment.
-2. Equipment Crit Chance/Crit Damage integration into live combat.
+2. Secondary identity modifiers and weapon-pairing combat effects remain unresolved; numeric values are not invented.
 3. Class-specific secondary identity stats; current simulator uses the documented shield-stat proxy.
 4. Mode B ranged Dark Elf/Warlock behavior.
 5. Exact reproduction of moving-target projectile interception.
