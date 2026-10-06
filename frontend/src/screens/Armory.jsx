@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
 import { useGame } from "@/context/GameProvider";
@@ -162,7 +162,7 @@ export default function Armory() {
     `Need ${item.buyPrice}g`
   );
 
-  const slotItems = useMemo(() => vault, [vault]);
+  const slotItems = vault;
 
   return (
     <div className="h-full w-full flex flex-col">
