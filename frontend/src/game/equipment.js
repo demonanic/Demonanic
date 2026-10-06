@@ -132,13 +132,13 @@ export const EQUIPMENT_CATALOG = {
 export const EQUIPMENT_ECONOMY = {
   // Tuning only; not part of the verified combat-stat source.
   sellValue: { E1: 30, E2: 80, E3: 250, E4: 700, E5: 2000 },
-  shopBuyMultiplier: 2,
+  shopBuyMultiplier: 2.25,
   shopRotationMs: 2 * 60 * 60 * 1000,
   shopSlots: 6,
   dropChance: {
-    basic: 0.08,
-    specialized: 0.18,
-    elite: 0.45,
+    basic: 0.06,
+    specialized: 0.14,
+    elite: 0.35,
     boss: 1,
   },
 };
@@ -311,6 +311,13 @@ export function formatEquipmentStats(stats = {}) {
     });
 }
 
+export function secondaryTypeMatchesHero(hero, item) {
+  if (!hero || item?.slot !== "SecondaryWeapon") return true;
+  // Legacy secondary items created before identity metadata remain equipable.
+  if (!item.secondaryType) return true;
+  return CLASS_SECONDARY_TYPE[hero.cls] === item.secondaryType;
+}
+
 export function equipItem(state, heroIndex, itemId, targetSlot = null) {
   const hero = state.heroes?.[heroIndex];
   const itemIndex = (state.vault || []).findIndex((item) => item.id === itemId);
@@ -319,6 +326,7 @@ export function equipItem(state, heroIndex, itemId, targetSlot = null) {
   const item = state.vault[itemIndex];
   const slot = targetSlot || item.slot;
   if (!EQUIPMENT_SLOTS.includes(slot)) return false;
+  if (!secondaryTypeMatchesHero(hero, item)) return false;
 
   // Ring I and Ring II are interchangeable physical slots. Every other item
   // must be equipped in the slot it was generated for; callers cannot use
