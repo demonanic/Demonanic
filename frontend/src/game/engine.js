@@ -73,15 +73,20 @@ export class Engine {
     });
 
     // tower runtime (free placement: use each tower's own x,y)
-    this.towers = sim.towers.map((t, idx) => {
+    // State may contain empty/null tower slots. The prep/economy layer
+    // intentionally supports sparse tower arrays, so never dereference a
+    // missing slot while constructing the battle runtime.
+    this.towers = (Array.isArray(sim.towers) ? sim.towers : []).reduce((acc, t, idx) => {
+      if (!t || !C.TOWERS[t.type] || !C.TOWER_RESOURCE[t.type]) return acc;
       const d = towerDerived(t);
       const r = C.TOWER_RESOURCE[t.type];
       if (r.kind === "ammo" && t.ammo == null) t.ammo = d.maxAmmo;
       if (r.kind === "ammo" && t.maxAmmo == null) t.maxAmmo = d.maxAmmo;
       if (r.kind === "mana" && t.mana == null) t.mana = d.maxMana;
       if (r.kind === "mana" && t.maxMana == null) t.maxMana = d.maxMana;
-      return { slot: idx, ref: t, x: t.x, y: t.y, d, cd: 0 };
-    });
+      acc.push({ slot: idx, ref: t, x: t.x, y: t.y, d, cd: 0 });
+      return acc;
+    }, []);
 
     this.barricades = sim.barricades.map((b, lane) => ({ lane, ref: b, x: laneX(lane), y: WALL_Y }));
   }
@@ -231,12 +236,20 @@ export class Engine {
 
   _loop(now) {
     if (!this.running) return;
-    let dt = (now - this.last) / 1000;
-    this.last = now;
-    if (dt > 0.05) dt = 0.05;
-    this.update(dt * this.speed);
-    this.render();
-    if (!this.ended) requestAnimationFrame(this._loop);
+    try {
+      let dt = (now - this.last) / 1000;
+      this.last = now;
+      if (dt > 0.05) dt = 0.05;
+      this.update(dt * this.speed);
+      this.render();
+      if (!this.ended) requestAnimationFrame(this._loop);
+    } catch (err) {
+      // Never let one malformed runtime object silently kill the RAF chain.
+      // Keep the UI alive and expose the real failure through logcat/console.
+      this.running = false;
+      console.error("DemonanicEngine LOOP CRASH:", err?.message || err, err?.stack || "");
+      if (this.cb.onError) this.cb.onError(err);
+    }
   }
 
   update(dt) {
