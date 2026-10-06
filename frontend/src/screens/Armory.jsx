@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, CircleDollarSign, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
+import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
 import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD } from "@/components/ui-kit";
 import * as C from "@/game/config";
@@ -143,10 +143,7 @@ export default function Armory() {
     `Need ${item.buyPrice}g`
   );
 
-  const slotItems = useMemo(
-    () => vault.filter((item) => !hero?.equipment?.[item.slot] || item.slot === "Ring1" || item.slot === "Ring2"),
-    [vault, hero]
-  );
+  const slotItems = useMemo(() => vault, [vault]);
 
   return (
     <div className="h-full w-full flex flex-col">
