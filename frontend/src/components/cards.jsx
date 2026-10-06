@@ -75,7 +75,7 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
               <div key={st} className="flex items-center justify-between px-2 py-1 rounded bg-black/30 mb-1">
                 <span className="flex items-center gap-1 text-[11px] font-mono-g text-slate-300">{STAT_ICONS[st]}{st.slice(0, 3).toUpperCase()}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono-g font-bold text-sm" style={{ color: cls.color }}>{hero.stats[st]}</span>
+                  <span className="font-mono-g font-bold text-sm" style={{ color: cls.color }}>{hero.stats[st] + (d.gear?.[st] || 0)}</span>
                   {editable && (
                     <button disabled={hero.sp <= 0} onClick={() => onAlloc(st)} data-testid={`hero-alloc-${st}`}
                       className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 disabled:opacity-30 flex items-center justify-center"><Plus size={12} /></button>
