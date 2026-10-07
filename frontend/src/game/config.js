@@ -258,10 +258,17 @@ export function enemyDmgScale(wave, cp) { return 1 + 0.032 * (wave - 1) + 0.015 
 // established mid/late-game curve intact while giving new players a softer
 // opening window to learn positioning, towers, and hero commands.
 export function earlyWaveCombatScale(wave) {
-  if (wave <= 1) return 0.90;
-  if (wave === 2) return 0.93;
-  if (wave === 3) return 0.96;
+  if (wave <= 1) return 0.75;
+  if (wave === 2) return 0.82;
+  if (wave === 3) return 0.88;
   return 1;
+}
+
+export function earlyWaveEnemyCount(wave, cp) {
+  if (wave === 1) return 10;
+  if (wave === 2) return 12;
+  if (wave === 3) return 14;
+  return Math.max(6, Math.round(12 + 2.5 * wave + 0.75 * cp));
 }
 
 export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
