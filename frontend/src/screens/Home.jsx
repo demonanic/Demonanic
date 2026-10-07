@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useGame } from "@/context/GameProvider";
 import { NeonButton, TopResourceHUD, getTacticalHudOpaque, setTacticalHudOpaque } from "@/components/ui-kit";
 import { castlePower, slotCap, deployedTowers } from "@/game/logic";
-import { Swords, User, LogOut, Zap, Skull, Settings2, Eye, EyeOff } from "lucide-react";
+import { Swords, User, LogOut, Zap, Skull, Settings2, Eye, EyeOff, Backpack, ShoppingBag } from "lucide-react";
 
 export default function Home() {
   const { logout } = useAuth();
@@ -61,6 +61,13 @@ export default function Home() {
           <NeonButton color="magenta" className="py-4 text-base" onClick={() => setScreen("prep")} data-testid="enter-preparation-button">
             <Swords size={16} className="inline mr-2" /> Enter Preparation
           </NeonButton>
+          <NeonButton color="yellow" className="py-3 text-sm" onClick={() => setScreen("armory")} data-testid="home-armory-button">
+            <Backpack size={15} className="inline mr-2" /> Armory · Inventory · Shoppe
+          </NeonButton>
+          <div className="flex items-center justify-center gap-4 font-mono-g text-[9px] text-slate-500 -mt-1">
+            <span><Backpack size={10} className="inline mr-1" />Vault: {state.vault?.length || 0}</span>
+            <span><ShoppingBag size={10} className="inline mr-1" />Shoppe: {state.shoppe?.inventory?.length || 0} items</span>
+          </div>
           <div className="flex gap-3">
             <NeonButton color="cyan" className="flex-1 py-3" onClick={() => setScreen("profile")} data-testid="open-profile-button">
               <User size={14} className="inline mr-1" /> Profile
