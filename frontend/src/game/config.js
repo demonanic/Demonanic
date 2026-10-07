@@ -252,6 +252,18 @@ export const ENEMY_TIERS = {
 export function targetEnemyCount(wave, cp) { return Math.round(12 + 2.5 * wave + 0.75 * cp); }
 export function enemyHpScale(wave, cp) { return 1 + 0.05 * (wave - 1) + 0.02 * cp; }
 export function enemyDmgScale(wave, cp) { return 1 + 0.032 * (wave - 1) + 0.015 * cp; }
+
+// Early-game correction based on live Android playtesting:
+// W1/W2/W3 were reading as too difficult for a fresh squad. Keep the
+// established mid/late-game curve intact while giving new players a softer
+// opening window to learn positioning, towers, and hero commands.
+export function earlyWaveCombatScale(wave) {
+  if (wave <= 1) return 0.90;
+  if (wave === 2) return 0.93;
+  if (wave === 3) return 0.96;
+  return 1;
+}
+
 export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
 
 // Enemy archetypes (base stats; scaled at spawn). Neon roster from reference art.
