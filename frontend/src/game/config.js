@@ -284,6 +284,16 @@ nuclearBehemoth: { key: "nuclearBehemoth", name: "Nuclear Behemoth", tier: "boss
 export const BASIC_POOL = ["ghost", "slime", "goblin"];
 export const SPEC_POOL = ["skeleton", "orc", "reaper", "darkElf", "warlock"];
 
+// Real-world early-game calibration: use deliberate compositions for the
+// first three waves instead of relying on random specialist percentages.
+// This makes the opening difficulty and enemy identity actually change
+// from wave to wave and gives a fresh player a readable learning curve.
+export const EARLY_WAVE_POOLS = {
+  1: ["ghost", "goblin"],
+  2: ["ghost", "goblin", "slime"],
+  3: ["ghost", "goblin", "slime", "skeleton"],
+};
+
 // Section O — surrender / revival
 export function surrenderTaxRate(wave) { return Math.min(0.25, 0.05 + 0.02 * Math.floor(wave / 5)); }
 export function paidRevivalCost(heroLevel) { return Math.min(2000, 100 * heroLevel); }
