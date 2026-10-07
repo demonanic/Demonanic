@@ -25,8 +25,23 @@ function Splash({ label = "SUMMONING..." }) {
 }
 
 function GameRouter() {
-  const { loading, screen } = useGame();
+  const { loading, loadError, retryLoad, screen } = useGame();
   if (loading) return <Splash label="SUMMONING..." />;
+  if (loadError) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-[#0a0b10] p-6 text-center">
+        <div className="font-display font-black text-2xl text-rose-400 mb-3">SAVED PROFILE NOT REPLACED</div>
+        <p className="font-mono-g text-xs text-slate-400 max-w-sm mb-5">{loadError}</p>
+        <button
+          className="neon-btn glass-card rounded-lg px-5 py-3 font-mono-g text-xs text-cyan-300"
+          onClick={retryLoad}
+          data-testid="retry-game-load"
+        >
+          RETRY LOAD
+        </button>
+      </div>
+    );
+  }
   switch (screen) {
     case "home": return <Home />;
     case "squad": return <SquadSelect />;
@@ -45,7 +60,7 @@ function Shell() {
   if (user === null) return <Splash />;
   if (!user) return <Login />;
   return (
-    <GameProvider>
+    <GameProvider user={user}>
       <GameRouter />
     </GameProvider>
   );
