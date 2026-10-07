@@ -70,6 +70,25 @@ export default function Battle() {
     if (endedRef.current) return;
     endedRef.current = true;
     const sim = simRef.current;
+
+    // Re-check defeat conditions at the React boundary. This prevents a
+    // stale/incorrect engine result from ever being displayed as a clear.
+    const anyHeroAlive = (sim?.heroes || []).some((h) => h.hp > 0);
+    const castleEscapeLimit = Math.floor((res.total || 0) / 2) + 1;
+    const breach = Number(res.castleEscaped || 0) >= castleEscapeLimit;
+    let finalVictory = !!res.victory;
+    let finalReason = res.reason || (finalVictory ? "cleared" : "castle");
+
+    if (!anyHeroAlive) {
+      finalVictory = false;
+      finalReason = "heroes";
+    } else if (sim && sim.castleHp <= 0) {
+      finalVictory = false;
+      finalReason = "castle";
+    } else if (breach) {
+      finalVictory = false;
+      finalReason = "breach";
+    }
     const gainsHeroes = { ...res.xpGains.heroes };
     const gainsTowers = { ...res.xpGains.towers };
     const preLevels = state.heroes.map((h) => h.level);
@@ -95,12 +114,12 @@ export default function Battle() {
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
       s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
       s.bests.totalKills = Math.max(s.bests.totalKills || 0, s.kills.total);
-      if (res.victory) completeWave(s);
+      if (finalVictory) completeWave(s);
     });
     const totalXp = Object.values(gainsHeroes).reduce((a, b) => a + b, 0) + Object.values(gainsTowers).reduce((a, b) => a + b, 0);
     setLastResult({
-      victory: res.victory,
-      reason: res.reason || (res.victory ? "cleared" : "castle"),
+      victory: finalVictory,
+      reason: finalReason,
       wave: waveNum.current, killed: res.killed,
       totalXp: Math.round(totalXp),
       goldAfter: Math.round(sim.gold), foodAfter: Math.round(sim.food), stoneAfter: Math.round(sim.stone),
