@@ -114,7 +114,10 @@ export function GameProvider({ children, user }) {
       if (restored) {
         setState(restored);
         setScreen(restored.needsSquad ? "squad" : "home");
-        setLoadError("SERVER UNAVAILABLE — USING YOUR LAST SAVED PROFILE");
+        // A local backup is still a valid playable profile. Do not block the
+        // player on an API outage; the next successful save/load reconnects
+        // the server copy.
+        setLoadError("");
         console.warn("[Demonanic Game] RESTORED LOCAL BACKUP");
       } else {
         setState(null);
