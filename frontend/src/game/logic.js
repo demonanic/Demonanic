@@ -389,12 +389,23 @@ export function repairCastle(state) {
 export function buildWave(state, seedRand = Math.random) {
   const cp = castlePower(state);
   const count = Math.max(6, C.targetEnemyCount(state.wave, cp));
-  const hpS = C.enemyHpScale(state.wave, cp);
-  const dmgS = C.enemyDmgScale(state.wave, cp);
+  const earlyScale = C.earlyWaveCombatScale(state.wave);
+  const hpS = C.enemyHpScale(state.wave, cp) * earlyScale;
+  const dmgS = C.enemyDmgScale(state.wave, cp) * earlyScale;
   const groups = Math.min(5, Math.max(2, 2 + Math.floor(state.wave / 3)));
   const weights = C.GROUP_WEIGHTS.slice(0, groups);
   const wsum = weights.reduce((a, b) => a + b, 0);
-  const specCap = state.wave <= 5 ? 0.2 : Math.min(0.5, 0.2 + cp * 0.01);
+  // Fresh-player opening: W1 is basic-only; specialists are introduced
+  // gradually instead of arriving at full pressure immediately.
+  const specCap = state.wave === 1
+    ? 0
+    : state.wave === 2
+      ? 0.10
+      : state.wave === 3
+        ? 0.15
+        : state.wave <= 5
+          ? 0.20
+          : Math.min(0.5, 0.2 + cp * 0.01);
   const objectives = ["castle", "towers", "resources", "castle", "squad"];
 
   const enemies = [];
