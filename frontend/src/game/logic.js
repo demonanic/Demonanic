@@ -416,16 +416,16 @@ export function buildWave(state, seedRand = Math.random) {
     const gCount = Math.max(1, Math.round(count * (weights[g] / wsum)));
     const objective = objectives[g % objectives.length];
     for (let i = 0; i < gCount; i++) {
-      const isSpec = seedRand() < specCap;
-      const poolKey = isSpec
-        ? C.SPEC_POOL[Math.floor(seedRand() * C.SPEC_POOL.length)]
-        : C.BASIC_POOL[Math.floor(seedRand() * C.BASIC_POOL.length)];
+      const earlyPool = C.EARLY_WAVE_POOLS[state.wave];
+      const pool = earlyPool || (seedRand() < specCap ? C.SPEC_POOL : C.BASIC_POOL);
+      const poolKey = pool[Math.floor(seedRand() * pool.length)];
       const base = C.ENEMIES[poolKey];
       enemies.push(makeEnemy(idCounter++, base, hpS, dmgS, g, objective));
     }
   }
-  // elites on every wave >=3
-  if (state.wave >= 3) {
+  // Introduce the first lieutenant after the three-wave onboarding
+  // window; W1-W3 remain focused on learning the basic combat loop.
+  if (state.wave >= 4) {
     const elites = 1 + Math.floor(state.wave / 5);
     for (let i = 0; i < elites; i++)
       enemies.push(makeEnemy(idCounter++, C.ENEMIES.lieutenant, hpS, dmgS, 0, "squad"));
