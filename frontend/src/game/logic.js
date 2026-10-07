@@ -388,7 +388,9 @@ export function repairCastle(state) {
 // ---- wave composition ----
 export function buildWave(state, seedRand = Math.random) {
   const cp = castlePower(state);
-  const count = Math.max(6, C.targetEnemyCount(state.wave, cp));
+  const count = state.wave <= 3
+    ? C.earlyWaveEnemyCount(state.wave, cp)
+    : Math.max(6, C.targetEnemyCount(state.wave, cp));
   const earlyScale = C.earlyWaveCombatScale(state.wave);
   const hpS = C.enemyHpScale(state.wave, cp) * earlyScale;
   const dmgS = C.enemyDmgScale(state.wave, cp) * earlyScale;
