@@ -175,14 +175,14 @@ export default function Armory() {
       </header>
 
       <div className="px-3 pt-3">
-        <SectionTitle color="magenta">Kingdom Armory</SectionTitle>
+        <SectionTitle color="magenta">Kingdom Armory · Equipment Inventory</SectionTitle>
         <p className="font-mono-g text-[9px] text-slate-500 mt-1">
           The community Vault receives enemy drops. During preparation, equip, sell, or destroy gear. The Kingdom Shoppe rotates every 2 hours.
         </p>
 
         <div className="flex gap-1.5 mt-3">
           <button onClick={() => setTab("vault")} className={`flex-1 rounded-lg border p-2 font-mono-g text-[10px] ${tab === "vault" ? "border-cyan-400 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-slate-500"}`} data-testid="armory-vault-tab">
-            <Backpack size={12} className="inline mr-1" /> VAULT ({vault.length})
+            <Backpack size={12} className="inline mr-1" /> INVENTORY / VAULT ({vault.length})
           </button>
           <button onClick={() => setTab("shoppe")} className={`flex-1 rounded-lg border p-2 font-mono-g text-[10px] ${tab === "shoppe" ? "border-yellow-400 bg-yellow-500/15 text-yellow-300" : "border-white/10 text-slate-500"}`} data-testid="armory-shoppe-tab">
             <ShoppingBag size={12} className="inline mr-1" /> SHOPPE ({shopItems.length})
