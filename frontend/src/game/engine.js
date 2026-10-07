@@ -458,19 +458,37 @@ export class Engine {
     if (e.type === "warlock") {
       e.abilityCd = (e.abilityCd == null ? 3 : e.abilityCd) - dt;
       if (e.abilityCd <= 0) {
-        const target = this._nearestTower(e.x, e.y, 300);
-        if (target) {
-          const r = C.TOWER_RESOURCE[target.ref.type];
-          const current = r.kind === "ammo" ? (target.ref.ammo || 0) : (target.ref.mana || 0);
-          const max = r.kind === "ammo" ? target.d.maxAmmo : target.d.maxMana;
-          const drain = Math.min(current, Math.max(5, Math.ceil(max * 0.18)));
-          if (r.kind === "ammo") target.ref.ammo = Math.max(0, current - drain);
-          else target.ref.mana = Math.max(0, current - drain);
-          target.ref.warlockDebuff = 3;
-          this._float(target.x, target.y - 22, "DRAIN -" + drain, e.color);
-          this.effects.push({ kind: "immune", x: target.x, y: target.y, r: 15, life: 0.45, color: e.color });
+        // Warlocks are Mage Hunters: Mage first, then any living hero, then
+        // tower fallback. This gives the archetype a clear battlefield role
+        // and prevents the old tower-wrapper dereference crash.
+        const target =
+          this._nearestMageEntity(e.x, e.y, 300) ||
+          this._nearestHeroEntity(e.x, e.y, 300) ||
+          this._nearestTower(e.x, e.y, 300);
+
+        if (target?.kind === "hero") {
+          this._enemyAttack(e, target);
+          if (target.obj?.ref?.type === "mage") {
+            this._float(target.obj.x, target.obj.y - 22, "MAGE HUNT", e.color);
+          }
           e.abilityCd = 4.5;
-        } else e.abilityCd = 1;
+        } else if (target?.kind === "tower") {
+          // _nearestTower() returns { kind, obj }; obj.ref is the persisted
+          // tower. The previous implementation incorrectly read target.ref.
+          const tower = target.obj;
+          const r = C.TOWER_RESOURCE[tower.ref.type];
+          const current = r.kind === "ammo" ? (tower.ref.ammo || 0) : (tower.ref.mana || 0);
+          const max = r.kind === "ammo" ? tower.d.maxAmmo : tower.d.maxMana;
+          const drain = Math.min(current, Math.max(5, Math.ceil(max * 0.18)));
+          if (r.kind === "ammo") tower.ref.ammo = Math.max(0, current - drain);
+          else tower.ref.mana = Math.max(0, current - drain);
+          tower.ref.warlockDebuff = 3;
+          this._float(tower.x, tower.y - 22, "DRAIN -" + drain, e.color);
+          this.effects.push({ kind: "immune", x: tower.x, y: tower.y, r: 15, life: 0.45, color: e.color });
+          e.abilityCd = 4.5;
+        } else {
+          e.abilityCd = 1;
+        }
       }
     }
     const moveSpeed =
@@ -482,10 +500,10 @@ export class Engine {
 
     // Floating enemies bypass barricades, preserving their distinct identity.
     // Reapers and lieutenants can peel toward heroes; orcs pressure towers.
-    if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost" || e.type === "darkElf")) {
+    if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost" || e.type === "darkElf" || e.type === "warlock")) {
       const target = tactical.obj;
       const dist = Math.hypot(target.x - e.x, target.y - e.y) || 1;
-      const attackRange = e.type === "reaper" ? 34 : e.type === "darkElf" ? 38 : 30;
+      const attackRange = e.type === "reaper" ? 34 : e.type === "darkElf" ? 38 : e.type === "warlock" ? 38 : 30;
       if (dist <= attackRange) {
         if (e.atkCd <= 0) {
           this._enemyAttack(e, tactical);
@@ -495,7 +513,7 @@ export class Engine {
       }
       // Reapers deliberately pursue wounded heroes; other tactical enemies
       // only peel when their preferred target is reasonably close.
-      const peelRange = e.type === "reaper" ? 260 : e.type === "darkElf" ? 300 : 150;
+      const peelRange = e.type === "reaper" ? 260 : e.type === "darkElf" ? 300 : e.type === "warlock" ? 300 : 150;
       if (dist <= peelRange) {
         e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
         e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
@@ -890,6 +908,16 @@ export class Engine {
     return best ? { kind: "hero", obj: best } : null;
   }
 
+  _nearestMageEntity(x, y, r) {
+    let best = null, bd = r;
+    for (const h of this.heroes) {
+      if (!h.alive || h.ref?.type !== "mage") continue;
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d <= bd) { bd = d; best = h; }
+    }
+    return best ? { kind: "hero", obj: best } : null;
+  }
+
   _selectEnemyTacticalTarget(e) {
     if (e.type === "reaper") {
       let best = null, worst = Infinity;
@@ -920,7 +948,9 @@ export class Engine {
     }
 
     if (e.type === "warlock") {
-      return this._nearestHeroEntity(e.x, e.y, 100);
+      return this._nearestMageEntity(e.x, e.y, 300)
+        || this._nearestHeroEntity(e.x, e.y, 300)
+        || this._nearestTower(e.x, e.y, 300);
     }
 
     return null;
