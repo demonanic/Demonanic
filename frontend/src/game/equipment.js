@@ -393,7 +393,7 @@ export function emptyEquipmentState(state) {
     if (!item || item.slot !== "SecondaryWeapon" || !SECONDARY_TYPES.includes(item.secondaryType)) return;
     if (/Secondary$/i.test(item.name || "")) {
       const rarity = EQUIPMENT_RARITIES[item.rarity]?.name || item.rarityName || "";
-      item.name = `${rarity === "Common" ? "" : rarity + " "}${secondaryNames[item.secondaryType] || "Secondary"}`.trim();
+      item.name = `${rarity === "Common" ? "" : rarity + " "}Void ${secondaryNames[item.secondaryType] || "Secondary"}`.trim();
     }
   };
   state.vault.forEach(repairSecondaryName);
