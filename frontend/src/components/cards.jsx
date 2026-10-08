@@ -2,6 +2,7 @@ import { X, Plus, Zap, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
 import { StatBar, NeonButton, HeroMiniSprite } from "@/components/ui-kit";
 import * as C from "@/game/config";
 import { heroDerived, towerDerived } from "@/game/logic";
+import PerkTree from "@/components/PerkTree";
 
 export function Modal({ children, onClose, testid, slowed }) {
   return (
@@ -23,6 +24,7 @@ export function Modal({ children, onClose, testid, slowed }) {
 const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
 
 export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed, combatMode, onCombatMode, onRetreat, onRally }) {
+  const [perkTreeOpen, setPerkTreeOpen] = useState(false);
   const cls = C.HERO_CLASSES[hero.cls];
   const d = heroDerived(hero);
   const curXp = C.HERO_XP[hero.level - 1] || 0;
@@ -138,27 +140,27 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
 
         <div>
           <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
-            <span className="flex items-center gap-1"><Zap size={12} /> Abilities (Tier 1)</span>
-            {editable && <span className="text-fuchsia-400">AP:{hero.ap}</span>}
+            <span className="flex items-center gap-1"><Zap size={12} /> PRK / ABILITIES</span>
+            <span className="text-fuchsia-400">AP:{hero.ap || 0}</span>
           </div>
-          <div className="text-[11px] font-mono-g px-2 py-1.5 rounded bg-black/30 mb-1.5 border border-white/10">
-            <span style={{ color: cls.color }}>★ {cls.ability.name}</span>
-            <span className="text-slate-400"> — {cls.ability.desc}</span>
+          <button
+            type="button"
+            onClick={() => setPerkTreeOpen(true)}
+            className="w-full rounded-lg border border-fuchsia-400/40 bg-fuchsia-500/10 px-3 py-2 text-left hover:bg-fuchsia-500/15"
+            data-testid="open-perk-tree"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-mono-g text-[10px] font-bold text-fuchsia-300">OPEN PRK TREE</span>
+              <span className="font-mono-g text-[8px] text-slate-500">{hero.perks?.length || 0} selected</span>
+            </div>
+            <div className="font-mono-g text-[8px] text-slate-500 mt-1">Build branches, unlock intersections, and materialize combat abilities in Tactical.</div>
+          </button>
+          <div className="mt-2 text-[9px] font-mono-g text-slate-500">
+            {hero.perks?.length ? "ACTIVE PRKs: " + hero.perks.length : "No PRKs selected yet."}
           </div>
-          {cls.perks.map((p) => {
-            const owned = hero.perks.includes(p);
-            return (
-              <div key={p} className="flex items-center justify-between px-2 py-1.5 rounded bg-black/30 mb-1 border border-white/5">
-                <span className={`text-[11px] font-mono-g ${owned ? "text-green-400" : "text-slate-300"}`}>{owned ? "✓ " : ""}{p}</span>
-                {editable && !owned && (
-                  <NeonButton color="magenta" className="!px-2 !py-0.5 !text-[10px]" disabled={hero.ap < 1}
-                    onClick={() => onPerk(p)} data-testid={`hero-perk-${p.split(" ")[0].toLowerCase()}`}>1 AP</NeonButton>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        </div>        </div>
       </div>
+      {perkTreeOpen && <PerkTree hero={hero} editable={editable} onPerk={onPerk} onClose={() => setPerkTreeOpen(false)} />}
     </Modal>
   );
 }
