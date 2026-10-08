@@ -5,6 +5,7 @@
 import * as C from "./config";
 import { heroDerived, towerDerived, makeSingleEnemy } from "./logic";
 import { rollEquipmentDrop } from "./equipment";
+import { unlockedAbilities, getAbility } from "./perks";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -76,6 +77,8 @@ export class Engine {
         reactiveUntil: 0,
         reactiveAlly: null,
         reactiveReason: null,
+        abilityCooldowns: {},
+        speedRushUntil: 0,
       };
     });
 
@@ -110,6 +113,159 @@ export class Engine {
   setSelectedHero(index) {
     this.selectedHero = Number.isInteger(index) ? index : null;
     return true;
+  }
+
+  getHeroAbilityStatus(index) {
+    const h = this.heroes[index];
+    if (!h) return [];
+    return unlockedAbilities(h.ref).map((a) => ({
+      id: a.id,
+      name: a.name,
+      color: a.color,
+      cooldown: Math.max(0, h.abilityCooldowns[a.id] || 0),
+      available: h.alive && (h.abilityCooldowns[a.id] || 0) <= 0,
+    }));
+  }
+
+  useHeroAbility(index, abilityId) {
+    const h = this.heroes[index];
+    const ability = getAbility(h?.ref, abilityId);
+    if (!h || !h.alive || !ability) return false;
+    const remaining = h.abilityCooldowns[ability.id] || 0;
+    if (remaining > 0) return false;
+
+    let used = false;
+    switch (ability.effect) {
+      case "shield_bash": {
+        const target = this._nearestEnemy(h.x, h.y, 190);
+        if (target) {
+          this._applyAbilityDamage(h, target, 2.0, "SHIELD BASH", 2);
+          used = true;
+        }
+        break;
+      }
+      case "fortress_pulse": {
+        for (const ally of this.heroes) {
+          if (!ally.alive) continue;
+          const dist = Math.hypot(ally.x - h.x, ally.y - h.y);
+          if (dist <= 150) {
+            const cap = ally.d.maxHp * 0.30 * ally.d.barrierMultiplier;
+            ally.ref.shield = Math.min(cap, (ally.ref.shield || 0) + ally.d.maxHp * 0.20);
+            this._float(ally.x, ally.y - 22, "+FORTIFY", "#00F3FF");
+            this.effects.push({ x: ally.x, y: ally.y, r: 24, life: 0.45, color: "#00F3FF" });
+          }
+        }
+        used = true;
+        break;
+      }
+      case "speed_rush": {
+        h.speedRushUntil = this.time + 5;
+        const target = this._nearestEnemy(h.x, h.y, 340);
+        if (target) {
+          h.manualTarget = target;
+          h.manual = true;
+          h.ref.manual = true;
+        }
+        this._float(h.x, h.y - 24, "SPEED RUSH", "#FF007F");
+        this.effects.push({ x: h.x, y: h.y, r: 28, life: 0.6, color: "#FF007F" });
+        used = true;
+        break;
+      }
+      case "backstab": {
+        const target = this._selectTarget(h) || this._nearestEnemy(h.x, h.y, 300);
+        if (target) {
+          this._applyAbilityDamage(h, target, 2.4, "BACKSTAB", 0);
+          used = true;
+        }
+        break;
+      }
+      case "life_steal": {
+        const target = this._nearestEnemy(h.x, h.y, 300);
+        if (target) {
+          const before = target.hp;
+          this._applyAbilityDamage(h, target, 1.8, "LIFE STEAL", 0);
+          const dealt = Math.max(0, before - target.hp);
+          h.ref.hp = Math.min(h.d.maxHp, h.ref.hp + dealt * 0.45);
+          this._float(h.x, h.y - 24, "+" + Math.round(dealt * 0.45), "#39FF14");
+          used = true;
+        }
+        break;
+      }
+      case "firestorm": {
+        const target = this._nearestEnemy(h.x, h.y, h.d.range);
+        if (target) {
+          const victims = this.active.filter((e) => e.hp > 0 && Math.hypot(e.x - target.x, e.y - target.y) <= 70);
+          for (const e of victims) this._applyAbilityDamage(h, e, 1.35, "FIRESTORM", 0);
+          this.effects.push({ kind: "napalm", x: target.x, y: target.y, r: 18, life: 0.8, color: "#A855F7" });
+          used = true;
+        }
+        break;
+      }
+      case "mend": {
+        const ally = this.heroes.filter((x) => x.alive && x !== h).sort((a, b) => (a.ref.hp / a.d.maxHp) - (b.ref.hp / b.d.maxHp))[0];
+        if (ally && ally.ref.hp < ally.d.maxHp) {
+          const heal = ally.d.maxHp * 0.30 * h.d.healPower;
+          ally.ref.hp = Math.min(ally.d.maxHp, ally.ref.hp + heal);
+          this._float(ally.x, ally.y - 22, "+" + Math.round(heal), "#39FF14");
+          this.effects.push({ x: ally.x, y: ally.y, r: 24, life: 0.45, color: "#39FF14" });
+          used = true;
+        }
+        break;
+      }
+      case "barrier": {
+        for (const ally of this.heroes) {
+          if (!ally.alive) continue;
+          const cap = ally.d.maxHp * 0.25 * h.d.barrierMultiplier;
+          ally.ref.shield = Math.min(cap, (ally.ref.shield || 0) + ally.d.maxHp * 0.18 * h.d.barrierMultiplier);
+          this._float(ally.x, ally.y - 22, "+BARRIER", "#00F3FF");
+        }
+        used = true;
+        break;
+      }
+      case "piercing_shot": {
+        const target = this._selectTarget(h);
+        if (target) {
+          const targets = [target, ...this.active.filter((e) => e !== target && e.hp > 0 && Math.hypot(e.x - target.x, e.y - target.y) <= 48).slice(0, 2)];
+          targets.forEach((e, i) => this._applyAbilityDamage(h, e, i === 0 ? 2.0 : 0.75, "PIERCE", 0));
+          used = true;
+        }
+        break;
+      }
+      case "focus_volley": {
+        const target = this._selectTarget(h);
+        if (target) {
+          for (let i = 0; i < 3 && target.hp > 0; i++) this._applyAbilityDamage(h, target, 0.75, "FOCUS", 0);
+          used = true;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (used) {
+      h.abilityCooldowns[ability.id] = ability.cooldown * h.d.cooldownMultiplier;
+      return true;
+    }
+    return false;
+  }
+
+  _applyAbilityDamage(h, target, multiplier, label, stunSeconds = 0) {
+    if (!target || target.hp <= 0) return;
+    const affinity = C.affinityMultiplier(target, h.d.magic ? C.DAMAGE_TYPES.ARCANE : C.DAMAGE_TYPES.KNIGHT_MELEE);
+    if (affinity <= 0) {
+      this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
+      return;
+    }
+    let dmg = (h.d.attack || 0) * multiplier * h.d.abilityDamageMultiplier * affinity;
+    if (target.hp / Math.max(1, target.maxHp) < 0.35) dmg *= 1 + h.d.lowHpDamage;
+    if (target.hp / Math.max(1, target.maxHp) > 0.70) dmg *= 1 + h.d.highHpDamage;
+    target.hp = Math.max(0, target.hp - dmg);
+    target.dmgBy["H" + h.i] = (target.dmgBy["H" + h.i] || 0) + dmg;
+    if (stunSeconds > 0) target.stunUntil = Math.max(target.stunUntil || 0, this.time + stunSeconds);
+    this._float(target.x, target.y - 4, label + " " + Math.round(dmg), h.d.color);
+    this.effects.push({ kind: "hit", x: target.x, y: target.y, r: 16, life: 0.3, color: h.d.color, crit: false });
+    if (target.hp <= 0) this._killEnemy(target, "H" + h.i);
   }
 
   setHeroManual(index, manual) {
@@ -320,6 +476,7 @@ export class Engine {
     for (const h of this.heroes) {
       if (!h.alive) continue;
       if (h.protect > 0) { h.protect -= dt; continue; }
+      for (const id of Object.keys(h.abilityCooldowns)) h.abilityCooldowns[id] = Math.max(0, h.abilityCooldowns[id] - dt);
       h.cd -= dt;
       const cfg = h.ref.attackConfig || "";
       const melee = h.d.range < 130;
@@ -387,7 +544,7 @@ export class Engine {
           const ally = h.reactiveAlly;
           const dist = Math.hypot(ally.x - h.x, ally.y - h.y);
           if (dist > 190) {
-            const spd = 155 * dt;
+            const spd = 155 * dt * h.d.moveSpeedMultiplier * (h.speedRushUntil > this.time ? 1.5 : 1);
             h.x += ((ally.x - h.x) / Math.max(1, dist)) * Math.min(spd, dist);
             h.y += ((ally.y - h.y) / Math.max(1, dist)) * Math.min(spd, dist);
           }
@@ -426,7 +583,7 @@ export class Engine {
         if (target) {
           const dist = Math.hypot(target.x - h.x, target.y - h.y) || 1;
           if (dist > h.d.range - 6) {
-            const spd = 155 * dt;
+            const spd = 155 * dt * h.d.moveSpeedMultiplier * (h.speedRushUntil > this.time ? 1.5 : 1);
             h.x += ((target.x - h.x) / dist) * Math.min(spd, dist);
             h.y += ((target.y - h.y) / dist) * Math.min(spd, dist);
           } else if (h.cd <= 0) {
@@ -469,6 +626,7 @@ export class Engine {
 
   _updateEnemy(e, dt) {
     e.atkCd -= dt;
+    if (e.stunUntil && e.stunUntil > this.time) return;
     // Boss special: a targeted, proximity-based napalm bottle.
     // It no longer damages every hero simultaneously. The target is the nearest
     // living hero or tower inside the boss's configured attack range.
@@ -1040,6 +1198,7 @@ export class Engine {
       castleHp: this.sim.castleHp, castleMaxHp: this.sim.castleMaxHp,
       morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
       heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
+      heroAbilities: this.heroes.map((h) => this.getHeroAbilityStatus(h.i)),
       boss: (() => { const b = this.active.find((e) => e.boss); return b ? { name: b.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
     });
   }
