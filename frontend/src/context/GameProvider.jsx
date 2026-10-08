@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { gameApi } from "@/api";
 import { createNewState, produce } from "@/game/logic";
 import { emptyEquipmentState } from "@/game/equipment";
+import { normalizePerks } from "@/game/perks";
+import { heroDerived } from "@/game/logic";
 
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
@@ -13,6 +15,12 @@ function normalizeState(s) {
   if (Array.isArray(s.heroes)) {
     s.heroes.forEach((h) => {
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
+      if (h) {
+        h.perks = normalizePerks(h.cls, h.perks);
+        if (!h.abilityCooldowns || typeof h.abilityCooldowns !== "object") h.abilityCooldowns = {};
+        h.maxHp = heroDerived(h).maxHp;
+        if (h.hp > 0) h.hp = Math.min(h.hp, h.maxHp);
+      }
     });
   }
   if (s.needsSquad === undefined) {
