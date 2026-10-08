@@ -50,6 +50,7 @@ export class Engine {
     this.time = 0;
     this.ended = false;
     this.selectedHero = null;
+    this.castleThreatUntil = 0;
 
     // hero runtime
     const n = sim.heroes.length || 1;
@@ -72,6 +73,9 @@ export class Engine {
         rallyPoint: null,
         rallyHold: false,
         retreating: false,
+        reactiveUntil: 0,
+        reactiveAlly: null,
+        reactiveReason: null,
       };
     });
 
@@ -364,15 +368,48 @@ export class Engine {
           continue;
         }
       }
-      // Mage support/barrier config: mend or shield allies (works pre-breach too)
+      // Reactive combat keeps the Castle Squad alive without taking away
+      // deliberate player control. A selected hero remains fully manual;
+      // unselected heroes can temporarily answer a nearby ally under attack
+      // or a castle breach, then return to their configured behavior.
+      const reactiveActive = h.reactiveUntil > this.time && this.selectedHero !== h.i;
+      if (h.reactiveUntil && !reactiveActive) {
+        h.reactiveUntil = 0;
+        h.reactiveAlly = null;
+        h.reactiveReason = null;
+      }
+
+      // Mage support/barrier config: support the endangered ally when a
+      // reactive alert exists; otherwise use the normal weakest-ally logic.
       if (support) {
-        if (h.cd <= 0 && this._support(h, cfg)) h.cd = h.d.rate;
-        this._returnHome(h, dt);
+        if (h.cd <= 0 && this._support(h, cfg, reactiveActive ? h.reactiveAlly : null)) h.cd = h.d.rate;
+        if (reactiveActive && h.reactiveAlly?.alive) {
+          const ally = h.reactiveAlly;
+          const dist = Math.hypot(ally.x - h.x, ally.y - h.y);
+          if (dist > 190) {
+            const spd = 155 * dt;
+            h.x += ((ally.x - h.x) / Math.max(1, dist)) * Math.min(spd, dist);
+            h.y += ((ally.y - h.y) / Math.max(1, dist)) * Math.min(spd, dist);
+          }
+        } else {
+          this._returnHome(h, dt);
+        }
         continue;
       }
+
+      const alertEnemy = this._nearestEnemy(h.x, h.y, 300);
       const nearbyAutoTarget = this._nearestEnemy(h.x, h.y, 220);
-      if (!breached && !h.manual && !nearbyAutoTarget) { this._returnHome(h, dt); continue; }
-      let target = h.manual ? h.manualTarget : this._selectTarget(h);
+      const shouldReactToCastle = reactiveActive && h.reactiveReason === "castle";
+      if (!h.manual && alertEnemy && !nearbyAutoTarget && !reactiveActive) {
+        // An approaching/offensive enemy is enough to wake an AUTO hero.
+        // The hero will close distance until its normal attack range applies.
+        h.reactiveUntil = this.time + 1;
+        h.reactiveReason = "enemy";
+      }
+      if (!breached && !h.manual && !nearbyAutoTarget && !reactiveActive && !alertEnemy && !shouldReactToCastle) {
+        this._returnHome(h, dt); continue;
+      }
+      let target = h.manual && !reactiveActive ? h.manualTarget : this._selectTarget(h);
 
       if (target && target.hp <= 0) {
         h.manualTarget = null;
@@ -381,7 +418,7 @@ export class Engine {
 
       // Manual heroes hold their current position when they have no target.
       // They return home only through the explicit RETREAT command.
-      if (h.manual && !target) {
+      if (h.manual && !target && !reactiveActive) {
         continue;
       }
 
@@ -550,7 +587,7 @@ export class Engine {
       // Reaching the castle is a permanent breach. Track every escaped enemy
       // so a wave cannot be won simply because the remaining defenders died.
       this.castleEscaped += 1;
-      this._damageCastle(e.damage * 4);
+      this._damageCastle(e.damage * 4, e);
       this._killEnemy(e, null, true);
     }
   }
@@ -664,6 +701,18 @@ export class Engine {
     this.effects.push({ kind: "impact", x, y, r: 10, life: 0.35, color: "#FFE600" });
   }
 
+  _triggerHeroReaction(victim, reason) {
+    if (!victim) return;
+    for (const h of this.heroes) {
+      if (!h.alive || h === victim || h.i === this.selectedHero) continue;
+      // Do not interrupt an active move/rally/retreat/explicit target.
+      if (h.manualPoint || h.rallyPoint || h.rallyHold || h.retreating || h.manualTarget) continue;
+      h.reactiveUntil = Math.max(h.reactiveUntil || 0, this.time + (reason === "castle" ? 5 : 3));
+      h.reactiveAlly = reason === "ally" ? victim : null;
+      h.reactiveReason = reason;
+    }
+  }
+
   _enemyAttack(e, blocker) {
     if (blocker.kind === "tower") {
       const t = blocker.obj;
@@ -682,6 +731,7 @@ export class Engine {
       let dmg = C.damageAfterDefense(e.damage, h.ref.stats.defense);
       if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
       h.ref.hp = Math.max(0, h.ref.hp - dmg);
+      if (dmg > 0) this._triggerHeroReaction(h, "ally");
       if (e.boss) e.hp = Math.min(e.maxHp, e.hp + dmg * 0.5); // Demon Lord lifesteal
       this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF3366");
       if (h.ref.hp <= 0 && h.alive) {
@@ -791,8 +841,16 @@ export class Engine {
     }
   }
 
-  _damageCastle(dmg) {
+  _damageCastle(dmg, sourceEnemy = null) {
     const before = this.sim.castleHp;
+    this.castleThreatUntil = this.time + 5;
+    for (const h of this.heroes) {
+      if (!h.alive || h.i === this.selectedHero) continue;
+      if (h.manualPoint || h.rallyPoint || h.rallyHold || h.retreating || h.manualTarget) continue;
+      h.reactiveUntil = Math.max(h.reactiveUntil || 0, this.castleThreatUntil);
+      h.reactiveAlly = null;
+      h.reactiveReason = "castle";
+    }
     this.sim.castleHp = Math.max(0, this.sim.castleHp - dmg);
     const pctLost = (before - this.sim.castleHp) / this.sim.castleMaxHp * 100;
     this.sim.morale = clamp(this.sim.morale + Math.round(C.MORALE.castleLossPerPct * pctLost));
@@ -846,7 +904,7 @@ export class Engine {
     const cfg = h.ref.attackConfig || "";
     const melee = h.d.range < 130;
     const pool = melee
-      ? this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= 220)
+      ? this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= 300)
       : this.active.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) <= h.d.range);
     if (!pool.length) return null;
     const pick = (fn, dir) => pool.reduce((a, b) => (fn(b) * dir > fn(a) * dir ? b : a));
@@ -867,13 +925,19 @@ export class Engine {
     }
     return pick((e) => Math.hypot(e.x - h.x, e.y - h.y), -1);                // nearest (default)
   }
-  _support(h, cfg) {
+  _support(h, cfg, preferredAlly = null) {
     const barrier = /Barrier/i.test(cfg);
     let ally = null, worst = Infinity;
+    if (preferredAlly?.alive && preferredAlly !== h) {
+      const dist = Math.hypot(preferredAlly.x - h.x, preferredAlly.y - h.y);
+      if (dist <= 220) ally = preferredAlly;
+    }
     for (const a of this.heroes) {
-      if (!a.alive) continue;
+      if (!a.alive || a === h) continue;
+      const dist = Math.hypot(a.x - h.x, a.y - h.y);
+      if (dist > 220) continue;
       const frac = a.ref.hp / a.d.maxHp;
-      if (frac < worst) { worst = frac; ally = a; }
+      if (!ally && frac < worst) { worst = frac; ally = a; }
     }
     if (!ally) return false;
     if (barrier) {
