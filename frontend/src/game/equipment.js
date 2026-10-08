@@ -208,12 +208,15 @@ export function createEquipmentItem(scenario, slot, rng = Math.random, source = 
 
   const rarityKey = `E${scenario}`;
   const rarity = EQUIPMENT_RARITIES[rarityKey];
-  const baseName = randomChoice(SLOT_NAMES[slot] || ["Unknown Gear"], rng);
   const resolvedSecondaryType = slot === "SecondaryWeapon"
     ? (secondaryType && SECONDARY_TYPES.includes(secondaryType)
       ? secondaryType
       : randomChoice(SECONDARY_TYPES, rng))
     : null;
+  const secondaryNames = { Shield: "Shield", SecondDagger: "Second Dagger", Wand: "Wand", Arrows: "Arrows" };
+  const baseName = slot === "SecondaryWeapon"
+    ? `Void ${secondaryNames[resolvedSecondaryType] || "Secondary"}`
+    : randomChoice(SLOT_NAMES[slot] || ["Unknown Gear"], rng);
   const prefix = rarity.name === "Common" ? "" : `${rarity.name} `;
   const sellValue = EQUIPMENT_ECONOMY.sellValue[rarityKey];
 
@@ -385,8 +388,19 @@ export function buyShoppeItem(state, index) {
 export function emptyEquipmentState(state) {
   if (!Array.isArray(state.vault)) state.vault = [];
   if (!state.shoppe) state.shoppe = { inventory: [], nextRefreshAt: 0, lastRefreshAt: 0 };
+  const secondaryNames = { Shield: "Shield", SecondDagger: "Second Dagger", Wand: "Wand", Arrows: "Arrows" };
+  const repairSecondaryName = (item) => {
+    if (!item || item.slot !== "SecondaryWeapon" || !SECONDARY_TYPES.includes(item.secondaryType)) return;
+    if (/Secondary$/i.test(item.name || "")) {
+      const rarity = EQUIPMENT_RARITIES[item.rarity]?.name || item.rarityName || "";
+      item.name = `${rarity === "Common" ? "" : rarity + " "}${secondaryNames[item.secondaryType] || "Secondary"}`.trim();
+    }
+  };
+  state.vault.forEach(repairSecondaryName);
+  if (Array.isArray(state.shoppe.inventory)) state.shoppe.inventory.forEach(repairSecondaryName);
   for (const hero of [...(state.heroes || []), ...(state.bench || [])]) {
     if (!hero.equipment || Array.isArray(hero.equipment)) hero.equipment = {};
+    Object.values(hero.equipment).forEach(repairSecondaryName);
     if (!Array.isArray(hero.quickSlots) || hero.quickSlots.length !== QUICK_SLOT_COUNT) {
       hero.quickSlots = Array.from({ length: QUICK_SLOT_COUNT }, (_, i) => hero.quickSlots?.[i] || null);
     }
