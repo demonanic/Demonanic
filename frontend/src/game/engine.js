@@ -252,7 +252,8 @@ export class Engine {
 
   _applyAbilityDamage(h, target, multiplier, label, stunSeconds = 0) {
     if (!target || target.hp <= 0) return;
-    const affinity = C.affinityMultiplier(target, h.d.magic ? C.DAMAGE_TYPES.ARCANE : C.DAMAGE_TYPES.KNIGHT_MELEE);
+    const damageType = h.ref.cls === "knight" ? C.DAMAGE_TYPES.KNIGHT_MELEE : h.ref.cls === "rouge" ? C.DAMAGE_TYPES.ROUGE_MELEE : h.ref.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED : C.DAMAGE_TYPES.ARCANE;
+    const affinity = C.affinityMultiplier(target, damageType);
     if (affinity <= 0) {
       this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
       return;
