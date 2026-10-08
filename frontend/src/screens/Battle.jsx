@@ -178,6 +178,11 @@ export default function Battle() {
     }
   };
 
+  const useAbility = (i, abilityId) => {
+    if (phase !== "combat" || !engineRef.current) return;
+    if (engineRef.current.useHeroAbility(i, abilityId)) forceTick((t) => t + 1);
+  };
+
   const reviveHero = (i) => {
     if (engineRef.current?.reviveHero(i)) {
       const revived = simRef.current?.heroes?.[i];
@@ -376,6 +381,8 @@ export default function Battle() {
           onRetreat={retreatHero}
           onRally={rallyHeroes}
           onRevive={reviveHero}
+          onAbility={useAbility}
+          abilityStatus={hud?.heroAbilities?.[selectedManualHero] || []}
           onDetails={openHeroCard}
           opaque={hudOpaque}
           onToggleOpaque={toggleHudOpaque}
