@@ -5,7 +5,7 @@ import * as C from "@/game/config";
 export default function TacticalMenu({
   open, onClose, heroes, selectedHero, commandMode = "move",
   onSelectHero, onManual, onAuto, onCommandMode, gold = 0,
-  onRetreat, onRally, onRevive, onDetails, opaque = false, onToggleOpaque,
+  onRetreat, onRally, onRevive, onDetails, onAbility, abilityStatus = [], opaque = false, onToggleOpaque,
 }) {
   if (!open) return null;
 
@@ -89,9 +89,25 @@ export default function TacticalMenu({
             )}
 
             <div className="grid grid-cols-2 gap-1 mt-1">
-              <button disabled className="rounded border border-fuchsia-400/20 bg-fuchsia-500/5 px-1 py-1.5 font-mono-g text-[7px] text-fuchsia-400/45" title="Hero abilities will be connected in the next combat ability pass." data-testid="tactical-ability">
-                <Sparkles size={9} className="inline mr-1" /> ABILITY
-              </button>
+              <div className="col-span-2 grid grid-cols-2 gap-1">
+                {(abilityStatus || []).length > 0 ? abilityStatus.map((a) => (
+                  <button
+                    key={a.id}
+                    disabled={a.cooldown > 0 || !a.available}
+                    onClick={() => onAbility?.(selectedHero, a.id)}
+                    className="rounded border px-1 py-1.5 font-mono-g text-[7px] disabled:opacity-35"
+                    style={{ borderColor: (a.color || "#E879F9") + "66", color: a.color || "#E879F9", background: (a.color || "#E879F9") + "10" }}
+                    data-testid={"tactical-ability-" + a.id}
+                  >
+                    <Sparkles size={8} className="inline mr-1" /> {a.name}
+                    {a.cooldown > 0 ? " " + a.cooldown.toFixed(1) + "s" : " READY"}
+                  </button>
+                )) : (
+                  <button disabled className="col-span-2 rounded border border-fuchsia-400/20 bg-fuchsia-500/5 px-1 py-1.5 font-mono-g text-[7px] text-fuchsia-400/45" data-testid="tactical-ability">
+                    <Sparkles size={9} className="inline mr-1" /> UNLOCK ABILITIES IN PRK TREE
+                  </button>
+                )}
+              </div>
               {selectedDead ? (
                 <NeonButton color="magenta" className="!px-1 !py-1.5 !text-[7px]" onClick={() => onRevive(selectedHero)} disabled={gold < reviveCost} data-testid="tactical-revive">
                   <Heart size={9} /> REVIVE
