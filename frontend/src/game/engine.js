@@ -906,6 +906,7 @@ export class Engine {
       spd: d.magic ? 340 : 460, dmg: d.damage || d.attack, magic: !!d.magic,
       critChance: isHero ? (d.critChance ?? C.BASE_CRIT) : C.BASE_CRIT,
       critMult: isHero ? (d.critMult ?? C.CRIT_MULT) : C.CRIT_MULT,
+      perkData: isHero ? d : null,
       damageType: d.damageType || (src.ref?.cls === "knight" ? C.DAMAGE_TYPES.KNIGHT_MELEE
         : src.ref?.cls === "rouge" ? C.DAMAGE_TYPES.ROUGE_MELEE
         : src.ref?.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED
@@ -949,6 +950,19 @@ export class Engine {
       crit,
     });
 
+    if (p.perkData?.critHealPct && crit) {
+      const hero = this.heroes.find((h) => "H" + h.i === p.sourceId);
+      if (hero?.alive) hero.ref.hp = Math.min(hero.d.maxHp, hero.ref.hp + dmg * p.perkData.critHealPct);
+    }
+    if (p.perkData?.multiTarget > 1 && !p.cleaveApplied) {
+      const extra = this.active
+        .filter((other) => other !== e && other.hp > 0 && Math.hypot(other.x - e.x, other.y - e.y) <= 55)
+        .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))
+        .slice(0, p.perkData.multiTarget - 1);
+      for (const other of extra) {
+        this._applyHit({ ...p, target: other, dmg: p.dmg * 0.55, cleaveApplied: true });
+      }
+    }
     if (e.hp <= 0) this._killEnemy(e, p.sourceId);
   }
 
