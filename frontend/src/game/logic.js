@@ -1,6 +1,7 @@
 // Pure game-state logic. No React, no rendering. Data-driven from config.js.
 import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
+import { getPerk, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
 
 let _heroSeq = 0;
 export function createHero(classKey) {
@@ -12,7 +13,7 @@ export function createHero(classKey) {
     id: `${classKey}-${Date.now().toString(36)}-${_heroSeq++}`,
     key: classKey, name: cls.name, cls: classKey,
     level: 1, xp: 0, sp: 0, ap: 0,
-    stats, perks: [], attackConfig: C.ATTACK_CONFIGS[classKey][0],
+    stats, perks: [], abilityCooldowns: {}, attackConfig: C.ATTACK_CONFIGS[classKey][0],
     equipment: {},
     quickSlots: [null, null, null],
     hp: maxHp, maxHp,
@@ -26,27 +27,41 @@ export function heroMaxHp(cls, level, stats) {
 export function heroDerived(hero) {
   const cls = C.HERO_CLASSES[hero.cls];
   const gear = aggregateEquipmentStats(hero.equipment);
+  const perks = perkEffects(hero);
   const effectiveStats = {
     attack: hero.stats.attack + gear.attack,
     defense: hero.stats.defense + gear.defense,
     agility: hero.stats.agility + gear.agility,
     intelligence: hero.stats.intelligence + gear.intelligence,
   };
-  const maxHp = heroMaxHp(cls, hero.level, effectiveStats) + gear.maxHP;
+  const maxHp = Math.round((heroMaxHp(cls, hero.level, effectiveStats) + gear.maxHP) * (1 + perks.maxHpPct));
   return {
     maxHp,
     attack: effectiveStats.attack + (hero.cls === "archer" ? hero.level * 2 : hero.level),
-    range: cls.attackRange,
-    rate: cls.attackRate,
+    range: cls.attackRange + perks.range,
+    rate: cls.attackRate * Math.max(0.45, 1 - perks.attackRatePct),
     magic: !!cls.magic,
-    defense: effectiveStats.defense,
+    defense: effectiveStats.defense + perks.defense,
     agility: effectiveStats.agility,
     intelligence: effectiveStats.intelligence,
-    critChance: C.BASE_CRIT + (gear.critChance / 100),
+    critChance: Math.min(0.50, C.BASE_CRIT + (gear.critChance / 100) + perks.critChancePct),
     critMult: C.CRIT_MULT + (gear.critDamage / 100),
     critDmgBonus: Math.floor(effectiveStats.attack / 10) * 0.01 + (gear.critDamage / 100),
-    dodge: C.dodgeChance(effectiveStats.agility),
-    healPower: 1 + effectiveStats.intelligence / 100,
+    dodge: Math.min(0.50, C.dodgeChance(effectiveStats.agility) + perks.dodgePct),
+    healPower: 1 + effectiveStats.intelligence / 100 + perks.healPct,
+    maxHpMultiplier: 1 + perks.maxHpPct,
+    abilityDamageMultiplier: 1 + perks.abilityDamagePct,
+    moveSpeedMultiplier: 1 + perks.moveSpeedPct,
+    reactionBonus: perks.reactionBonus,
+    barrierMultiplier: 1 + perks.barrierPct,
+    damageReduction: perks.damageReductionPct,
+    lowHpDefense: perks.lowHpDefense,
+    lowHpDamage: perks.lowHpDamagePct,
+    highHpDamage: perks.highHpDamagePct,
+    critHealPct: perks.critHealPct,
+    cooldownMultiplier: Math.max(0.5, 1 - perks.cooldownPct),
+    multiTarget: perks.multiTarget,
+    perkEffects: perks,
     color: cls.color,
     gear,
   };
@@ -333,16 +348,23 @@ export function addHeroXp(hero, xp) {
   hero.xp += xp;
   const newLvl = C.heroLevelForXp(hero.xp);
   while (hero.level < newLvl) { hero.level += 1; hero.sp += 1; hero.ap += 1; }
+  hero.perks = normalizePerks(hero.cls, hero.perks);
+  if (!hero.abilityCooldowns || typeof hero.abilityCooldowns !== "object") hero.abilityCooldowns = {};
 }
 export function allocateSp(hero, stat) {
   if (hero.sp <= 0) return false;
   hero.sp -= 1; hero.stats[stat] += 1;
   return true;
 }
-export function buyPerk(hero, perk, tier = 1) {
-  const cost = C.AP_COST[tier];
-  if (hero.ap < cost || hero.perks.includes(perk)) return false;
-  hero.ap -= cost; hero.perks.push(perk); return true;
+export function buyPerk(hero, perkId) {
+  if (!hero) return false;
+  const perk = getPerk(hero.cls, perkId);
+  if (!perk || !canUnlockPerk(hero, hero.cls, perkId)) return false;
+  hero.perks = normalizePerks(hero.cls, hero.perks);
+  hero.ap -= perk.cost;
+  hero.perks.push(perk.id);
+  hero.perks = [...new Set(hero.perks)];
+  return true;
 }
 
 // ---- recovery / morale ----
