@@ -166,7 +166,7 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
   );
 }
 
-export function TowerCard({ tower, editable, onUpgrade, onClose, slowed }) {
+export function TowerCard({ tower, editable, onUpgrade, onChooseSpecialization, onClose, slowed }) {
   const t = C.TOWERS[tower.type];
   const d = towerDerived(tower);
   const curXp = 150 * (tower.level - 1) * tower.level / 2;
@@ -217,6 +217,30 @@ export function TowerCard({ tower, editable, onUpgrade, onClose, slowed }) {
         ) : (
           <div className="font-mono-g text-[10px] text-slate-500">Tower XP unlocks paid upgrades. Each upgrade increases HP, damage, and ammo/mana capacity.</div>
         )}
+        {editable && [3, 5].map((milestone) => {
+          if ((tower.level || 1) < milestone) return null;
+          const owned = tower.specializations?.[milestone];
+          const options = (C.TOWER_SPECIALIZATIONS[tower.type] || []).filter((spec) => spec.milestone === milestone);
+          const chosen = options.find((spec) => spec.id === owned);
+          return (
+            <div key={milestone} className="mt-3 rounded-lg border border-fuchsia-400/25 bg-fuchsia-500/5 p-2" data-testid={`tower-specialization-${milestone}`}>
+              <div className="font-mono-g text-[10px] font-bold text-fuchsia-300 mb-1">LEVEL {milestone} SPECIALIZATION</div>
+              {chosen ? (
+                <div className="font-mono-g text-[10px] text-green-300">{chosen.name} — {chosen.desc}</div>
+              ) : (
+                <div className="grid gap-1.5">
+                  {options.map((spec) => (
+                    <button key={spec.id} type="button" onClick={() => onChooseSpecialization?.(milestone, spec.id)} data-testid={`tower-specialize-${spec.id}`}
+                      className="rounded border border-white/15 bg-black/30 p-2 text-left hover:border-fuchsia-400/60">
+                      <div className="font-mono-g text-[10px] font-bold text-slate-200">{spec.name}</div>
+                      <div className="font-mono-g text-[9px] text-slate-400">{spec.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
         {tower.choices.length > 0 && (
           <div className="mt-3 font-mono-g text-[10px] text-slate-400">Upgrades: {tower.choices.join(", ")}</div>
         )}
