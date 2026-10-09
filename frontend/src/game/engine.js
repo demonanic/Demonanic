@@ -598,6 +598,9 @@ export class Engine {
       }
     }
 
+    // Resolve body collisions after movement so living units cannot occupy the same space.
+    this._resolveUnitCollisions();
+
     // projectiles
     for (const p of this.projectiles) {
       p.t += dt;
@@ -1197,6 +1200,75 @@ export class Engine {
 
     return null;
   }
+
+  _resolveUnitCollisions() {
+    // These are gameplay body radii, not the full glow/weapon-art bounds.
+    // Bosses and elites need more room than basic units.
+    const heroRadius = 15;
+    const enemyRadius = (e) => e.boss ? 29 : e.tier === "elite" ? 20 : 14;
+    const livingHeroes = this.heroes.filter((h) => h.alive);
+    const livingEnemies = this.active.filter((e) => e.hp > 0);
+
+    // A few short passes handle crowded groups without making collision
+    // resolution expensive or changing the existing attack/target rules.
+    for (let pass = 0; pass < 3; pass++) {
+      const separate = (a, b, minDist, aWeight = 0.5, bWeight = 0.5) => {
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist >= minDist) return;
+        // Deterministic fallback for units that spawn at exactly the same point.
+        if (dist < 0.001) {
+          const seed = ((a.i ?? 0) + 1) * 17 + ((b.i ?? 0) + 1) * 31 + pass * 13;
+          const angle = (seed % 360) * Math.PI / 180;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          dist = 1;
+        }
+        const overlap = minDist - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        a.x -= nx * overlap * aWeight;
+        a.y -= ny * overlap * aWeight;
+        b.x += nx * overlap * bWeight;
+        b.y += ny * overlap * bWeight;
+      };
+
+      // Keep heroes from stacking while allowing them to regroup and move.
+      for (let i = 0; i < livingHeroes.length; i++) {
+        for (let j = i + 1; j < livingHeroes.length; j++) {
+          separate(livingHeroes[i], livingHeroes[j], heroRadius * 2, 0.5, 0.5);
+        }
+      }
+
+      // Enemy formations spread naturally instead of becoming a single pile.
+      for (let i = 0; i < livingEnemies.length; i++) {
+        for (let j = i + 1; j < livingEnemies.length; j++) {
+          const a = livingEnemies[i], b = livingEnemies[j];
+          separate(a, b, enemyRadius(a) + enemyRadius(b), 0.5, 0.5);
+        }
+      }
+
+      // Heroes and enemies can still engage and attack at close range, but
+      // their bodies stop at a readable contact distance rather than merging.
+      for (const h of livingHeroes) {
+        for (const e of livingEnemies) {
+          separate(h, e, heroRadius + enemyRadius(e), 0.5, 0.5);
+        }
+      }
+
+      for (const h of livingHeroes) {
+        h.x = Math.max(heroRadius, Math.min(W - heroRadius, h.x));
+        h.y = Math.max(18, Math.min(CASTLE_Y - 8, h.y));
+      }
+      for (const e of livingEnemies) {
+        const r = enemyRadius(e);
+        e.x = Math.max(r, Math.min(W - r, e.x));
+      }
+    }
+  }
+
+
   _returnHome(h, dt) {
     const dx = h.home.x - h.x, dy = h.home.y - h.y;
     const d = Math.hypot(dx, dy);
