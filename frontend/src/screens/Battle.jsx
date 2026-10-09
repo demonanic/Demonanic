@@ -183,6 +183,11 @@ export default function Battle() {
     if (engineRef.current.useHeroAbility(i, abilityId)) forceTick((t) => t + 1);
   };
 
+  const castSpell = (i, spellId) => {
+    if (phase !== "combat" || !engineRef.current) return;
+    if (engineRef.current.castMageSpell(i, spellId)) forceTick((t) => t + 1);
+  };
+
   const reviveHero = (i) => {
     if (engineRef.current?.reviveHero(i)) {
       const revived = simRef.current?.heroes?.[i];
@@ -383,6 +388,8 @@ export default function Battle() {
           onRevive={reviveHero}
           onAbility={useAbility}
           abilityStatus={hud?.heroAbilities?.[selectedManualHero] || []}
+          onCastSpell={castSpell}
+          spellStatus={hud?.heroSpells?.[selectedManualHero] || []}
           onDetails={openHeroCard}
           opaque={hudOpaque}
           onToggleOpaque={toggleHudOpaque}
