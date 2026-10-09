@@ -25,7 +25,11 @@ export default function PrepField({ state, handlers }) {
   };
 
   const placeAt = (e) => {
-    if (!placing) return;
+    if (!placing || e.button > 0) return;
+    // Use the initial pointer-down coordinates on touch devices. A synthesized
+    // click can arrive after the mobile viewport has shifted or reflowed.
+    e.preventDefault();
+    e.stopPropagation();
     const { x, y } = toLogical(e);
     handlers.build(placing, x, y);
     setPlacing(null);
@@ -117,7 +121,7 @@ export default function PrepField({ state, handlers }) {
         })}
 
         {/* placement overlay captures taps anywhere */}
-        {placing && <div className="absolute inset-0 z-20" style={{ cursor: "crosshair" }} onClick={placeAt} data-testid="place-overlay" />}
+        {placing && <div className="absolute inset-0 z-20" style={{ cursor: "crosshair", touchAction: "none" }} onPointerDown={placeAt} data-testid="place-overlay" />}
       </div>
 
       {/* action bar */}
