@@ -5,7 +5,7 @@ import * as C from "@/game/config";
 export default function TacticalMenu({
   open, onClose, heroes, selectedHero, commandMode = "move",
   onSelectHero, onManual, onAuto, onCommandMode, gold = 0,
-  onRetreat, onRally, onRevive, onDetails, onAbility, abilityStatus = [], opaque = false, onToggleOpaque,
+  onRetreat, onRally, onRevive, onDetails, onAbility, abilityStatus = [], onCastSpell, spellStatus = [], opaque = false, onToggleOpaque,
 }) {
   if (!open) return null;
 
@@ -86,6 +86,27 @@ export default function TacticalMenu({
                   <NeonButton color="green" className="!px-1 !py-1.5 !text-[8px]" onClick={() => onRally(selectedHero)} data-testid="tactical-rally"><UsersRound size={9} /> RALLY</NeonButton>
                 </div>
               </>
+            )}
+
+            {selected.cls === "mage" && (
+              <div className="mt-2 border-t border-violet-400/20 pt-1.5" data-testid="mage-spell-panel">
+                <div className="flex items-center justify-between mb-1 font-mono-g text-[7px] text-violet-300">
+                  <span>MAGE SPELLS · LV {Math.max(1, selected.level || 1)}</span>
+                  <span>{Math.floor(spellStatus[0]?.mana || 0)}/{Math.floor(spellStatus[0]?.maxMana || 0)} MP</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  {spellStatus.map((spell) => (
+                    <button key={spell.id} disabled={!spell.available}
+                      onClick={() => onCastSpell?.(selectedHero, spell.id)}
+                      className="rounded border px-1 py-1.5 text-left font-mono-g text-[7px] disabled:opacity-35"
+                      style={{ borderColor: (spell.color || "#A855F7") + "70", color: spell.color || "#A855F7", background: (spell.color || "#A855F7") + "10" }}
+                      data-testid={"tactical-spell-" + spell.id}>
+                      <span className="block font-bold">{spell.name}</span>
+                      <span className="block opacity-80">{spell.cost} MP · {spell.cooldown > 0 ? spell.cooldown.toFixed(1) + "s" : "READY"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             <div className="grid grid-cols-2 gap-1 mt-1">
