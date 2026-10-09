@@ -241,7 +241,7 @@ export function TowerCard({ tower, editable, onUpgrade, onChooseSpecialization, 
             </div>
           );
         })}
-        {tower.choices.length > 0 && (
+        {(tower.choices || []).length > 0 && (
           <div className="mt-3 font-mono-g text-[10px] text-slate-400">Upgrades: {tower.choices.join(", ")}</div>
         )}
       </div>
