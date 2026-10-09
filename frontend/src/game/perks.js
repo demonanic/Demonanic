@@ -3,6 +3,13 @@
 // dependencies. Intersections of PRK paths unlock battlefield abilities.
 // This is the first hardcoded implementation of the handwritten PRK design.
 
+export const MAGE_SPELLS = [
+  { id: "fireball", name: "Fireball", short: "FIREBALL", desc: "Heavy single-target fire damage.", color: "#FF6600", mana: 22, cooldown: 5, range: 330, power: 2.25, element: "fire" },
+  { id: "frost_nova", name: "Frost Nova", short: "FROST NOVA", desc: "Damage and slow nearby enemies.", color: "#00F3FF", mana: 30, cooldown: 9, range: 155, power: 1.05, radius: 105, slow: 2.5, element: "frost" },
+  { id: "chain_lightning", name: "Chain Lightning", short: "CHAIN", desc: "Lightning jumps between up to four enemies.", color: "#FFE600", mana: 34, cooldown: 8, range: 340, power: 1.45, jumps: 4, element: "lightning" },
+  { id: "arcane_ward", name: "Arcane Ward", short: "WARD", desc: "Shield the Mage and a nearby ally.", color: "#A855F7", mana: 26, cooldown: 12, range: 180, power: 0.22, element: "ward" },
+];
+
 const TREE = {
   knight: {
     roots: [
