@@ -304,15 +304,17 @@ export function chooseTowerSpecialization(state, slot, milestone, specialization
   if (tower.specializations[milestone]) return false;
   const choice = (C.TOWER_SPECIALIZATIONS[tower.type] || []).find((spec) => spec.milestone === milestone && spec.id === specializationId);
   if (!choice) return false;
-  const oldMaxHp = towerDerived(tower).maxHp;
+  const oldDerived = towerDerived(tower);
+  const oldMaxHp = oldDerived.maxHp;
+  const oldMaxResource = oldDerived.resourceKind === "ammo" ? oldDerived.maxAmmo : oldDerived.maxMana;
+  const resourceKey = oldDerived.resourceKind === "ammo" ? "ammo" : "mana";
+  const maxKey = oldDerived.resourceKind === "ammo" ? "maxAmmo" : "maxMana";
   tower.specializations[milestone] = choice.id;
   const next = towerDerived(tower);
   tower.maxHp = next.maxHp;
   if (tower.hp > 0) tower.hp = Math.min(next.maxHp, tower.hp + Math.max(0, next.maxHp - oldMaxHp));
-  const resourceKey = next.resourceKind === "ammo" ? "ammo" : "mana";
-  const maxKey = next.resourceKind === "ammo" ? "maxAmmo" : "maxMana";
   tower[maxKey] = next[maxKey];
-  tower[resourceKey] = Math.min(next[maxKey], (tower[resourceKey] || 0) + Math.max(0, next[maxKey] - (next.resourceKind === "ammo" ? C.TOWER_RESOURCE[tower.type].max : C.TOWER_RESOURCE[tower.type].max)));
+  tower[resourceKey] = Math.min(next[maxKey], (tower[resourceKey] || 0) + Math.max(0, next[maxKey] - oldMaxResource));
   tower.choices = [...(tower.choices || []), choice.name];
   return true;
 }
