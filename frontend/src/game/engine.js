@@ -5,7 +5,7 @@
 import * as C from "./config";
 import { heroDerived, towerDerived, makeSingleEnemy } from "./logic";
 import { rollEquipmentDrop } from "./equipment";
-import { unlockedAbilities, getAbility } from "./perks";
+import { unlockedAbilities, getAbility, MAGE_SPELLS } from "./perks";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -78,6 +78,9 @@ export class Engine {
         reactiveAlly: null,
         reactiveReason: null,
         abilityCooldowns: {},
+        spellCooldowns: {},
+        maxMana: Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
+        mana: Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         speedRushUntil: 0,
       };
     });
@@ -125,6 +128,92 @@ export class Engine {
       cooldown: Math.max(0, h.abilityCooldowns[a.id] || 0),
       available: h.alive && (h.abilityCooldowns[a.id] || 0) <= 0,
     }));
+  }
+
+  getHeroSpellStatus(index) {
+    const h = this.heroes[index];
+    if (!h || h.ref.cls !== "mage") return [];
+    const level = Math.max(1, Number(h.ref.level) || 1);
+    const intelligence = Math.max(0, Number(h.d.intelligence) || 0);
+    return MAGE_SPELLS.map((spell) => {
+      const cost = Math.max(8, Math.round(spell.mana * (1 - Math.min(0.25, Math.max(0, level - 1) * 0.01))));
+      const cooldown = Math.max(0, h.spellCooldowns[spell.id] || 0);
+      return { ...spell, cost, cooldown, mana: Math.round(h.mana), maxMana: h.maxMana,
+        level, damage: Math.round((h.d.attack || 0) * spell.power * (1 + Math.max(0, level - 1) * 0.06 + intelligence * 0.012)),
+        available: h.alive && cooldown <= 0 && h.mana >= cost };
+    });
+  }
+
+  castMageSpell(index, spellId) {
+    const h = this.heroes[index];
+    const spell = MAGE_SPELLS.find((item) => item.id === spellId);
+    if (!h || !h.alive || h.ref.cls !== "mage" || !spell) return false;
+    const status = this.getHeroSpellStatus(index).find((item) => item.id === spellId);
+    if (!status || !status.available) return false;
+    const target = this._nearestEnemy(h.x, h.y, spell.range);
+    if (spell.id !== "arcane_ward" && !target) return false;
+    let used = false;
+    if (spell.id === "fireball") {
+      const damage = status.damage * C.affinityMultiplier(target, C.DAMAGE_TYPES.FIRE);
+      if (damage > 0) {
+        target.hp = Math.max(0, target.hp - damage);
+        target.dmgBy["H" + h.i] = (target.dmgBy["H" + h.i] || 0) + damage;
+        this._float(target.x, target.y - 5, "FIREBALL " + Math.round(damage), spell.color);
+        this.effects.push({ kind: "hit", x: target.x, y: target.y, r: 25, life: 0.45, color: spell.color, crit: false });
+        if (target.hp <= 0) this._killEnemy(target, "H" + h.i);
+        used = true;
+      } else this._float(target.x, target.y - 5, "IMMUNE", "#39FF14");
+    } else if (spell.id === "frost_nova") {
+      const victims = this.active.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - h.x, enemy.y - h.y) <= spell.radius);
+      for (const enemy of victims) {
+        const damage = status.damage * C.affinityMultiplier(enemy, C.DAMAGE_TYPES.FROST);
+        if (damage > 0) {
+          enemy.hp = Math.max(0, enemy.hp - damage);
+          enemy.dmgBy["H" + h.i] = (enemy.dmgBy["H" + h.i] || 0) + damage;
+          enemy.slowUntil = Math.max(enemy.slowUntil || 0, this.time + spell.slow);
+          enemy.slowMultiplier = 0.45;
+          this._float(enemy.x, enemy.y - 4, "FROST " + Math.round(damage), spell.color);
+          if (enemy.hp <= 0) this._killEnemy(enemy, "H" + h.i);
+          used = true;
+        }
+      }
+      if (used) this.effects.push({ x: h.x, y: h.y, r: spell.radius, life: 0.65, color: spell.color });
+    } else if (spell.id === "chain_lightning") {
+      let current = target;
+      const hit = new Set();
+      for (let jump = 0; jump < spell.jumps && current; jump++) {
+        hit.add(current);
+        const damage = status.damage * Math.pow(0.72, jump) * C.affinityMultiplier(current, C.DAMAGE_TYPES.LIGHTNING);
+        if (damage > 0) {
+          current.hp = Math.max(0, current.hp - damage);
+          current.dmgBy["H" + h.i] = (current.dmgBy["H" + h.i] || 0) + damage;
+          this._float(current.x, current.y - 4, "ARC " + Math.round(damage), spell.color);
+          if (current.hp <= 0) this._killEnemy(current, "H" + h.i);
+          used = true;
+        }
+        this.effects.push({ x: current.x, y: current.y, r: 19, life: 0.35, color: spell.color });
+        const from = current;
+        current = this.active.filter((enemy) => enemy.hp > 0 && !hit.has(enemy))
+          .sort((a, b) => Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))
+          .find((enemy) => Math.hypot(enemy.x-from.x, enemy.y-from.y) <= 105) || null;
+      }
+    } else if (spell.id === "arcane_ward") {
+      const allies = this.heroes.filter((ally) => ally.alive && Math.hypot(ally.x-h.x, ally.y-h.y) <= spell.range)
+        .sort((a,b) => (a.ref.hp/a.d.maxHp)-(b.ref.hp/b.d.maxHp)).slice(0,2);
+      if (!allies.some((ally) => ally === h)) allies.unshift(h);
+      for (const ally of allies.slice(0,2)) {
+        const amount = Math.round(ally.d.maxHp * Math.min(0.38, spell.power + Math.max(0, status.level - 1) * 0.008));
+        ally.ref.shield = Math.min(ally.d.maxHp * 0.45, (ally.ref.shield || 0) + amount);
+        this._float(ally.x, ally.y - 20, "+" + amount + " WARD", spell.color);
+        this.effects.push({ x: ally.x, y: ally.y, r: 24, life: 0.5, color: spell.color });
+      }
+      used = true;
+    }
+    if (!used) return false;
+    h.mana = Math.max(0, h.mana - status.cost);
+    h.spellCooldowns[spell.id] = Math.max(2, spell.cooldown * (1 - Math.min(0.2, Math.max(0, status.level - 1) * 0.008)));
+    this._float(h.x, h.y - 28, spell.short, spell.color);
+    return true;
   }
 
   useHeroAbility(index, abilityId) {
@@ -478,6 +567,8 @@ export class Engine {
       if (!h.alive) continue;
       if (h.protect > 0) { h.protect -= dt; continue; }
       for (const id of Object.keys(h.abilityCooldowns)) h.abilityCooldowns[id] = Math.max(0, h.abilityCooldowns[id] - dt);
+      for (const id of Object.keys(h.spellCooldowns)) h.spellCooldowns[id] = Math.max(0, h.spellCooldowns[id] - dt);
+      h.mana = Math.min(h.maxMana, h.mana + (2 + Math.max(0, h.d.intelligence || 0) * 0.04) * dt);
       h.cd -= dt;
       const cfg = h.ref.attackConfig || "";
       const melee = h.d.range < 130;
@@ -1291,6 +1382,7 @@ export class Engine {
       morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
       heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
       heroAbilities: this.heroes.map((h) => this.getHeroAbilityStatus(h.i)),
+      heroSpells: this.heroes.map((h) => this.getHeroSpellStatus(h.i)),
       boss: (() => { const b = this.active.find((e) => e.boss); return b ? { name: b.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
     });
   }
