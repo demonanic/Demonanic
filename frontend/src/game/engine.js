@@ -926,6 +926,11 @@ export class Engine {
     }
 
     let dmg = p.dmg * affinity;
+    if (String(p.sourceId || "").startsWith("T")) {
+      const slot = Number(String(p.sourceId).slice(1));
+      const tower = this.towers.find((item) => item.slot === slot);
+      if (tower?.ref?.type === "ballista" && e.boss) dmg *= 1 + (tower.d.bossDamagePct || 0);
+    }
     const crit = Math.random() < (p.critChance ?? C.BASE_CRIT);
     if (crit) dmg *= (p.critMult ?? C.CRIT_MULT);
 
