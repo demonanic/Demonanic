@@ -143,6 +143,35 @@ export const TOWERS = {
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
 
+// Tower specialization is chosen at levels 3 and 5. Choices are saved per tower.
+// The regular paid level-up still grants the existing HP, damage, and capacity growth.
+export const TOWER_SPECIALIZATIONS = {
+  archer: [
+    { milestone: 3, id: "rapid_volley", name: "Rapid Volley", desc: "+15% fire rate.", effect: { fireRatePct: 0.15 } },
+    { milestone: 3, id: "deadeye", name: "Deadeye", desc: "+20% damage.", effect: { damagePct: 0.20 } },
+    { milestone: 5, id: "deep_quiver", name: "Deep Quiver", desc: "+25% ammo capacity.", effect: { capacityPct: 0.25 } },
+    { milestone: 5, id: "farshot", name: "Farshot", desc: "+15% range.", effect: { rangePct: 0.15 } },
+  ],
+  catapult: [
+    { milestone: 3, id: "siege_payload", name: "Siege Payload", desc: "+15% damage and +20% splash radius.", effect: { damagePct: 0.15, splashPct: 0.20 } },
+    { milestone: 3, id: "reinforced_frame", name: "Reinforced Frame", desc: "+20% maximum HP.", effect: { hpPct: 0.20 } },
+    { milestone: 5, id: "quick_reload", name: "Quick Reload", desc: "+12% fire rate.", effect: { fireRatePct: 0.12 } },
+    { milestone: 5, id: "heavy_stone", name: "Heavy Stone", desc: "+25% damage.", effect: { damagePct: 0.25 } },
+  ],
+  wizard: [
+    { milestone: 3, id: "mana_efficiency", name: "Mana Efficiency", desc: "Each shot costs 2 less mana.", effect: { shotCostReduction: 2 } },
+    { milestone: 3, id: "arcane_overcharge", name: "Arcane Overcharge", desc: "+20% damage.", effect: { damagePct: 0.20 } },
+    { milestone: 5, id: "crystal_reservoir", name: "Crystal Reservoir", desc: "+25% mana capacity.", effect: { capacityPct: 0.25 } },
+    { milestone: 5, id: "long_channel", name: "Long Channel", desc: "+15% range.", effect: { rangePct: 0.15 } },
+  ],
+  ballista: [
+    { milestone: 3, id: "siegebreaker", name: "Siegebreaker", desc: "+20% damage.", effect: { damagePct: 0.20 } },
+    { milestone: 3, id: "long_draw", name: "Long Draw", desc: "+15% range.", effect: { rangePct: 0.15 } },
+    { milestone: 5, id: "boss_piercer", name: "Boss Piercer", desc: "+30% damage against bosses.", effect: { bossDamagePct: 0.30 } },
+    { milestone: 5, id: "reinforced_limbs", name: "Reinforced Limbs", desc: "+20% maximum HP.", effect: { hpPct: 0.20 } },
+  ],
+};
+
 // underfunded state penalties
 export const UNDERFUNDED = { damageMult: 0.65, fireRateMult: 1.25, hpLossPerMin: 0.04 };
 
