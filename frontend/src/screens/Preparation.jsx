@@ -10,7 +10,7 @@ import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Sk
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
-  castlePower, slotCap, buildTower, dismantleTower, repairTower, upgradeTower, resupplyTower, repositionTower,
+  castlePower, slotCap, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
   recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
@@ -246,6 +246,10 @@ export default function Preparation() {
       {openTower != null && state.towers[openTower] && (
         <TowerCard tower={state.towers[openTower]} editable
           onUpgrade={() => { if (!handlers.upgradeTower(openTower)) toast.error("Need the upgrade resources"); }}
+          onChooseSpecialization={(milestone, id) => mutate((s) => {
+            if (!chooseTowerSpecialization(s, openTower, milestone, id)) toast.error("That specialization is unavailable");
+            else toast.success("Tower specialization unlocked");
+          })}
           onClose={() => setOpenTower(null)} />
       )}
       {debug && <DebugPanel onClose={() => setDebug(false)} />}
