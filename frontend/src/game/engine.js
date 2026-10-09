@@ -781,12 +781,13 @@ export class Engine {
         }
       }
     }
-    const moveSpeed =
+    const baseMoveSpeed =
       e.type === "goblin" ? e.speed * 1.18 * commanderBoost :
       e.type === "darkElf" ? e.speed * 1.08 * commanderBoost :
       e.type === "slime" ? e.speed * 0.92 * commanderBoost :
       e.type === "reaper" ? e.speed * 1.05 * commanderBoost :
       e.speed * commanderBoost;
+    const moveSpeed = baseMoveSpeed * (e.slowUntil > this.time ? (e.slowMultiplier || 1) : 1);
 
     // Floating enemies bypass barricades, preserving their distinct identity.
     // Reapers and lieutenants can peel toward heroes; orcs pressure towers.
