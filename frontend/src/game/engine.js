@@ -930,6 +930,7 @@ export class Engine {
         }
       } else {
         const t = v.obj;
+        dmg *= 0.8; // soften enemy area damage against defensive structures
         t.ref.hp = Math.max(0, t.ref.hp - dmg);
         if (t.ref.hp <= 0) {
           this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
@@ -970,7 +971,8 @@ export class Engine {
   _enemyAttack(e, blocker) {
     if (blocker.kind === "tower") {
       const t = blocker.obj;
-      const damage = e.type === "darkElf" ? e.damage * 1.15 : e.damage;
+      const rawDamage = e.type === "darkElf" ? e.damage * 1.15 : e.damage;
+      const damage = rawDamage * 0.8; // towers take 20% less direct enemy damage
       t.ref.hp = Math.max(0, t.ref.hp - damage);
       if (t.ref.hp <= 0) {
         this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
