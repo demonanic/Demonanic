@@ -160,7 +160,6 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
             {hero.perks?.length ? "ACTIVE PRKs: " + hero.perks.length : "No PRKs selected yet."}
           </div>
         </div>
-        </div>
       </div>
       {perkTreeOpen && <PerkTree hero={hero} editable={editable} onPerk={onPerk} onClose={() => setPerkTreeOpen(false)} />}
     </Modal>
