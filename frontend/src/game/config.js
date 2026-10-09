@@ -130,16 +130,16 @@ export function towerUpgradeCost(tower) {
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
     construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
-    role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 625, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#00F3FF" },
+    role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 500, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#00F3FF" },
   catapult: { key: "catapult", name: "Catapult", icon: "axe",
     construction: { gold: 150, stone: 35, food: 30 }, upkeep: { gold: 12, stone: 3 },
-    role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 812, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
+    role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 650, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
   wizard:   { key: "wizard",   name: "Wizard Tower", icon: "sun",
     construction: { gold: 175, stone: 30, food: 35 }, upkeep: { gold: 14, stone: 3 },
-    role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 719, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
+    role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 575, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
   ballista: { key: "ballista", name: "Ballista / Tower 4", icon: "gear",
     construction: { gold: 225, stone: 50, food: 40 }, upkeep: { gold: 18, stone: 5 },
-    role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 875, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#FF0055" },
+    role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 700, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#FF0055" },
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
 
