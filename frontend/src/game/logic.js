@@ -88,16 +88,27 @@ export function towerDerived(tower) {
   const combatMul = Math.pow(1 + C.TOWER_UPGRADE.damageMult, lvl - 1);
   const hpMul = Math.pow(1 + C.TOWER_UPGRADE.hpMult, lvl - 1);
   const resourceMul = Math.pow(1 + C.TOWER_UPGRADE.resourceMult, lvl - 1);
-  let dmg = t.damage * combatMul;
-  let rate = t.fireRate;
+  const owned = tower.specializations && typeof tower.specializations === "object" ? tower.specializations : {};
+  const specs = (C.TOWER_SPECIALIZATIONS[tower.type] || []).filter((spec) => owned[spec.milestone] === spec.id);
+  const mods = specs.reduce((a, spec) => {
+    for (const [key, value] of Object.entries(spec.effect || {})) a[key] = (a[key] || 0) + value;
+    return a;
+  }, {});
+  let dmg = t.damage * combatMul * (1 + (mods.damagePct || 0));
+  let rate = t.fireRate * (1 + (mods.fireRatePct || 0));
   if (tower.underfunded) { dmg *= C.UNDERFUNDED.damageMult; rate *= C.UNDERFUNDED.fireRateMult; }
   const r = C.TOWER_RESOURCE[tower.type];
+  const capacityMul = 1 + (mods.capacityPct || 0);
   return {
     ...t, damage: dmg, fireRate: rate,
-    maxHp: Math.round(t.baseHp * hpMul),
-    resourceKind: r.kind, resourceLabel: r.label, shotCost: r.shotCost,
-    maxAmmo: r.kind === "ammo" ? Math.round(r.max * resourceMul) : 0,
-    maxMana: r.kind === "mana" ? Math.round(r.max * resourceMul) : 0,
+    range: Math.round(t.range * (1 + (mods.rangePct || 0))),
+    splash: t.splash ? t.splash * (1 + (mods.splashPct || 0)) : undefined,
+    maxHp: Math.round(t.baseHp * hpMul * (1 + (mods.hpPct || 0))),
+    resourceKind: r.kind, resourceLabel: r.label,
+    shotCost: Math.max(1, r.shotCost - (mods.shotCostReduction || 0)),
+    bossDamagePct: mods.bossDamagePct || 0,
+    maxAmmo: r.kind === "ammo" ? Math.round(r.max * resourceMul * capacityMul) : 0,
+    maxMana: r.kind === "mana" ? Math.round(r.max * resourceMul * capacityMul) : 0,
   };
 }
 
@@ -286,6 +297,26 @@ export function upgradeTower(state, slot) {
   else { tw.maxMana = d.maxMana; tw.mana = d.maxMana; }
   return true;
 }
+export function chooseTowerSpecialization(state, slot, milestone, specializationId) {
+  const tower = state.towers[slot];
+  if (!tower || ![3, 5].includes(milestone) || (tower.level || 1) < milestone) return false;
+  tower.specializations = tower.specializations && typeof tower.specializations === "object" ? tower.specializations : {};
+  if (tower.specializations[milestone]) return false;
+  const choice = (C.TOWER_SPECIALIZATIONS[tower.type] || []).find((spec) => spec.milestone === milestone && spec.id === specializationId);
+  if (!choice) return false;
+  const oldMaxHp = towerDerived(tower).maxHp;
+  tower.specializations[milestone] = choice.id;
+  const next = towerDerived(tower);
+  tower.maxHp = next.maxHp;
+  if (tower.hp > 0) tower.hp = Math.min(next.maxHp, tower.hp + Math.max(0, next.maxHp - oldMaxHp));
+  const resourceKey = next.resourceKind === "ammo" ? "ammo" : "mana";
+  const maxKey = next.resourceKind === "ammo" ? "maxAmmo" : "maxMana";
+  tower[maxKey] = next[maxKey];
+  tower[resourceKey] = Math.min(next[maxKey], (tower[resourceKey] || 0) + Math.max(0, next[maxKey] - (next.resourceKind === "ammo" ? C.TOWER_RESOURCE[tower.type].max : C.TOWER_RESOURCE[tower.type].max)));
+  tower.choices = [...(tower.choices || []), choice.name];
+  return true;
+}
+
 export function repairTower(state, slot) {
   const tw = state.towers[slot];
   if (!tw) return false;
