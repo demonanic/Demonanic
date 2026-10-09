@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X, Plus, Zap, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
 import { StatBar, NeonButton, HeroMiniSprite } from "@/components/ui-kit";
 import * as C from "@/game/config";
@@ -158,7 +159,8 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
           <div className="mt-2 text-[9px] font-mono-g text-slate-500">
             {hero.perks?.length ? "ACTIVE PRKs: " + hero.perks.length : "No PRKs selected yet."}
           </div>
-        </div>        </div>
+        </div>
+        </div>
       </div>
       {perkTreeOpen && <PerkTree hero={hero} editable={editable} onPerk={onPerk} onClose={() => setPerkTreeOpen(false)} />}
     </Modal>
