@@ -1473,66 +1473,6 @@ export class Engine {
     ctx.strokeRect(W / 2 - 70, CASTLE_Y - 26, 140, 26);
     ctx.restore();
 
-    // Persistent kingdom buildings rendered as physical battlefield assets.
-    const kingdomBuildings = [
-      { id: "mine", label: "MINE", x: 34, y: 485, color: "#FFE600", shape: "mine" },
-      { id: "quarry", label: "QUARRY", x: W - 34, y: 485, color: "#00F3FF", shape: "quarry" },
-      { id: "tavern", label: "TAVERN", x: 34, y: 545, color: "#FF007F", shape: "house" },
-      { id: "shoppe", label: "SHOPPE", x: W - 34, y: 545, color: "#A855F7", shape: "house" },
-      { id: "academy", label: "ACADEMY", x: 34, y: 605, color: "#39FF14", shape: "tower" },
-      { id: "guild", label: "GUILD", x: W - 34, y: 605, color: "#FF6600", shape: "house" },
-    ];
-    for (const b of kingdomBuildings) {
-      const saved = this.sim.buildings?.[b.id];
-      const unlocked = saved ? saved.unlocked !== false : !["academy", "guild"].includes(b.id);
-      const hp = Math.max(0, Number(saved?.hp ?? 1000));
-      const maxHp = Math.max(1, Number(saved?.maxHp ?? 1000));
-      const intact = hp > 0;
-      const color = intact ? b.color : "#FF0055";
-      ctx.save();
-      ctx.globalAlpha = unlocked ? 1 : 0.28;
-      ctx.translate(b.x, b.y);
-      ctx.shadowBlur = unlocked ? 12 : 3;
-      ctx.shadowColor = color;
-      ctx.strokeStyle = color;
-      ctx.fillStyle = "rgba(8,12,24,0.94)";
-      ctx.lineWidth = 2;
-      if (b.shape === "mine") {
-        ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(-16, -7); ctx.lineTo(-7, -16);
-        ctx.lineTo(7, -16); ctx.lineTo(16, -7); ctx.lineTo(20, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-4, -5); ctx.lineTo(4, -5); ctx.lineTo(7, 8); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-15, -3); ctx.lineTo(15, -3); ctx.stroke();
-      } else if (b.shape === "quarry") {
-        ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(-15, -4); ctx.lineTo(-7, 1);
-        ctx.lineTo(0, -14); ctx.lineTo(8, -1); ctx.lineTo(14, -7); ctx.lineTo(20, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(-5, 1); ctx.lineTo(1, 8); ctx.lineTo(7, 2); ctx.lineTo(13, 8); ctx.stroke();
-      } else if (b.shape === "tower") {
-        ctx.strokeRect(-13, -15, 26, 25);
-        ctx.beginPath(); ctx.moveTo(-17, -15); ctx.lineTo(-17, -21); ctx.lineTo(-8, -21); ctx.lineTo(-8, -15);
-        ctx.moveTo(8, -15); ctx.lineTo(8, -21); ctx.lineTo(17, -21); ctx.lineTo(17, -15); ctx.stroke();
-        ctx.strokeRect(-4, -7, 8, 17);
-      } else {
-        ctx.beginPath(); ctx.moveTo(-19, 10); ctx.lineTo(-19, -5); ctx.lineTo(0, -19);
-        ctx.lineTo(19, -5); ctx.lineTo(19, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.strokeRect(-5, -1, 10, 11);
-        ctx.beginPath(); ctx.moveTo(-13, -4); ctx.lineTo(13, -4); ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = color;
-      ctx.font = "bold 7px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(unlocked ? b.label : "LOCKED", 0, 22);
-      ctx.fillStyle = "rgba(0,0,0,0.8)";
-      ctx.fillRect(-18, 26, 36, 3);
-      ctx.fillStyle = intact ? color : "#FF0055";
-      ctx.fillRect(-18, 26, 36 * Math.max(0, Math.min(1, hp / maxHp)), 3);
-      if (!intact) {
-        ctx.strokeStyle = "#FF0055";
-        ctx.beginPath(); ctx.moveTo(-12, -12); ctx.lineTo(12, 8); ctx.moveTo(12, -12); ctx.lineTo(-12, 8); ctx.stroke();
-      }
-      ctx.restore();
-    }
-
     // barricades
     this.barricades.forEach((b) => {
       if (b.ref.maxHp <= 0) return;
@@ -1541,61 +1481,67 @@ export class Engine {
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
 
-    // Persistent kingdom buildings: visible physical assets in the defended field.
-    // They remain decorative in this pass; damage/repair and production continue to use saved building state.
+    // One authoritative kingdom layout, shared by rendering and tap hit-testing.
     const kingdomLayout = [
-      ["mine", 34, H * 0.62, "#FFE600", "mine"],
-      ["quarry", W - 34, H * 0.62, "#00F3FF", "quarry"],
-      ["tavern", 34, H * 0.69, "#FF007F", "tavern"],
-      ["shoppe", W - 34, H * 0.69, "#A855F7", "shoppe"],
-      ["academy", 34, H * 0.76, "#39FF14", "academy"],
-      ["guild", W - 34, H * 0.76, "#FF6600", "guild"],
-      ["library", 34, H * 0.81, "#A855F7", "library"],
-      ["vault", W - 34, H * 0.81, "#00F3FF", "vault"],
+      { id: "mine", label: "MINE", x: 40, y: 390, color: "#FFE600", shape: "mine" },
+      { id: "quarry", label: "QUARRY", x: W - 40, y: 390, color: "#00F3FF", shape: "quarry" },
+      { id: "academy", label: "ACADEMY", x: 40, y: 455, color: "#39FF14", shape: "tower" },
+      { id: "guild", label: "GUILD", x: W - 40, y: 455, color: "#FF6600", shape: "house" },
+      { id: "tavern", label: "TAVERN", x: 40, y: 520, color: "#FF007F", shape: "house" },
+      { id: "shoppe", label: "SHOPPE", x: W - 40, y: 520, color: "#A855F7", shape: "house" },
+      { id: "library", label: "LIBRARY", x: 40, y: 585, color: "#B66CFF", shape: "tower" },
+      { id: "vault", label: "VAULT", x: W - 40, y: 585, color: "#00F3FF", shape: "vault" },
     ];
-    for (const [id, x, y, color, kind] of kingdomLayout) {
-      const b = this.sim.buildings && this.sim.buildings[id];
-      if (!b) continue;
-      const hp = Math.max(0, Number(b.hp) || 0);
-      const maxHp = Math.max(1, Number(b.maxHp) || 1);
-      const alive = hp > 0;
-      const level = Math.max(1, Number(b.level) || 1);
-      const w = 27 + Math.min(5, level - 1) * 1.2;
-      const h = 24 + Math.min(5, level - 1) * 1.2;
-      const left = x - w / 2;
-      const top = y - h / 2;
+    for (const b of kingdomLayout) {
+      const saved = this.sim.buildings?.[b.id];
+      const unlocked = saved ? saved.unlocked !== false : !["academy", "guild", "library", "vault"].includes(b.id);
+      const hp = Math.max(0, Number(saved?.hp ?? 1000));
+      const maxHp = Math.max(1, Number(saved?.maxHp ?? 1000));
+      const level = Math.max(1, Number(saved?.level ?? 1));
+      const intact = hp > 0;
+      const color = intact ? b.color : "#FF0055";
       ctx.save();
-      ctx.globalAlpha = alive ? (b.unlocked === false ? 0.42 : 0.92) : 0.28;
-      ctx.shadowBlur = alive ? 10 : 0;
+      ctx.globalAlpha = unlocked ? (intact ? 1 : 0.45) : 0.3;
+      ctx.translate(b.x, b.y);
+      ctx.shadowBlur = unlocked && intact ? 16 : 3;
       ctx.shadowColor = color;
       ctx.strokeStyle = color;
-      ctx.fillStyle = "#111827";
-      ctx.lineWidth = 1.6;
-      // Every building has a visible footprint, roof, doorway and level marker.
-      ctx.beginPath();
-      ctx.rect(left + 2, top + 7, w - 4, h - 8);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      if (kind === "mine" || kind === "quarry") {
-        ctx.moveTo(left + 1, top + 9); ctx.lineTo(x, top + 1); ctx.lineTo(left + w - 1, top + 9);
-        ctx.moveTo(left + 5, top + h - 2); ctx.lineTo(left + 9, top + 14); ctx.lineTo(left + 13, top + h - 2);
-      } else if (kind === "academy" || kind === "library") {
-        ctx.moveTo(x, top); ctx.lineTo(x + 5, top + 7); ctx.lineTo(x, top + 12); ctx.lineTo(x - 5, top + 7); ctx.closePath();
-      } else if (kind === "vault") {
-        ctx.arc(x, top + h / 2 + 2, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(8,12,24,0.97)";
+      ctx.lineWidth = 2.2;
+      if (b.shape === "mine") {
+        ctx.beginPath(); ctx.moveTo(-22, 10); ctx.lineTo(-18, -7); ctx.lineTo(-8, -18); ctx.lineTo(8, -18); ctx.lineTo(18, -7); ctx.lineTo(22, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-8, 10); ctx.lineTo(-5, -5); ctx.lineTo(5, -5); ctx.lineTo(8, 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-15, -3); ctx.lineTo(15, -3); ctx.stroke();
+      } else if (b.shape === "vault") {
+        ctx.strokeRect(-20, -16, 40, 28);
+        ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.moveTo(-8, -2); ctx.lineTo(8, -2); ctx.moveTo(0, -10); ctx.lineTo(0, 6); ctx.stroke();
+      } else if (b.shape === "tower") {
+        ctx.beginPath(); ctx.moveTo(-18, -12); ctx.lineTo(-18, 10); ctx.lineTo(18, 10); ctx.lineTo(18, -12); ctx.lineTo(9, -12); ctx.lineTo(9, -20); ctx.lineTo(2, -20); ctx.lineTo(2, -12); ctx.lineTo(-5, -12); ctx.lineTo(-5, -20); ctx.lineTo(-12, -20); ctx.lineTo(-12, -12); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(-4, -2, 8, 12);
+      } else if (b.shape === "quarry") {
+        ctx.beginPath(); ctx.moveTo(-22, 10); ctx.lineTo(-17, -5); ctx.lineTo(-8, 1); ctx.lineTo(0, -18); ctx.lineTo(9, -2); ctx.lineTo(16, -9); ctx.lineTo(22, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-12, 10); ctx.lineTo(-5, 1); ctx.lineTo(2, 10); ctx.lineTo(9, 2); ctx.lineTo(15, 10); ctx.stroke();
       } else {
-        ctx.moveTo(left, top + 9); ctx.lineTo(x, top + 1); ctx.lineTo(left + w, top + 9);
+        ctx.beginPath(); ctx.moveTo(-21, 11); ctx.lineTo(-21, -5); ctx.lineTo(0, -21); ctx.lineTo(21, -5); ctx.lineTo(21, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(-5, 0, 10, 11);
+        ctx.beginPath(); ctx.moveTo(-14, -4); ctx.lineTo(14, -4); ctx.stroke();
       }
-      ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = color;
-      ctx.fillRect(x - 2, top + h - 8, 4, 6);
-      ctx.font = "bold 7px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("L" + level, x, top + h + 8);
       ctx.globalAlpha = 1;
-      this._bar(x - 15, top + h + 10, 30, 2.5, hp / maxHp, alive ? color : "#FF0055");
+      ctx.fillStyle = color;
+      ctx.font = "bold 8px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(unlocked ? b.label : "LOCKED", 0, 24);
+      ctx.font = "bold 7px monospace";
+      ctx.fillText("L" + level, 0, 33);
+      ctx.fillStyle = "rgba(0,0,0,0.85)";
+      ctx.fillRect(-20, 37, 40, 4);
+      ctx.fillStyle = intact ? color : "#FF0055";
+      ctx.fillRect(-20, 37, 40 * Math.max(0, Math.min(1, hp / maxHp)), 4);
+      if (!intact) {
+        ctx.strokeStyle = "#FF0055";
+        ctx.beginPath(); ctx.moveTo(-14, -14); ctx.lineTo(14, 10); ctx.moveTo(14, -14); ctx.lineTo(-14, 10); ctx.stroke();
+      }
       ctx.restore();
     }
 
