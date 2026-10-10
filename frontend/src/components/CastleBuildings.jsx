@@ -42,7 +42,7 @@ export default function CastleBuildings({ state, mutate }) {
   const workersAssigned = building.workers === "gold" ? (state.workersGold || 0) : building.workers === "stone" ? (state.workersStone || 0) : 0;
   const availableWorkers = Math.max(0, (state.workers || 0) - (state.workersGold || 0) - (state.workersStone || 0));
   const baseRate = building.workers === "gold" ? rates.gold : building.workers === "stone" ? rates.stone : 0;
-  const output = baseRate * status.efficiency * Math.pow(1.08, Math.max(0, (current.level || 1) - 1));
+  const output = baseRate;
   const missingHp = Math.max(0, current.maxHp - current.hp);
   const repairGold = Math.ceil(missingHp * 0.2);
   const repairStone = Math.ceil(missingHp * 0.1);
