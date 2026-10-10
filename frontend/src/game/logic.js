@@ -245,8 +245,8 @@ export function productionRates(state) {
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff;
   return {
-    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul,
-    stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul,
+    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine"),
+    stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"),
     food: C.workforceOutput(C.PRODUCTION.foodPerFarmerMin, state.farmers) * mul,
     moraleMul, castleEff,
   };
