@@ -1481,6 +1481,64 @@ export class Engine {
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
 
+    // Persistent kingdom buildings: visible physical assets in the defended field.
+    // They remain decorative in this pass; damage/repair and production continue to use saved building state.
+    const kingdomLayout = [
+      ["mine", 34, H * 0.62, "#FFE600", "mine"],
+      ["quarry", W - 34, H * 0.62, "#00F3FF", "quarry"],
+      ["tavern", 34, H * 0.69, "#FF007F", "tavern"],
+      ["shoppe", W - 34, H * 0.69, "#A855F7", "shoppe"],
+      ["academy", 34, H * 0.76, "#39FF14", "academy"],
+      ["guild", W - 34, H * 0.76, "#FF6600", "guild"],
+      ["library", 34, H * 0.81, "#A855F7", "library"],
+      ["vault", W - 34, H * 0.81, "#00F3FF", "vault"],
+    ];
+    for (const [id, x, y, color, kind] of kingdomLayout) {
+      const b = this.sim.buildings && this.sim.buildings[id];
+      if (!b) continue;
+      const hp = Math.max(0, Number(b.hp) || 0);
+      const maxHp = Math.max(1, Number(b.maxHp) || 1);
+      const alive = hp > 0;
+      const level = Math.max(1, Number(b.level) || 1);
+      const w = 27 + Math.min(5, level - 1) * 1.2;
+      const h = 24 + Math.min(5, level - 1) * 1.2;
+      const left = x - w / 2;
+      const top = y - h / 2;
+      ctx.save();
+      ctx.globalAlpha = alive ? (b.unlocked === false ? 0.42 : 0.92) : 0.28;
+      ctx.shadowBlur = alive ? 10 : 0;
+      ctx.shadowColor = color;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = "#111827";
+      ctx.lineWidth = 1.6;
+      // Every building has a visible footprint, roof, doorway and level marker.
+      ctx.beginPath();
+      ctx.rect(left + 2, top + 7, w - 4, h - 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      if (kind === "mine" || kind === "quarry") {
+        ctx.moveTo(left + 1, top + 9); ctx.lineTo(x, top + 1); ctx.lineTo(left + w - 1, top + 9);
+        ctx.moveTo(left + 5, top + h - 2); ctx.lineTo(left + 9, top + 14); ctx.lineTo(left + 13, top + h - 2);
+      } else if (kind === "academy" || kind === "library") {
+        ctx.moveTo(x, top); ctx.lineTo(x + 5, top + 7); ctx.lineTo(x, top + 12); ctx.lineTo(x - 5, top + 7); ctx.closePath();
+      } else if (kind === "vault") {
+        ctx.arc(x, top + h / 2 + 2, 5, 0, Math.PI * 2);
+      } else {
+        ctx.moveTo(left, top + 9); ctx.lineTo(x, top + 1); ctx.lineTo(left + w, top + 9);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = color;
+      ctx.fillRect(x - 2, top + h - 8, 4, 6);
+      ctx.font = "bold 7px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("L" + level, x, top + h + 8);
+      ctx.globalAlpha = 1;
+      this._bar(x - 15, top + h + 10, 30, 2.5, hp / maxHp, alive ? color : "#FF0055");
+      ctx.restore();
+    }
+
     // towers — compact top-down gameplay sprites, weapon direction points UP toward enemies.
     for (const t of this.towers) {
       this._drawTowerSprite(t);
