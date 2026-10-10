@@ -1473,6 +1473,66 @@ export class Engine {
     ctx.strokeRect(W / 2 - 70, CASTLE_Y - 26, 140, 26);
     ctx.restore();
 
+    // Persistent kingdom buildings rendered as physical battlefield assets.
+    const kingdomBuildings = [
+      { id: "mine", label: "MINE", x: 34, y: 505, color: "#FFE600", shape: "mine" },
+      { id: "quarry", label: "QUARRY", x: W - 34, y: 505, color: "#00F3FF", shape: "quarry" },
+      { id: "tavern", label: "TAVERN", x: 34, y: 575, color: "#FF007F", shape: "house" },
+      { id: "shoppe", label: "SHOPPE", x: W - 34, y: 575, color: "#A855F7", shape: "house" },
+      { id: "academy", label: "ACADEMY", x: 34, y: 645, color: "#39FF14", shape: "tower" },
+      { id: "guild", label: "GUILD", x: W - 34, y: 645, color: "#FF6600", shape: "house" },
+    ];
+    for (const b of kingdomBuildings) {
+      const saved = this.sim.buildings?.[b.id];
+      const unlocked = saved ? saved.unlocked !== false : !["academy", "guild"].includes(b.id);
+      const hp = Math.max(0, Number(saved?.hp ?? 1000));
+      const maxHp = Math.max(1, Number(saved?.maxHp ?? 1000));
+      const intact = hp > 0;
+      const color = intact ? b.color : "#FF0055";
+      ctx.save();
+      ctx.globalAlpha = unlocked ? 1 : 0.28;
+      ctx.translate(b.x, b.y);
+      ctx.shadowBlur = unlocked ? 12 : 3;
+      ctx.shadowColor = color;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = "rgba(8,12,24,0.94)";
+      ctx.lineWidth = 2;
+      if (b.shape === "mine") {
+        ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(-16, -7); ctx.lineTo(-7, -16);
+        ctx.lineTo(7, -16); ctx.lineTo(16, -7); ctx.lineTo(20, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-4, -5); ctx.lineTo(4, -5); ctx.lineTo(7, 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-15, -3); ctx.lineTo(15, -3); ctx.stroke();
+      } else if (b.shape === "quarry") {
+        ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(-15, -4); ctx.lineTo(-7, 1);
+        ctx.lineTo(0, -14); ctx.lineTo(8, -1); ctx.lineTo(14, -7); ctx.lineTo(20, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(-5, 1); ctx.lineTo(1, 8); ctx.lineTo(7, 2); ctx.lineTo(13, 8); ctx.stroke();
+      } else if (b.shape === "tower") {
+        ctx.strokeRect(-13, -15, 26, 25);
+        ctx.beginPath(); ctx.moveTo(-17, -15); ctx.lineTo(-17, -21); ctx.lineTo(-8, -21); ctx.lineTo(-8, -15);
+        ctx.moveTo(8, -15); ctx.lineTo(8, -21); ctx.lineTo(17, -21); ctx.lineTo(17, -15); ctx.stroke();
+        ctx.strokeRect(-4, -7, 8, 17);
+      } else {
+        ctx.beginPath(); ctx.moveTo(-19, 10); ctx.lineTo(-19, -5); ctx.lineTo(0, -19);
+        ctx.lineTo(19, -5); ctx.lineTo(19, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(-5, -1, 10, 11);
+        ctx.beginPath(); ctx.moveTo(-13, -4); ctx.lineTo(13, -4); ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = color;
+      ctx.font = "bold 7px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(unlocked ? b.label : "LOCKED", 0, 22);
+      ctx.fillStyle = "rgba(0,0,0,0.8)";
+      ctx.fillRect(-18, 26, 36, 3);
+      ctx.fillStyle = intact ? color : "#FF0055";
+      ctx.fillRect(-18, 26, 36 * Math.max(0, Math.min(1, hp / maxHp)), 3);
+      if (!intact) {
+        ctx.strokeStyle = "#FF0055";
+        ctx.beginPath(); ctx.moveTo(-12, -12); ctx.lineTo(12, 8); ctx.moveTo(12, -12); ctx.lineTo(-12, 8); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // barricades
     this.barricades.forEach((b) => {
       if (b.ref.maxHp <= 0) return;
