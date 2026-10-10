@@ -1475,12 +1475,12 @@ export class Engine {
 
     // Persistent kingdom buildings rendered as physical battlefield assets.
     const kingdomBuildings = [
-      { id: "mine", label: "MINE", x: 34, y: 505, color: "#FFE600", shape: "mine" },
-      { id: "quarry", label: "QUARRY", x: W - 34, y: 505, color: "#00F3FF", shape: "quarry" },
-      { id: "tavern", label: "TAVERN", x: 34, y: 575, color: "#FF007F", shape: "house" },
-      { id: "shoppe", label: "SHOPPE", x: W - 34, y: 575, color: "#A855F7", shape: "house" },
-      { id: "academy", label: "ACADEMY", x: 34, y: 645, color: "#39FF14", shape: "tower" },
-      { id: "guild", label: "GUILD", x: W - 34, y: 645, color: "#FF6600", shape: "house" },
+      { id: "mine", label: "MINE", x: 34, y: 485, color: "#FFE600", shape: "mine" },
+      { id: "quarry", label: "QUARRY", x: W - 34, y: 485, color: "#00F3FF", shape: "quarry" },
+      { id: "tavern", label: "TAVERN", x: 34, y: 545, color: "#FF007F", shape: "house" },
+      { id: "shoppe", label: "SHOPPE", x: W - 34, y: 545, color: "#A855F7", shape: "house" },
+      { id: "academy", label: "ACADEMY", x: 34, y: 605, color: "#39FF14", shape: "tower" },
+      { id: "guild", label: "GUILD", x: W - 34, y: 605, color: "#FF6600", shape: "house" },
     ];
     for (const b of kingdomBuildings) {
       const saved = this.sim.buildings?.[b.id];
