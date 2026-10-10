@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import * as C from "@/game/config";
 import { productionRates } from "@/game/logic";
 
 const BUILDINGS = [
@@ -42,7 +41,7 @@ export default function CastleBuildings({ state, mutate }) {
   const workersAssigned = building.workers === "gold" ? (state.workersGold || 0) : building.workers === "stone" ? (state.workersStone || 0) : 0;
   const availableWorkers = Math.max(0, (state.workers || 0) - (state.workersGold || 0) - (state.workersStone || 0));
   const baseRate = building.workers === "gold" ? rates.gold : building.workers === "stone" ? rates.stone : 0;
-  const output = baseRate * status.efficiency;
+  const output = baseRate * status.efficiency * Math.pow(1.08, Math.max(0, (current.level || 1) - 1));
   const missingHp = Math.max(0, current.maxHp - current.hp);
   const repairGold = Math.ceil(missingHp * 0.2);
   const repairStone = Math.ceil(missingHp * 0.1);
@@ -78,11 +77,6 @@ export default function CastleBuildings({ state, mutate }) {
       b.activity = "Repaired";
     });
   };
-
-  const damagePreview = (amount) => updateBuilding((s, b) => {
-    b.hp = Math.max(0, b.hp - amount);
-    b.activity = b.hp <= 0 ? "Disabled" : "Damaged";
-  });
 
   const upgrade = () => {
     const costGold = Math.ceil(100 * Math.pow(1.5, current.level - 1));
