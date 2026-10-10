@@ -4,6 +4,7 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "@/components/ui-kit";
 import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
+import CastleBuildings from "@/components/CastleBuildings";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
@@ -128,7 +129,8 @@ export default function Preparation() {
           <Tabs defaultValue="heroes">
             <TabsList className="bg-black/40 border border-white/10 mb-3">
               <TabsTrigger value="heroes" data-testid="tab-heroes">Squad</TabsTrigger>
-              <TabsTrigger value="workforce" data-testid="tab-workforce">Workforce</TabsTrigger>
+              <TabsTrigger value="buildings" data-testid="tab-buildings">Buildings</TabsTrigger>
+              <TabsTrigger value="workforce" data-testid="tab-workforce">Legacy Workforce</TabsTrigger>
             </TabsList>
 
             {/* SQUAD + RECRUIT */}
@@ -208,28 +210,15 @@ export default function Preparation() {
               )}
             </TabsContent>
 
-            {/* WORKFORCE */}
+            <TabsContent value="buildings">
+              <CastleBuildings state={state} mutate={mutate} />
+            </TabsContent>
+
+            {/* Legacy resource fields remain in saved profiles until the audited Food migration. */}
             <TabsContent value="workforce">
-              <div className="grid gap-3">
-                <div className="glass-card rounded-xl p-3" data-testid="workforce-farmers">
-                  <SectionTitle color="yellow">Farmers → Food</SectionTitle>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-mono-g text-sm text-slate-300">{state.farmers} farmers · +{rates.food.toFixed(1)} food/m</span>
-                    <NeonButton color="yellow" onClick={() => act(buyFarmer, "Farmer hired")} data-testid="buy-farmer">Hire ({C.farmerCost(state.farmers)}g)</NeonButton>
-                  </div>
-                </div>
-                <div className="glass-card rounded-xl p-3" data-testid="workforce-workers">
-                  <SectionTitle color="cyan">Workers → Gold / Stone</SectionTitle>
-                  <div className="font-mono-g text-xs text-slate-400 mt-2">{state.workers} workers · {state.workersGold} gold ({rates.gold.toFixed(1)}/m) · {state.workersStone} stone ({rates.stone.toFixed(1)}/m)</div>
-                  <div className="flex gap-2 mt-2">
-                    <NeonButton color="yellow" className="flex-1" onClick={() => act((s) => buyWorker(s, "gold"), "Gold worker hired")} data-testid="buy-worker-gold">Hire → Gold ({C.workerCost(state.workers)}g)</NeonButton>
-                    <NeonButton color="cyan" className="flex-1" onClick={() => act((s) => buyWorker(s, "stone"), "Stone worker hired")} data-testid="buy-worker-stone">Hire → Stone ({C.workerCost(state.workers)}g)</NeonButton>
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <NeonButton color="cyan" className="flex-1 !text-[10px]" onClick={() => act((s) => { if (s.workersStone > 0) { s.workersStone--; s.workersGold++; return true; } return false; }, "Reallocated → Gold")} data-testid="realloc-gold">Move Stone→Gold</NeonButton>
-                    <NeonButton color="cyan" className="flex-1 !text-[10px]" onClick={() => act((s) => { if (s.workersGold > 0) { s.workersGold--; s.workersStone++; return true; } return false; }, "Reallocated → Stone")} data-testid="realloc-stone">Move Gold→Stone</NeonButton>
-                  </div>
-                </div>
+              <div className="glass-card rounded-xl p-3" data-testid="legacy-workforce-notice">
+                <SectionTitle color="yellow">Workforce Migration</SectionTitle>
+                <p className="font-mono-g text-xs text-slate-400 mt-2">Worker hiring and building assignments are now managed from the Buildings tab. This compatibility section will be removed when the remaining Food dependencies are migrated safely.</p>
               </div>
             </TabsContent>
           </Tabs>

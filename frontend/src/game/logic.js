@@ -219,13 +219,24 @@ export function recoverOverTime(state, dtSeconds) {
   }
 }
 
+function buildingProductionMultiplier(state, id) {
+  const building = state.buildings?.[id];
+  if (!building) return 1; // backward-compatible until a migrated building record exists
+  const maxHp = Math.max(1, Number(building.maxHp) || 1);
+  const hp = Math.max(0, Math.min(maxHp, Number(building.hp) || 0));
+  const frac = hp / maxHp;
+  const damageEfficiency = frac <= 0 ? 0 : frac < 0.25 ? 0.25 : frac < 0.5 ? 0.5 : frac < 0.75 ? 0.75 : 1;
+  const levelMultiplier = Math.pow(1.08, Math.max(0, (Number(building.level) || 1) - 1));
+  return damageEfficiency * levelMultiplier;
+}
+
 export function produce(state, dtSeconds) {
   recoverOverTime(state, dtSeconds);
   const moraleMul = C.moraleMultiplier(state.morale / 100);
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff * (dtSeconds / 60);
-  state.gold += C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul;
-  state.stone += C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul;
+  state.gold += C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine");
+  state.stone += C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry");
   state.food += C.workforceOutput(C.PRODUCTION.foodPerFarmerMin, state.farmers) * mul;
 }
 
@@ -234,8 +245,8 @@ export function productionRates(state) {
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff;
   return {
-    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul,
-    stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul,
+    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine"),
+    stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"),
     food: C.workforceOutput(C.PRODUCTION.foodPerFarmerMin, state.farmers) * mul,
     moraleMul, castleEff,
   };

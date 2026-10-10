@@ -309,6 +309,35 @@ export default function Battle() {
         </div>
       )}
 
+      {/* Compact castle-building condition overview; detailed controls stay in preparation. */}
+      {state.buildings && (
+        <div className="px-3 py-1 flex items-center gap-2 overflow-x-auto border-b border-white/5" data-testid="battle-building-conditions">
+          {[
+            ["mine", "MINE", "#FFE600"],
+            ["quarry", "QUARRY", "#00F3FF"],
+            ["tavern", "TAVERN", "#FF007F"],
+            ["shoppe", "SHOPPE", "#A855F7"],
+            ["academy", "ACADEMY", "#39FF14"],
+            ["guild", "GUILD", "#FF6600"],
+            ["library", "LIBRARY", "#A855F7"],
+            ["vault", "VAULT", "#00F3FF"],
+          ].map(([id, label, color]) => {
+            const b = state.buildings[id];
+            if (!b) return null;
+            const hp = Math.max(0, Number(b.hp) || 0);
+            const maxHp = Math.max(1, Number(b.maxHp) || 1);
+            const frac = hp / maxHp;
+            const statusColor = frac <= 0 ? "#FF0055" : frac < 0.25 ? "#FF0055" : frac < 0.5 ? "#FF6600" : frac < 0.75 ? "#FFE600" : "#39FF14";
+            return (
+              <div key={id} className="min-w-[62px] rounded border border-white/10 bg-black/35 px-1.5 py-1" title={`${label}: ${Math.round(hp)}/${maxHp} HP`}>
+                <div className="font-mono-g text-[7px] tracking-wide" style={{ color }}>{label}</div>
+                <div className="h-1 rounded bg-white/10 mt-1 overflow-hidden"><div className="h-full" style={{ width: `${Math.max(0, Math.min(100, frac * 100))}%`, background: statusColor }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* boss health bar */}
       {hud?.boss && (
         <div className="px-3 py-1.5 border-b border-rose-500/30 bg-rose-950/20" data-testid="boss-hud">
