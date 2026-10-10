@@ -4,6 +4,7 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "@/components/ui-kit";
 import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
+import CastleBuildings from "@/components/CastleBuildings";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
@@ -128,6 +129,7 @@ export default function Preparation() {
           <Tabs defaultValue="heroes">
             <TabsList className="bg-black/40 border border-white/10 mb-3">
               <TabsTrigger value="heroes" data-testid="tab-heroes">Squad</TabsTrigger>
+              <TabsTrigger value="buildings" data-testid="tab-buildings">Buildings</TabsTrigger>
               <TabsTrigger value="workforce" data-testid="tab-workforce">Workforce</TabsTrigger>
             </TabsList>
 
@@ -208,7 +210,11 @@ export default function Preparation() {
               )}
             </TabsContent>
 
-            {/* WORKFORCE */}
+            <TabsContent value="buildings">
+              <CastleBuildings state={state} mutate={mutate} />
+            </TabsContent>
+
+            {/* LEGACY WORKFORCE: retained temporarily until the full Food/resource migration is audited */}
             <TabsContent value="workforce">
               <div className="grid gap-3">
                 <div className="glass-card rounded-xl p-3" data-testid="workforce-farmers">
