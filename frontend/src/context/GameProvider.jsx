@@ -12,6 +12,29 @@ export const useGame = () => useContext(GameCtx);
 function normalizeState(s) {
   if (!s || typeof s !== "object") return s;
   if (!s.bench) s.bench = [];
+  // First-pass persistent castle-building state. Defaults preserve old profiles.
+  if (!s.buildings || typeof s.buildings !== "object") s.buildings = {};
+  const buildingDefaults = {
+    mine: { unlocked: true },
+    quarry: { unlocked: true },
+    tavern: { unlocked: true },
+    shoppe: { unlocked: true },
+    vault: { unlocked: false },
+    academy: { unlocked: false },
+    guild: { unlocked: false },
+    library: { unlocked: false },
+  };
+  Object.entries(buildingDefaults).forEach(([id, defaults]) => {
+    const prior = s.buildings[id] && typeof s.buildings[id] === "object" ? s.buildings[id] : {};
+    const maxHp = Math.max(1, Number(prior.maxHp) || 1000);
+    s.buildings[id] = {
+      level: Math.max(1, Number(prior.level) || 1),
+      maxHp,
+      hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
+      unlocked: prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked,
+      activity: prior.activity || "Idle",
+    };
+  });
   if (Array.isArray(s.heroes)) {
     s.heroes.forEach((h) => {
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
