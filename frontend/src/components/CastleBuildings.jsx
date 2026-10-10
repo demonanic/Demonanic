@@ -3,6 +3,7 @@ import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, Chevr
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
 import { productionRates } from "@/game/logic";
 import { workerCost } from "@/game/config";
+import KingdomMap from "@/components/KingdomMap";
 
 const BUILDINGS = [
   { id: "mine", name: "Mine", icon: Coins, color: "#FFE600", desc: "Produces Gold from assigned Workers.", workers: "gold" },
@@ -109,28 +110,9 @@ export default function CastleBuildings({ state, mutate }) {
       </div>
 
       {expanded && <>
-        <div className="relative mt-3 rounded-xl border border-cyan-500/20 overflow-hidden p-3" style={{ background: "radial-gradient(circle at 50% 0%,rgba(168,85,247,.16),transparent 65%),#0b0d15" }} data-testid="castle-building-map">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {BUILDINGS.map((item, index) => {
-              const b = buildingState(state, item.id);
-              const c = condition(b.hp, b.maxHp);
-              const Icon = item.icon;
-              const locked = item.locked && !b.unlocked;
-              return (
-                <button key={item.id} type="button" onClick={() => setSelected(item.id)} data-testid={`castle-building-${item.id}`}
-                  className={`relative rounded-lg border p-2 text-left min-h-[82px] transition-colors ${selected === item.id ? "bg-white/10 ring-1" : "bg-black/30"}`}
-                  style={{ borderColor: selected === item.id ? item.color : item.color + "55", ringColor: item.color }}>
-                  <div className="flex items-center justify-between gap-1">
-                    <Icon size={20} style={{ color: item.color, filter: `drop-shadow(0 0 5px ${item.color})` }} />
-                    <span className="text-[8px] font-mono-g" style={{ color: locked ? "#94A3B8" : c.color }}>{locked ? "LOCKED" : c.label}</span>
-                  </div>
-                  <div className="font-display font-bold text-xs mt-2" style={{ color: item.color }}>{item.name}</div>
-                  <div className="h-1 rounded bg-white/10 mt-1 overflow-hidden"><div className="h-full" style={{ width: `${Math.max(0, Math.min(100, b.hp / Math.max(1, b.maxHp) * 100))}%`, background: c.color }} /></div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="absolute inset-x-0 bottom-0 h-px bg-cyan-300/20" />
+        <div className="mt-3" data-testid="castle-building-map">
+          <p className="font-mono-g text-[9px] text-cyan-200/70 mb-2">Tap a physical building on the kingdom map to inspect its condition and manage it.</p>
+          <KingdomMap state={state} selected={selected} onSelect={setSelected} />
         </div>
 
         <div className="rounded-xl border bg-black/30 p-3 mt-3" style={{ borderColor: building.color + "66" }} data-testid="building-detail-panel">
