@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
 import { productionRates } from "@/game/logic";
+import { workerCost } from "@/game/config";
 
 const BUILDINGS = [
   { id: "mine", name: "Mine", icon: Coins, color: "#FFE600", desc: "Produces Gold from assigned Workers.", workers: "gold" },
@@ -143,6 +144,15 @@ export default function CastleBuildings({ state, mutate }) {
           <div className="mt-2"><StatBar frac={current.hp / Math.max(1, current.maxHp)} color={status.color} height={5} /></div>
 
           {building.workers && <>
+            <div className="flex items-center justify-between gap-2 mt-3 rounded-lg bg-white/5 p-2">
+              <div><div className="font-mono-g text-[9px] text-slate-500">UNASSIGNED WORKERS</div><div className="font-display font-bold text-lg">{availableWorkers}</div></div>
+              <NeonButton color="yellow" className="!text-[10px]" disabled={state.gold < workerCost(state.workers || 0)} onClick={() => mutate((s) => {
+                const cost = workerCost(s.workers || 0);
+                if (s.gold < cost) return;
+                s.gold -= cost;
+                s.workers = (s.workers || 0) + 1;
+              })}>Hire Worker ({workerCost(state.workers || 0)}g)</NeonButton>
+            </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <div className="rounded-lg bg-white/5 p-2"><div className="font-mono-g text-[9px] text-slate-500">ASSIGNED WORKERS</div><div className="font-display font-bold text-xl">{workersAssigned}</div></div>
               <div className="rounded-lg bg-white/5 p-2"><div className="font-mono-g text-[9px] text-slate-500">CURRENT OUTPUT</div><div className="font-display font-bold text-xl" style={{ color: building.color }}>{output.toFixed(1)} / min</div></div>
