@@ -1452,6 +1452,20 @@ export class Engine {
     }
   }
 
+  // Return a building hit when the player taps one of the visible kingdom assets.
+  getBuildingAt(x, y) {
+    const sites = [
+      ["mine", 40, 390], ["quarry", W - 40, 390],
+      ["academy", 40, 455], ["guild", W - 40, 455],
+      ["tavern", 40, 520], ["shoppe", W - 40, 520],
+      ["library", 40, 585], ["vault", W - 40, 585],
+    ];
+    for (const [id, bx, by] of sites) {
+      if (Math.abs(x - bx) <= 27 && Math.abs(y - by) <= 30) return id;
+    }
+    return null;
+  }
+
   // ---------------- rendering ----------------
   render() {
     const ctx = this.ctx;
