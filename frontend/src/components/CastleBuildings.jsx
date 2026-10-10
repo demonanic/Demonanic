@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Coins, Mountain, Users, Hammer, ShieldAlert, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
 import * as C from "@/game/config";
 import { productionRates } from "@/game/logic";
@@ -167,10 +167,6 @@ export default function CastleBuildings({ state, mutate }) {
             <NeonButton color="yellow" className="!text-[10px]" disabled={state.gold < upgradeCostGold || state.stone < upgradeCostStone || !!(itemLocked(building.id, current))} onClick={upgrade}>
               Upgrade ({upgradeCostGold}g / {upgradeCostStone}s)
             </NeonButton>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <NeonButton color="red" className="!px-2 !py-1 !text-[9px]" disabled={missingHp <= 0} onClick={() => damagePreview(100)}><ShieldAlert size={10} className="mr-1" />Test damage</NeonButton>
-            <span className="font-mono-g text-[9px] text-slate-500 self-center">Damage test is temporary QA tooling; remove before release.</span>
           </div>
         </div>
       </>}
