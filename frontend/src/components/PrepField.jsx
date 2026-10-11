@@ -9,7 +9,7 @@ const { W, H, WALL_Y, GATE_Y, HERO_Y } = LAYOUT;
 const pctX = (x) => `${(x / W) * 100}%`;
 const pctY = (y) => `${(y / H) * 100}%`;
 const clampX = (x) => Math.max(24, Math.min(W - 24, x));
-const clampY = (y) => Math.max(34, Math.min(GATE_Y + 30, y)); // defensive zone only
+const clampY = (y) => Math.max(24, Math.min(H - 24, y)); // preserve the selected point across the full battlefield
 
 export default function PrepField({ state, handlers }) {
   const [placing, setPlacing] = useState(null); // tower type key
