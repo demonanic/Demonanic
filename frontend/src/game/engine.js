@@ -835,6 +835,21 @@ export class Engine {
       }
       return;
     }
+    // Raiders can stop at and attack physical kingdom buildings near the castle line.
+    // They resume advancing once the target is destroyed.
+    const buildingTarget = this._nearestBuilding(e.x, e.y, 32);
+    if (buildingTarget && e.y >= H - 125) {
+      if (e.atkCd <= 0) {
+        const damage = Math.max(1, e.damage * (e.type === "orc" ? 1.45 : 1));
+        buildingTarget.ref.hp = Math.max(0, buildingTarget.ref.hp - damage);
+        buildingTarget.ref.activity = buildingTarget.ref.hp <= 0 ? "Destroyed" : "Under attack";
+        this._float(buildingTarget.x, buildingTarget.y - 22, "-" + Math.round(damage), "#FF0055");
+        this.effects.push({ kind: "hit", x: buildingTarget.x, y: buildingTarget.y, r: 18, life: 0.35, color: "#FF0055" });
+        e.atkCd = e.type === "orc" ? 0.9 : 1.15;
+      }
+      return;
+    }
+
     // advance downward
     e.y += moveSpeed * dt;
     if (e.y >= CASTLE_Y) {
@@ -1453,17 +1468,38 @@ export class Engine {
   }
 
   // Return a building hit when the player taps one of the visible kingdom assets.
+  _kingdomSites() {
+    const ids = ["mine", "quarry", "academy", "guild", "tavern", "shoppe", "library", "vault"];
+    return ids.map((id, i) => ({
+      id,
+      x: W * ((i + 0.5) / ids.length),
+      y: H - 64,
+      color: ({ mine: "#FFE600", quarry: "#00F3FF", academy: "#39FF14", guild: "#FF6600", tavern: "#FF007F", shoppe: "#A855F7", library: "#B66CFF", vault: "#00F3FF" })[id],
+      label: id.toUpperCase(),
+      shape: id,
+    }));
+  }
+
   getBuildingAt(x, y) {
-    const sites = [
-      ["mine", 40, 390], ["quarry", W - 40, 390],
-      ["academy", 40, 455], ["guild", W - 40, 455],
-      ["tavern", 40, 520], ["shoppe", W - 40, 520],
-      ["library", 40, 585], ["vault", W - 40, 585],
-    ];
-    for (const [id, bx, by] of sites) {
-      if (Math.abs(x - bx) <= 27 && Math.abs(y - by) <= 30) return id;
+    for (const site of this._kingdomSites()) {
+      if (Math.abs(x - site.x) <= 24 && Math.abs(y - site.y) <= 26) return site.id;
     }
     return null;
+  }
+
+  _nearestBuilding(x, y, range = 34) {
+    let best = null;
+    let bestDistance = range;
+    for (const site of this._kingdomSites()) {
+      const building = this.sim.buildings?.[site.id];
+      if (!building || building.hp <= 0 || building.unlocked === false) continue;
+      const distance = Math.hypot(site.x - x, site.y - y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { kind: "building", id: site.id, x: site.x, y: site.y, ref: building, distance };
+      }
+    }
+    return best;
   }
 
   // ---------------- rendering ----------------
@@ -1495,66 +1531,52 @@ export class Engine {
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
 
-    // One authoritative kingdom layout, shared by rendering and tap hit-testing.
-    const kingdomLayout = [
-      { id: "mine", label: "MINE", x: 40, y: 390, color: "#FFE600", shape: "mine" },
-      { id: "quarry", label: "QUARRY", x: W - 40, y: 390, color: "#00F3FF", shape: "quarry" },
-      { id: "academy", label: "ACADEMY", x: 40, y: 455, color: "#39FF14", shape: "tower" },
-      { id: "guild", label: "GUILD", x: W - 40, y: 455, color: "#FF6600", shape: "house" },
-      { id: "tavern", label: "TAVERN", x: 40, y: 520, color: "#FF007F", shape: "house" },
-      { id: "shoppe", label: "SHOPPE", x: W - 40, y: 520, color: "#A855F7", shape: "house" },
-      { id: "library", label: "LIBRARY", x: 40, y: 585, color: "#B66CFF", shape: "tower" },
-      { id: "vault", label: "VAULT", x: W - 40, y: 585, color: "#00F3FF", shape: "vault" },
-    ];
-    for (const b of kingdomLayout) {
+    // Physical kingdom buildings occupy the bottom defensive line, not a side menu.
+    for (const b of this._kingdomSites()) {
       const saved = this.sim.buildings?.[b.id];
-      const unlocked = saved ? saved.unlocked !== false : !["academy", "guild", "library", "vault"].includes(b.id);
-      const hp = Math.max(0, Number(saved?.hp ?? 1000));
-      const maxHp = Math.max(1, Number(saved?.maxHp ?? 1000));
-      const level = Math.max(1, Number(saved?.level ?? 1));
+      if (!saved) continue;
+      const unlocked = saved.unlocked !== false;
+      const hp = Math.max(0, Number(saved.hp) || 0);
+      const maxHp = Math.max(1, Number(saved.maxHp) || 1);
+      const level = Math.max(1, Number(saved.level) || 1);
       const intact = hp > 0;
       const color = intact ? b.color : "#FF0055";
+      const w = 34, h = 28, left = b.x - w / 2, top = b.y - h / 2;
       ctx.save();
-      ctx.globalAlpha = unlocked ? (intact ? 1 : 0.45) : 0.3;
-      ctx.translate(b.x, b.y);
-      ctx.shadowBlur = unlocked && intact ? 16 : 3;
+      ctx.globalAlpha = unlocked ? (intact ? 1 : 0.48) : 0.22;
+      ctx.shadowBlur = unlocked && intact ? 12 : 0;
       ctx.shadowColor = color;
       ctx.strokeStyle = color;
-      ctx.fillStyle = "rgba(8,12,24,0.97)";
-      ctx.lineWidth = 2.2;
-      if (b.shape === "mine") {
-        ctx.beginPath(); ctx.moveTo(-22, 10); ctx.lineTo(-18, -7); ctx.lineTo(-8, -18); ctx.lineTo(8, -18); ctx.lineTo(18, -7); ctx.lineTo(22, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-8, 10); ctx.lineTo(-5, -5); ctx.lineTo(5, -5); ctx.lineTo(8, 10); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-15, -3); ctx.lineTo(15, -3); ctx.stroke();
-      } else if (b.shape === "vault") {
-        ctx.strokeRect(-20, -16, 40, 28);
-        ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.moveTo(-8, -2); ctx.lineTo(8, -2); ctx.moveTo(0, -10); ctx.lineTo(0, 6); ctx.stroke();
-      } else if (b.shape === "tower") {
-        ctx.beginPath(); ctx.moveTo(-18, -12); ctx.lineTo(-18, 10); ctx.lineTo(18, 10); ctx.lineTo(18, -12); ctx.lineTo(9, -12); ctx.lineTo(9, -20); ctx.lineTo(2, -20); ctx.lineTo(2, -12); ctx.lineTo(-5, -12); ctx.lineTo(-5, -20); ctx.lineTo(-12, -20); ctx.lineTo(-12, -12); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.strokeRect(-4, -2, 8, 12);
-      } else if (b.shape === "quarry") {
-        ctx.beginPath(); ctx.moveTo(-22, 10); ctx.lineTo(-17, -5); ctx.lineTo(-8, 1); ctx.lineTo(0, -18); ctx.lineTo(9, -2); ctx.lineTo(16, -9); ctx.lineTo(22, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-12, 10); ctx.lineTo(-5, 1); ctx.lineTo(2, 10); ctx.lineTo(9, 2); ctx.lineTo(15, 10); ctx.stroke();
+      ctx.fillStyle = "#111827";
+      ctx.lineWidth = 1.8;
+      if (b.id === "mine") {
+        ctx.beginPath(); ctx.moveTo(left, top + h); ctx.lineTo(left + 5, top + 9); ctx.lineTo(b.x - 7, top + 2); ctx.lineTo(b.x + 7, top + 2); ctx.lineTo(left + w - 5, top + 9); ctx.lineTo(left + w, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(b.x - 4, top + 13, 8, 15);
+      } else if (b.id === "quarry") {
+        ctx.beginPath(); ctx.moveTo(left, top + h); ctx.lineTo(left + 5, top + 10); ctx.lineTo(left + 12, top + 15); ctx.lineTo(b.x, top + 1); ctx.lineTo(left + 24, top + 13); ctx.lineTo(left + w - 4, top + 7); ctx.lineTo(left + w, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (b.id === "vault") {
+        ctx.strokeRect(left + 2, top + 3, w - 4, h - 4); ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI * 2); ctx.moveTo(b.x - 6, b.y); ctx.lineTo(b.x + 6, b.y); ctx.moveTo(b.x, b.y - 6); ctx.lineTo(b.x, b.y + 6); ctx.stroke();
       } else {
-        ctx.beginPath(); ctx.moveTo(-21, 11); ctx.lineTo(-21, -5); ctx.lineTo(0, -21); ctx.lineTo(21, -5); ctx.lineTo(21, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.strokeRect(-5, 0, 10, 11);
-        ctx.beginPath(); ctx.moveTo(-14, -4); ctx.lineTo(14, -4); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(left + 1, top + h); ctx.lineTo(left + 1, top + 9); ctx.lineTo(b.x, top + 1); ctx.lineTo(left + w - 1, top + 9); ctx.lineTo(left + w - 1, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(b.x - 4, top + 16, 8, 12);
+        if (b.id === "academy" || b.id === "library") {
+          ctx.beginPath(); ctx.moveTo(b.x - 10, top + 8); ctx.lineTo(b.x - 10, top + 1); ctx.lineTo(b.x - 3, top + 1); ctx.moveTo(b.x + 3, top + 1); ctx.lineTo(b.x + 10, top + 1); ctx.lineTo(b.x + 10, top + 8); ctx.stroke();
+        }
       }
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
       ctx.fillStyle = color;
-      ctx.font = "bold 8px monospace";
+      ctx.font = "bold 6px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(unlocked ? b.label : "LOCKED", 0, 24);
-      ctx.font = "bold 7px monospace";
-      ctx.fillText("L" + level, 0, 33);
+      ctx.fillText(unlocked ? b.label : "LOCKED", b.x, top - 3);
+      ctx.font = "bold 6px monospace";
+      ctx.fillText("L" + level, b.x, top + h + 8);
       ctx.fillStyle = "rgba(0,0,0,0.85)";
-      ctx.fillRect(-20, 37, 40, 4);
+      ctx.fillRect(b.x - 15, top + h + 11, 30, 3);
       ctx.fillStyle = intact ? color : "#FF0055";
-      ctx.fillRect(-20, 37, 40 * Math.max(0, Math.min(1, hp / maxHp)), 4);
+      ctx.fillRect(b.x - 15, top + h + 11, 30 * Math.max(0, Math.min(1, hp / maxHp)), 3);
       if (!intact) {
-        ctx.strokeStyle = "#FF0055";
-        ctx.beginPath(); ctx.moveTo(-14, -14); ctx.lineTo(14, 10); ctx.moveTo(14, -14); ctx.lineTo(-14, 10); ctx.stroke();
+        ctx.strokeStyle = "#FF0055"; ctx.beginPath(); ctx.moveTo(left + 5, top + 5); ctx.lineTo(left + w - 5, top + h - 3); ctx.moveTo(left + w - 5, top + 5); ctx.lineTo(left + 5, top + h - 3); ctx.stroke();
       }
       ctx.restore();
     }
