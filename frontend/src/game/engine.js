@@ -732,6 +732,17 @@ export class Engine {
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const dist = Math.hypot(dx, dy);
       const step = p.spd * dt;
+      if (p.kind === "enemyBolt") {
+        const obj = p.target?.obj;
+        const alive = p.targetKind === "hero"
+          ? !!obj?.alive && obj.ref?.hp > 0
+          : !!obj && obj.ref?.hp > 0;
+        if (dist <= step || !alive) {
+          if (alive) this._resolveEnemyBolt(p);
+          p.dead = true;
+        } else { p.x += (dx / dist) * step; p.y += (dy / dist) * step; }
+        continue;
+      }
       if (dist <= step || !p.target || p.target.hp <= 0) {
         if (p.kind === "napalm") {
           this._explodeNapalm(p.x, p.y, p);
@@ -828,20 +839,35 @@ export class Engine {
     if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost" || e.type === "darkElf" || e.type === "warlock")) {
       const target = tactical.obj;
       const dist = Math.hypot(target.x - e.x, target.y - e.y) || 1;
-      const attackRange = e.type === "reaper" ? 34 : e.type === "darkElf" ? 38 : e.type === "warlock" ? 38 : 30;
-      if (dist <= attackRange) {
+      // Dark Elves are ranged tower hunters; Warlocks cast ranged bolts while
+      // retaining their separate Mage-Hunter drain ability above.
+      const ranged = e.type === "darkElf" || e.type === "warlock";
+      const attackRange = e.type === "darkElf" ? 245 : e.type === "warlock" ? 225 : e.type === "reaper" ? 34 : 30;
+      if (ranged && dist <= attackRange) {
         if (e.atkCd <= 0) {
-          this._enemyAttack(e, tactical);
-          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "darkElf" ? 0.8 : e.type === "orc" ? 1.15 : 0.9;
+          this._throwEnemyBolt(e, tactical, e.type === "darkElf" ? e.damage * 1.15 : e.damage, e.type === "darkElf" ? "#F43F5E" : "#C026D3", e.type === "warlock");
+          e.atkCd = e.type === "darkElf" ? 1.35 : 1.65;
         }
         return;
       }
-      // Reapers deliberately pursue wounded heroes; other tactical enemies
-      // only peel when their preferred target is reasonably close.
-      const peelRange = e.type === "reaper" ? 260 : e.type === "darkElf" ? 300 : e.type === "warlock" ? 300 : 150;
+      if (!ranged && dist <= attackRange) {
+        if (e.atkCd <= 0) {
+          this._enemyAttack(e, tactical);
+          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "orc" ? 1.15 : 0.9;
+        }
+        return;
+      }
+      // Ranged enemies hold a firing lane; melee specialists peel toward
+      // nearby targets but resume advancing if the target escapes.
+      const peelRange = e.type === "reaper" ? 260 : ranged ? 300 : 150;
       if (dist <= peelRange) {
-        e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
-        e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
+        if (ranged && dist < attackRange * 0.55) {
+          e.x -= ((target.x - e.x) / dist) * moveSpeed * dt;
+          e.y -= ((target.y - e.y) / dist) * moveSpeed * dt;
+        } else {
+          e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
+          e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
+        }
         return;
       }
     }
@@ -1015,6 +1041,64 @@ export class Engine {
       h.reactiveAlly = reason === "ally" ? victim : null;
       h.reactiveReason = reason;
     }
+  }
+
+  _throwEnemyBolt(e, target, damage, color, magic = false) {
+    const obj = target?.obj;
+    if (!obj) return;
+    this.projectiles.push({
+      kind: "enemyBolt",
+      sourceId: "E" + e.type,
+      x: e.x,
+      y: e.y,
+      tx: obj.x,
+      ty: obj.y,
+      target,
+      targetKind: target.kind,
+      spd: magic ? 300 : 390,
+      dmg: damage,
+      magic,
+      color,
+      t: 0,
+    });
+    this.effects.push({ kind: "charge", x: e.x, y: e.y, r: 12, life: 0.2, color });
+  }
+
+  _resolveEnemyBolt(p) {
+    const obj = p.target?.obj;
+    if (!obj) return;
+    if (p.targetKind === "hero") {
+      const h = obj;
+      if (!h.alive || h.ref?.hp <= 0) return;
+      if (Math.random() < (h.d?.dodge || 0)) {
+        this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
+        return;
+      }
+      let damage = C.damageAfterDefense(p.dmg, h.ref.stats.defense);
+      if (h.ref.shield > 0) {
+        const absorbed = Math.min(h.ref.shield, damage);
+        h.ref.shield -= absorbed;
+        damage -= absorbed;
+      }
+      h.ref.hp = Math.max(0, h.ref.hp - damage);
+      this._float(h.x, h.y - 20, "-" + Math.round(damage), p.color);
+      if (damage > 0) this._triggerHeroReaction(h, "ally");
+      if (h.ref.hp <= 0 && h.alive) {
+        h.alive = false;
+        this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
+      }
+    } else if (p.targetKind === "tower") {
+      const tower = obj;
+      if (tower.ref.hp <= 0) return;
+      const damage = p.dmg * 0.8;
+      tower.ref.hp = Math.max(0, tower.ref.hp - damage);
+      this._float(tower.x, tower.y - 20, "-" + Math.round(damage), p.color);
+      if (tower.ref.hp <= 0) {
+        this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
+        this.effects.push({ x: tower.x, y: tower.y, r: 30, life: 0.4, color: tower.d.color });
+      }
+    }
+    this.effects.push({ kind: "impact", x: obj.x, y: obj.y, r: 9, life: 0.22, color: p.color });
   }
 
   _enemyAttack(e, blocker) {
