@@ -92,7 +92,7 @@ export class Engine {
     // Personal short-range turrets belong to buildings and scale only with building level.
     this.buildingTurrets = this._kingdomSites().reduce((acc, site) => {
       const ref = this.sim.buildings?.[site.id];
-      if (!ref || ref.unlocked === false) return acc;
+      if (!ref) return acc;
       const level = Math.max(1, Number(ref.level) || 1);
       const maxAmmo = 18 + (level - 1) * 4;
       ref.turretMaxAmmo = maxAmmo;
