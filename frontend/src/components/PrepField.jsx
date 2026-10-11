@@ -148,9 +148,9 @@ export default function PrepField({ state, handlers }) {
                 setAwaitingPlacement(null);
                 setPendingPosition({ type: placing, x: slot.x, y: slot.y });
               }}
-              className="absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold disabled:cursor-not-allowed"
+              className="absolute z-30 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold disabled:cursor-not-allowed"
               style={{
-                left: pctX(slot.x), top: pctY(slot.y), width: "12%", aspectRatio: "1",
+                left: pctX(slot.x), top: pctY(slot.y), transform: "translate(-50%, -50%)", width: "12%", aspectRatio: "1",
                 border: `2px ${previewed ? "dashed" : "solid"} ${occupied ? "#64748B" : previewed ? C.TOWERS[pendingPosition.type].color : "#00F3FF"}`,
                 background: occupied ? "rgba(100,116,139,0.2)" : previewed ? "rgba(0,243,255,0.18)" : "rgba(0,243,255,0.06)",
                 color: occupied ? "#64748B" : "#00F3FF",
@@ -166,8 +166,8 @@ export default function PrepField({ state, handlers }) {
           const pos = tw;
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center bracket"
-              style={{ left: pctX(pos.x), top: pctY(pos.y), width: "10%", height: "5%", borderColor: t.color,
+              className="absolute rounded flex items-center justify-center bracket"
+              style={{ left: pctX(pos.x), top: pctY(pos.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: t.color,
                 pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
@@ -182,8 +182,8 @@ export default function PrepField({ state, handlers }) {
 
         {/* uncommitted placement preview: resources are untouched until confirmation */}
         {pendingPosition && placing && (
-          <div data-testid="tower-placement-preview" className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center border-2 border-dashed animate-pulse"
-            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), width: "10%", height: "5%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
+          <div data-testid="tower-placement-preview" className="absolute rounded flex items-center justify-center border-2 border-dashed animate-pulse"
+            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
             <div className="w-3.5 h-3.5 rounded" style={{ background: C.TOWERS[pendingPosition.type].color, boxShadow: "0 0 8px " + C.TOWERS[pendingPosition.type].color }} />
           </div>
         )}
