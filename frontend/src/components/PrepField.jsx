@@ -19,6 +19,9 @@ export default function PrepField({ state, handlers }) {
   const cap = slotCap(state);
   const n = state.heroes.length || 1;
   const atCap = state.towers.length >= cap;
+  const isSlotOccupied = (slot) => state.towers.some((tower) =>
+    Math.hypot(tower.x - slot.x, tower.y - slot.y) < 42
+  );
 
   // Keep the preview visible until the state actually contains the newly built
   // tower. handlers.build queues a React state mutation, so its return value
@@ -48,12 +51,9 @@ export default function PrepField({ state, handlers }) {
       x: ((e.clientX - r.left) / r.width) * W,
       y: ((e.clientY - r.top) / r.height) * H,
     };
-    const occupied = new Set(state.towers.map((tower) =>
-      PLACEMENT_SLOTS.findIndex((slot) => slot.x === tower.x && slot.y === tower.y)
-    ));
     const available = PLACEMENT_SLOTS
       .map((slot, index) => ({ ...slot, index }))
-      .filter((slot) => !occupied.has(slot.index) || (
+      .filter((slot) => !isSlotOccupied(slot) || (
         pendingPosition && pendingPosition.x === slot.x && pendingPosition.y === slot.y
       ));
     if (!available.length) return null;
@@ -135,7 +135,7 @@ export default function PrepField({ state, handlers }) {
 
         {/* Exact tower positions used by the live battle engine. Occupied sites are marked. */}
         {PLACEMENT_SLOTS.map((slot, index) => {
-          const occupied = state.towers.some((tower) => tower.x === slot.x && tower.y === slot.y);
+          const occupied = isSlotOccupied(slot);
           const previewed = pendingPosition?.x === slot.x && pendingPosition?.y === slot.y;
           return (
             <div key={index} data-testid={`tower-slot-${index}`}
