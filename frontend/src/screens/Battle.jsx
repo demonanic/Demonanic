@@ -410,7 +410,7 @@ export default function Battle() {
               </div>
               <div className="h-1.5 rounded bg-white/10 mt-2 overflow-hidden"><div className="h-full" style={{ width: Math.max(0, Math.min(100, (b.hp || 0) / Math.max(1, b.maxHp || 1000) * 100)) + "%", background: color }} /></div>
               {locked ? (
-                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Locked building · turret inactive</div>
+                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Locked building · defensive turret remains active</div>
               ) : (
                 <div className="font-mono-g text-[9px] text-slate-400 mt-2">Manage repairs, upgrades, and turret ammunition in Preparation.</div>
               )}
