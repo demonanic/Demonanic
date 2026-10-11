@@ -11,7 +11,7 @@ import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Sk
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
-  castlePower, slotCap, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
+  castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
   recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
@@ -32,13 +32,15 @@ export default function Preparation() {
 
   const handlers = {
     build: (type, x, y) => {
-      let placed = false;
+      if (!C.TOWERS[type] || state.towers.length >= cap || !canAfford(state, C.TOWERS[type].construction)) {
+        toast.error("Tower placement failed — check resources and available slots");
+        return false;
+      }
       mutate((s) => {
-        placed = buildTower(s, type, x, y);
-        if (placed) toast.success(`${C.TOWERS[type].name} placed`);
+        if (buildTower(s, type, x, y)) toast.success(`${C.TOWERS[type].name} placed`);
         else toast.error("Tower placement failed — check resources and available slots");
       });
-      return placed;
+      return true;
     },
     reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
     dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
