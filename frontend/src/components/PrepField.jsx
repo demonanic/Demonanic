@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LAYOUT } from "@/game/engine";
+import { LAYOUT, slotPositions } from "@/game/engine";
 import { NeonButton, StatBar } from "@/components/ui-kit";
 import { slotCap, towerDerived, canAfford } from "@/game/logic";
 import { Wrench, Trash2, X } from "lucide-react";
@@ -8,8 +8,7 @@ import * as C from "@/game/config";
 const { W, H, WALL_Y, GATE_Y, HERO_Y } = LAYOUT;
 const pctX = (x) => `${(x / W) * 100}%`;
 const pctY = (y) => `${(y / H) * 100}%`;
-const clampX = (x) => Math.max(24, Math.min(W - 24, x));
-const clampY = (y) => Math.max(24, Math.min(H - 24, y)); // preserve the selected point across the full battlefield
+const PLACEMENT_SLOTS = slotPositions();
 
 export default function PrepField({ state, handlers }) {
   const [placing, setPlacing] = useState(null); // tower type key
@@ -41,14 +40,27 @@ export default function PrepField({ state, handlers }) {
   }, [state.towers, awaitingPlacement]);
 
   const toLogical = (e) => {
-    // Keep the original mapping used by the previously working placement flow.
-    // Both the prep field and battle canvas represent the same logical W x H
-    // space; normalize the pointer against the field's rendered rectangle.
+    // Placement uses the exact logical positions consumed by the battle engine.
+    // Snap to the nearest unoccupied slot instead of saving arbitrary touch
+    // coordinates that can be difficult to judge against the live canvas.
     const r = fieldRef.current.getBoundingClientRect();
-    return {
-      x: clampX(((e.clientX - r.left) / r.width) * W),
-      y: clampY(((e.clientY - r.top) / r.height) * H),
+    const point = {
+      x: ((e.clientX - r.left) / r.width) * W,
+      y: ((e.clientY - r.top) / r.height) * H,
     };
+    const occupied = new Set(state.towers.map((tower) =>
+      PLACEMENT_SLOTS.findIndex((slot) => slot.x === tower.x && slot.y === tower.y)
+    ));
+    const available = PLACEMENT_SLOTS
+      .map((slot, index) => ({ ...slot, index }))
+      .filter((slot) => !occupied.has(slot.index) || (
+        pendingPosition && pendingPosition.x === slot.x && pendingPosition.y === slot.y
+      ));
+    if (!available.length) return null;
+    return available.reduce((best, slot) => {
+      const distance = (slot.x - point.x) ** 2 + (slot.y - point.y) ** 2;
+      return !best || distance < best.distance ? { x: slot.x, y: slot.y, distance } : best;
+    }, null);
   };
 
   const placeAt = (e) => {
@@ -57,9 +69,10 @@ export default function PrepField({ state, handlers }) {
     // click can arrive after the mobile viewport has shifted or reflowed.
     e.preventDefault();
     e.stopPropagation();
-    const { x, y } = toLogical(e);
+    const point = toLogical(e);
+    if (!point) return;
     setAwaitingPlacement(null);
-    setPendingPosition({ type: placing, x, y });
+    setPendingPosition({ type: placing, x: point.x, y: point.y });
   };
 
   const onTowerClick = (idx, e) => {
@@ -92,7 +105,7 @@ export default function PrepField({ state, handlers }) {
             );
           })}
         </div>
-        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">{pendingPosition ? "Preview set — tap elsewhere to reposition, or confirm below." : `Tap the battlefield to preview ${C.TOWERS[placing].name}`}</p>}
+        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">{pendingPosition ? "Preview snapped to a marked slot — tap another slot area to reposition, or confirm below." : `Tap near a marked slot to preview ${C.TOWERS[placing].name}`}</p>}
       </div>
 
       <div ref={fieldRef}
@@ -117,6 +130,24 @@ export default function PrepField({ state, handlers }) {
                 backgroundImage: on ? "repeating-linear-gradient(45deg,#FFE600 0,#FFE600 5px,#12131A 5px,#12131A 10px)" : "none",
                 border: `1px solid ${on ? "#FFE600" : "rgba(255,230,0,0.35)"}`, opacity: on ? 0.5 + 0.5 * (b.hp / b.maxHp) : 0.4,
                 outline: sel?.kind === "barricade" && sel.idx === pos ? "2px solid #00F3FF" : "none" }} />
+          );
+        })}
+
+        {/* Exact tower positions used by the live battle engine. Occupied sites are marked. */}
+        {PLACEMENT_SLOTS.map((slot, index) => {
+          const occupied = state.towers.some((tower) => tower.x === slot.x && tower.y === slot.y);
+          const previewed = pendingPosition?.x === slot.x && pendingPosition?.y === slot.y;
+          return (
+            <div key={index} data-testid={`tower-slot-${index}`}
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold"
+              style={{
+                left: pctX(slot.x), top: pctY(slot.y), width: "12%", aspectRatio: "1",
+                border: `2px ${previewed ? "dashed" : "solid"} ${occupied ? "#64748B" : previewed ? C.TOWERS[pendingPosition.type].color : "#00F3FF"}`,
+                background: occupied ? "rgba(100,116,139,0.2)" : previewed ? "rgba(0,243,255,0.18)" : "rgba(0,243,255,0.06)",
+                color: occupied ? "#64748B" : "#00F3FF",
+                boxShadow: previewed ? "0 0 12px #00F3FF66" : "none",
+                pointerEvents: "none",
+              }}>{occupied ? "USED" : `SLOT ${index + 1}`}</div>
           );
         })}
 
@@ -186,7 +217,7 @@ export default function PrepField({ state, handlers }) {
 
       {/* action bar */}
       <div className="w-full max-w-md mt-2 min-h-[60px]">
-        {!sel && !placing && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Pick a tower above then tap the field to place it. Tap a placed tower or a barricade lane to configure. Towers stay fixed after placement.</p>}
+        {!sel && !placing && <p className="font-mono-g text-[11px] text-slate-500 text-center py-3">Pick a tower, tap near an available marked slot, then confirm. Occupied slots cannot be reused. Tap a placed tower or barricade lane to configure.</p>}
 
         {sel?.kind === "tower" && state.towers[sel.idx] && (() => {
           const tw = state.towers[sel.idx]; const t = C.TOWERS[tw.type]; const d = towerDerived(tw);
