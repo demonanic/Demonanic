@@ -72,7 +72,7 @@ export default function App() {
       <AuthProvider>
         <Shell />
       </AuthProvider>
-      <Toaster position="top-center" theme="dark" />
+      <Toaster position="bottom-center" theme="dark" richColors closeButton visibleToasts={1} expand={false} duration={3200} offset="18px" />
     </div>
   );
 }
