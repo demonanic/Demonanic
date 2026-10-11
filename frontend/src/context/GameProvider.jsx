@@ -121,14 +121,35 @@ export function GameProvider({ children, user }) {
           towers: finalState.towers?.length || 0,
         });
       } else {
-        // A genuinely new account has no server state yet.
-        const finalState = createNewState();
-        normalizeState(finalState);
-        writeLocalBackup(finalState);
-        await gameApi.saveState(finalState);
-        setState(finalState);
-        setScreen("squad");
-        console.log("[Demonanic Game] NEW PROFILE CREATED");
+        // The API says this account has no server state. Before creating or
+        // saving a fresh profile, check whether this user has a local save.
+        // Never overwrite a recoverable local profile with a blank new game.
+        let localState = null;
+        if (backupKey) {
+          try {
+            const raw = localStorage.getItem(backupKey);
+            if (raw) localState = normalizeState(JSON.parse(raw));
+          } catch (backupError) {
+            console.error("[Demonanic Game] LOCAL BACKUP READ FAILED:", backupError);
+          }
+        }
+
+        if (localState) {
+          setState(localState);
+          setScreen(localState.needsSquad ? "squad" : "home");
+          console.warn("[Demonanic Game] SERVER PROFILE MISSING; RESTORED LOCAL SAVE WITHOUT OVERWRITING IT");
+          // Do not immediately PUT this save: the missing server profile needs
+          // investigation before a local copy is allowed to replace server data.
+        } else {
+          // No server profile and no per-user local backup: initialize a new account.
+          const finalState = createNewState();
+          normalizeState(finalState);
+          writeLocalBackup(finalState);
+          await gameApi.saveState(finalState);
+          setState(finalState);
+          setScreen("squad");
+          console.log("[Demonanic Game] NEW PROFILE CREATED");
+        }
       }
     } catch (e) {
       console.error("[Demonanic Game] LOAD FAILED:", e);
