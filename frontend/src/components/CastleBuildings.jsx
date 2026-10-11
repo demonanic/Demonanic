@@ -92,13 +92,14 @@ export default function CastleBuildings({ state, mutate }) {
       s.gold -= costGold;
       s.stone -= costStone;
       const oldLevel = Math.max(1, Number(b.level) || 1);
-      const oldTurretMaxAmmo = Math.max(18, Number(b.turretMaxAmmo) || (18 + (oldLevel - 1) * 4));
+      const oldTurretMaxAmmo = 18 + (oldLevel - 1) * 4;
       const nextLevel = oldLevel + 1;
       const nextTurretMaxAmmo = 18 + (nextLevel - 1) * 4;
       b.level = nextLevel;
       b.turretMaxAmmo = nextTurretMaxAmmo;
       if (Number.isFinite(Number(b.turretAmmo))) {
-        b.turretAmmo = Math.min(nextTurretMaxAmmo, Math.max(0, Number(b.turretAmmo)) + Math.max(0, nextTurretMaxAmmo - oldTurretMaxAmmo));
+        const currentTurretAmmo = Math.max(0, Math.min(oldTurretMaxAmmo, Number(b.turretAmmo)));
+        b.turretAmmo = Math.min(nextTurretMaxAmmo, currentTurretAmmo + (nextTurretMaxAmmo - oldTurretMaxAmmo));
       } else {
         b.turretAmmo = nextTurretMaxAmmo;
       }
