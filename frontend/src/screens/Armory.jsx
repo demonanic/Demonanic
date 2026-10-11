@@ -319,6 +319,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
+                  equipped={hero?.equipment?.[item.slot] || null}
                   action={() => buy(index, item)}
                   actionLabel={`BUY ${item.buyPrice}g`}
                 />
