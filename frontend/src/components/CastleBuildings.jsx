@@ -166,12 +166,12 @@ export default function CastleBuildings({ state, mutate }) {
                 <div className="font-mono-g text-[9px] text-cyan-200">PERSONAL TURRET · SHORT RANGE</div>
                 <div className="font-mono-g text-[10px] text-slate-300">AMMO {turretAmmo} / {turretMaxAmmo} · Level-scaled</div>
               </div>
-              <NeonButton color="cyan" className="!text-[10px]" disabled={!current.unlocked || current.hp <= 0 || missingTurretAmmo <= 0 || state.gold < turretRefillCost} onClick={() => updateBuilding((s, b) => {
+              <NeonButton color="cyan" className="!text-[10px]" disabled={current.hp <= 0 || missingTurretAmmo <= 0 || state.gold < turretRefillCost} onClick={() => updateBuilding((s, b) => {
                 const level = Math.max(1, Number(b.level) || 1);
                 const maxAmmo = 18 + (level - 1) * 4;
                 const currentAmmo = Math.max(0, Math.min(maxAmmo, Number(b.turretAmmo) || 0));
                 const missing = maxAmmo - currentAmmo;
-                if (missing <= 0 || s.gold < missing || b.hp <= 0 || b.unlocked === false) return;
+                if (missing <= 0 || s.gold < missing || b.hp <= 0) return;
                 s.gold -= missing;
                 b.turretMaxAmmo = maxAmmo;
                 b.turretAmmo = maxAmmo;

@@ -708,7 +708,7 @@ export class Engine {
 
     // Building turrets fire only at enemies inside their short local range.
     for (const turret of this.buildingTurrets || []) {
-      if (turret.ref.hp <= 0 || turret.ref.unlocked === false) continue;
+      if (turret.ref.hp <= 0) continue;
       turret.cd = Math.max(0, turret.cd - dt);
       if (turret.ref.turretAmmo <= 0 || turret.cd > 0) continue;
       const target = this.active
@@ -1617,7 +1617,7 @@ export class Engine {
 
     // Tiny personal turrets are visibly mounted on each physical building.
     for (const turret of this.buildingTurrets || []) {
-      const enabled = turret.ref.hp > 0 && turret.ref.unlocked !== false;
+      const enabled = turret.ref.hp > 0;
       ctx.save();
       ctx.globalAlpha = enabled ? 1 : 0.25;
       ctx.shadowBlur = enabled ? 7 : 0;
