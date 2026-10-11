@@ -13,6 +13,7 @@ const clampY = (y) => Math.max(34, Math.min(GATE_Y + 30, y)); // defensive zone 
 
 export default function PrepField({ state, handlers }) {
   const [placing, setPlacing] = useState(null); // tower type key
+  const [pendingPosition, setPendingPosition] = useState(null); // uncommitted placement preview
   const [sel, setSel] = useState(null);         // {kind:'tower'|'barricade', idx}
   const fieldRef = useRef(null);
   const cap = slotCap(state);
@@ -31,8 +32,7 @@ export default function PrepField({ state, handlers }) {
     e.preventDefault();
     e.stopPropagation();
     const { x, y } = toLogical(e);
-    handlers.build(placing, x, y);
-    setPlacing(null);
+    setPendingPosition({ type: placing, x, y });
   };
 
   const onTowerClick = (idx, e) => {
@@ -47,7 +47,7 @@ export default function PrepField({ state, handlers }) {
       <div className="w-full max-w-md mb-2">
         <div className="flex items-center justify-between mb-1">
           <span className="font-mono-g text-[10px] text-slate-400">TOWERS {state.towers.length}/{cap}{atCap ? " · at capacity" : ""}</span>
-          {placing && <button onClick={() => setPlacing(null)} className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1" data-testid="cancel-placing"><X size={11} />cancel</button>}
+          {placing && <button onClick={() => { setPlacing(null); setPendingPosition(null); }} className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1" data-testid="cancel-placing"><X size={11} />cancel</button>}
         </div>
         <div className="grid grid-cols-4 gap-1.5" data-testid="tower-palette">
           {C.TOWER_ORDER.map((tp) => {
@@ -65,7 +65,7 @@ export default function PrepField({ state, handlers }) {
             );
           })}
         </div>
-        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">Tap the battlefield to place {C.TOWERS[placing].name}</p>}
+        {placing && <p className="font-mono-g text-[10px] text-cyan-400 mt-1 animate-pulse-glow">{pendingPosition ? "Preview set — tap elsewhere to reposition, or confirm below." : `Tap the battlefield to preview ${C.TOWERS[placing].name}`}</p>}
       </div>
 
       <div ref={fieldRef}
@@ -113,6 +113,14 @@ export default function PrepField({ state, handlers }) {
           );
         })}
 
+        {/* uncommitted placement preview: resources are untouched until confirmation */}
+        {pendingPosition && placing && (
+          <div data-testid="tower-placement-preview" className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center border-2 border-dashed animate-pulse"
+            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), width: "16%", height: "8%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
+            <div className="w-3.5 h-3.5 rounded" style={{ background: C.TOWERS[pendingPosition.type].color, boxShadow: "0 0 8px " + C.TOWERS[pendingPosition.type].color }} />
+          </div>
+        )}
+
         {/* heroes */}
         {state.heroes.map((h, i) => {
           const c = C.HERO_CLASSES[h.cls];
@@ -123,6 +131,25 @@ export default function PrepField({ state, handlers }) {
         {/* placement overlay captures taps anywhere */}
         {placing && <div className="absolute inset-0 z-20" style={{ cursor: "crosshair", touchAction: "none" }} onPointerDown={placeAt} data-testid="place-overlay" />}
       </div>
+
+      {/* placement confirmation: committing is explicit; cancel returns resources untouched */}
+      {placing && pendingPosition && (
+        <div className="w-full max-w-md mt-2 grid grid-cols-2 gap-2" data-testid="tower-placement-confirmation">
+          <NeonButton color="green" className="!py-2" onClick={() => {
+            const pending = pendingPosition;
+            const placed = handlers.build(pending.type, pending.x, pending.y);
+            if (placed !== false) {
+              setPendingPosition(null);
+              setPlacing(null);
+              setSel(null);
+            }
+          }} data-testid="confirm-tower-placement">CONFIRM PLACEMENT</NeonButton>
+          <NeonButton color="red" className="!py-2" onClick={() => {
+            setPendingPosition(null);
+            setPlacing(null);
+          }} data-testid="disengage-tower-placement">DISENGAGE / CANCEL</NeonButton>
+        </div>
+      )}
 
       {/* action bar */}
       <div className="w-full max-w-md mt-2 min-h-[60px]">
