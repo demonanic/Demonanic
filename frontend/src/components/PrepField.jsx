@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LAYOUT } from "@/game/engine";
 import { NeonButton, StatBar } from "@/components/ui-kit";
 import { slotCap, towerDerived, canAfford } from "@/game/logic";
@@ -14,11 +14,31 @@ const clampY = (y) => Math.max(24, Math.min(H - 24, y)); // preserve the selecte
 export default function PrepField({ state, handlers }) {
   const [placing, setPlacing] = useState(null); // tower type key
   const [pendingPosition, setPendingPosition] = useState(null); // uncommitted placement preview
+  const [awaitingPlacement, setAwaitingPlacement] = useState(null); // waits for committed tower to appear in state
   const [sel, setSel] = useState(null);         // {kind:'tower'|'barricade', idx}
   const fieldRef = useRef(null);
   const cap = slotCap(state);
   const n = state.heroes.length || 1;
   const atCap = state.towers.length >= cap;
+
+  // Keep the preview visible until the state actually contains the newly built
+  // tower. handlers.build queues a React state mutation, so its return value
+  // alone is not proof that placement succeeded.
+  useEffect(() => {
+    if (!awaitingPlacement) return;
+    const committed = state.towers.some((tower) =>
+      !awaitingPlacement.existingIds.has(tower.id) &&
+      tower.type === awaitingPlacement.type &&
+      tower.x === awaitingPlacement.x &&
+      tower.y === awaitingPlacement.y
+    );
+    if (committed) {
+      setPendingPosition(null);
+      setPlacing(null);
+      setSel(null);
+      setAwaitingPlacement(null);
+    }
+  }, [state.towers, awaitingPlacement]);
 
   const toLogical = (e) => {
     // Keep the original mapping used by the previously working placement flow.
@@ -38,7 +58,7 @@ export default function PrepField({ state, handlers }) {
     e.preventDefault();
     e.stopPropagation();
     const { x, y } = toLogical(e);
-    setPendingPosition({ type: placing, x, y });
+    setAwaitingPlacement(null);\n    setPendingPosition({ type: placing, x, y });
   };
 
   const onTowerClick = (idx, e) => {
@@ -53,7 +73,7 @@ export default function PrepField({ state, handlers }) {
       <div className="w-full max-w-md mb-2">
         <div className="flex items-center justify-between mb-1">
           <span className="font-mono-g text-[10px] text-slate-400">TOWERS {state.towers.length}/{cap}{atCap ? " · at capacity" : ""}</span>
-          {placing && <button onClick={() => { setPlacing(null); setPendingPosition(null); }} className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1" data-testid="cancel-placing"><X size={11} />cancel</button>}
+          {placing && <button onClick={() => { setPlacing(null); setPendingPosition(null); setAwaitingPlacement(null); }} className="font-mono-g text-[10px] text-rose-400 flex items-center gap-1" data-testid="cancel-placing"><X size={11} />cancel</button>}
         </div>
         <div className="grid grid-cols-4 gap-1.5" data-testid="tower-palette">
           {C.TOWER_ORDER.map((tp) => {
@@ -61,7 +81,7 @@ export default function PrepField({ state, handlers }) {
             const ok = !atCap && canAfford(state, t.construction);
             return (
               <button key={tp} disabled={!ok} data-testid={`palette-${tp}`}
-                onClick={() => { setPendingPosition(null); setPlacing(placing === tp ? null : tp); }}
+                onClick={() => { setPendingPosition(null); setAwaitingPlacement(null); setPlacing(placing === tp ? null : tp); }}
                 className={`neon-btn p-1.5 rounded-lg border bg-black/40 disabled:opacity-30 ${placing === tp ? "ring-2 ring-cyan-400" : ""}`}
                 style={{ borderColor: t.color + "66" }}>
                 <div className="w-4 h-4 rounded mx-auto mb-1" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
@@ -142,17 +162,23 @@ export default function PrepField({ state, handlers }) {
       {placing && pendingPosition && (
         <div className="w-full max-w-md mt-2 grid grid-cols-2 gap-2" data-testid="tower-placement-confirmation">
           <NeonButton color="green" className="!py-2" onClick={() => {
+            if (awaitingPlacement) return;
             const pending = pendingPosition;
+            const existingIds = new Set(state.towers.map((tower) => tower.id));
             const placed = handlers.build(pending.type, pending.x, pending.y);
             if (placed !== false) {
-              setPendingPosition(null);
-              setPlacing(null);
-              setSel(null);
+              setAwaitingPlacement({
+                type: pending.type,
+                x: pending.x,
+                y: pending.y,
+                existingIds,
+              });
             }
-          }} data-testid="confirm-tower-placement">CONFIRM PLACEMENT</NeonButton>
+          }} data-testid="confirm-tower-placement" disabled={!!awaitingPlacement}>{awaitingPlacement ? "PLACING…" : "CONFIRM PLACEMENT"}</NeonButton>
           <NeonButton color="red" className="!py-2" onClick={() => {
             setPendingPosition(null);
             setPlacing(null);
+            setAwaitingPlacement(null);
           }} data-testid="disengage-tower-placement">DISENGAGE / CANCEL</NeonButton>
         </div>
       )}
