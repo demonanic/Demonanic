@@ -31,7 +31,15 @@ export default function Preparation() {
   const act = (fn, okMsg, failMsg) => mutate((s) => { if (!fn(s)) { toast.error(failMsg || "Cannot afford / invalid"); } else if (okMsg) toast.success(okMsg); });
 
   const handlers = {
-    build: (type, x, y) => act((s) => buildTower(s, type, x, y), `${C.TOWERS[type].name} placed`),
+    build: (type, x, y) => {
+      let placed = false;
+      mutate((s) => {
+        placed = buildTower(s, type, x, y);
+        if (placed) toast.success(`${C.TOWERS[type].name} placed`);
+        else toast.error("Tower placement failed — check resources and available slots");
+      });
+      return placed;
+    },
     reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
     dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
     repairTower: (index) => act((s) => repairTower(s, index), "Repaired"),
@@ -60,12 +68,17 @@ export default function Preparation() {
     try {
       const { data } = await gameApi.reward("revive_hero", "mock_admob", { wave: state.wave, prep: true });
       if (!data?.granted) throw new Error("Reward not granted");
+      let revived = false;
       mutate((s) => {
         const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
         if (!h || h.hp > 0) return;
-        h.hp = Math.max(1, Math.round(heroDerived(h).maxHp * 0.75));
+        const maxHp = heroDerived(h).maxHp;
+        h.hp = Math.max(1, Math.round(maxHp * 0.75));
+        h.maxHp = maxHp;
+        revived = true;
       });
-      toast.success("Reward granted — hero revived at 75% HP");
+      if (revived) toast.success("Reward granted — hero revived at 75% HP");
+      else toast.error("Hero is no longer defeated");
     } catch {
       toast.error("Revival reward unavailable");
     }
