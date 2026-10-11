@@ -91,7 +91,17 @@ export default function CastleBuildings({ state, mutate }) {
       if (s.gold < costGold || s.stone < costStone) return;
       s.gold -= costGold;
       s.stone -= costStone;
-      b.level = (b.level || 1) + 1;
+      const oldLevel = Math.max(1, Number(b.level) || 1);
+      const oldTurretMaxAmmo = Math.max(18, Number(b.turretMaxAmmo) || (18 + (oldLevel - 1) * 4));
+      const nextLevel = oldLevel + 1;
+      const nextTurretMaxAmmo = 18 + (nextLevel - 1) * 4;
+      b.level = nextLevel;
+      b.turretMaxAmmo = nextTurretMaxAmmo;
+      if (Number.isFinite(Number(b.turretAmmo))) {
+        b.turretAmmo = Math.min(nextTurretMaxAmmo, Math.max(0, Number(b.turretAmmo)) + Math.max(0, nextTurretMaxAmmo - oldTurretMaxAmmo));
+      } else {
+        b.turretAmmo = nextTurretMaxAmmo;
+      }
       b.maxHp = Math.round((b.maxHp || 1000) * 1.15);
       b.hp = Math.min(b.maxHp, b.hp + Math.round(b.maxHp * 0.15));
       b.activity = "Upgraded";
