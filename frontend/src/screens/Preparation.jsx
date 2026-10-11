@@ -70,17 +70,17 @@ export default function Preparation() {
     try {
       const { data } = await gameApi.reward("revive_hero", "mock_admob", { wave: state.wave, prep: true });
       if (!data?.granted) throw new Error("Reward not granted");
-      let revived = false;
       mutate((s) => {
         const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
-        if (!h || h.hp > 0) return;
+        if (!h || h.hp > 0) {
+          toast.error("Hero is no longer defeated");
+          return;
+        }
         const maxHp = heroDerived(h).maxHp;
         h.hp = Math.max(1, Math.round(maxHp * 0.75));
         h.maxHp = maxHp;
-        revived = true;
+        toast.success("Reward granted — hero revived at 75% HP");
       });
-      if (revived) toast.success("Reward granted — hero revived at 75% HP");
-      else toast.error("Hero is no longer defeated");
     } catch {
       toast.error("Revival reward unavailable");
     }
