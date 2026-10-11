@@ -89,6 +89,20 @@ export class Engine {
     // State may contain empty/null tower slots. The prep/economy layer
     // intentionally supports sparse tower arrays, so never dereference a
     // missing slot while constructing the battle runtime.
+    // Personal short-range turrets belong to buildings and scale only with building level.
+    this.buildingTurrets = this._kingdomSites().reduce((acc, site) => {
+      const ref = this.sim.buildings?.[site.id];
+      if (!ref || ref.unlocked === false) return acc;
+      const level = Math.max(1, Number(ref.level) || 1);
+      const maxAmmo = 18 + (level - 1) * 4;
+      ref.turretMaxAmmo = maxAmmo;
+      if (!Number.isFinite(Number(ref.turretAmmo))) ref.turretAmmo = maxAmmo;
+      ref.turretAmmo = Math.max(0, Math.min(maxAmmo, Number(ref.turretAmmo)));
+      acc.push({ id: site.id, x: site.x, y: site.y - 18, color: site.color,
+        ref, level, maxAmmo, damage: 7 + (level - 1) * 3, range: 68, fireRate: 1.35, cd: 0 });
+      return acc;
+    }, []);
+
     this.towers = (Array.isArray(sim.towers) ? sim.towers : []).reduce((acc, t, idx) => {
       if (!t || !C.TOWERS[t.type] || !C.TOWER_RESOURCE[t.type]) return acc;
       const d = towerDerived(t);
@@ -691,6 +705,26 @@ export class Engine {
 
     // Resolve body collisions after movement so living units cannot occupy the same space.
     this._resolveUnitCollisions();
+
+    // Building turrets fire only at enemies inside their short local range.
+    for (const turret of this.buildingTurrets || []) {
+      if (turret.ref.hp <= 0 || turret.ref.unlocked === false) continue;
+      turret.cd = Math.max(0, turret.cd - dt);
+      if (turret.ref.turretAmmo <= 0 || turret.cd > 0) continue;
+      const target = this.active
+        .filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - turret.x, enemy.y - turret.y) <= turret.range)
+        .sort((a, b) => Math.hypot(a.x - turret.x, a.y - turret.y) - Math.hypot(b.x - turret.x, b.y - turret.y))[0];
+      if (!target) continue;
+      turret.ref.turretAmmo = Math.max(0, turret.ref.turretAmmo - 1);
+      turret.cd = turret.fireRate;
+      this.projectiles.push({
+        sourceId: "B" + turret.id, x: turret.x, y: turret.y,
+        tx: target.x, ty: target.y, target, spd: 390,
+        dmg: turret.damage, magic: false, damageType: C.DAMAGE_TYPES.ARCHER_RANGED,
+        critChance: C.BASE_CRIT, critMult: C.CRIT_MULT, color: turret.color, t: 0,
+      });
+      this.effects.push({ x: turret.x, y: turret.y, r: 5, life: 0.16, color: turret.color, ring: true });
+    }
 
     // projectiles
     for (const p of this.projectiles) {
@@ -1578,6 +1612,24 @@ export class Engine {
       if (!intact) {
         ctx.strokeStyle = "#FF0055"; ctx.beginPath(); ctx.moveTo(left + 5, top + 5); ctx.lineTo(left + w - 5, top + h - 3); ctx.moveTo(left + w - 5, top + 5); ctx.lineTo(left + 5, top + h - 3); ctx.stroke();
       }
+      ctx.restore();
+    }
+
+    // Tiny personal turrets are visibly mounted on each physical building.
+    for (const turret of this.buildingTurrets || []) {
+      const enabled = turret.ref.hp > 0 && turret.ref.unlocked !== false;
+      ctx.save();
+      ctx.globalAlpha = enabled ? 1 : 0.25;
+      ctx.shadowBlur = enabled ? 7 : 0;
+      ctx.shadowColor = turret.color;
+      ctx.strokeStyle = turret.color;
+      ctx.fillStyle = "#080D16";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(turret.x, turret.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(turret.x, turret.y); ctx.lineTo(turret.x, turret.y - 7); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = turret.ref.turretAmmo > 0 ? "#FFE600" : "#FF0055";
+      ctx.fillRect(turret.x - 5, turret.y + 6, 10 * (turret.maxAmmo ? turret.ref.turretAmmo / turret.maxAmmo : 0), 2);
       ctx.restore();
     }
 
