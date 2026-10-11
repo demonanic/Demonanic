@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
+import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD } from "@/components/ui-kit";
 import * as C from "@/game/config";
@@ -36,7 +36,49 @@ function formatTime(ms) {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 }
 
-function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel }) {
+const COMPARISON_STATS = [
+  ["attack", "ATK"], ["defense", "DEF"], ["agility", "AGI"],
+  ["intelligence", "INT"], ["maxHP", "HP"], ["critChance", "CRIT%"], ["critDamage", "CRIT DMG"],
+];
+
+function itemPower(stats = {}) {
+  // Readable heuristic for quick comparison, not a replacement for class-specific combat simulation.
+  return (stats.attack || 0) * 1.5 + (stats.defense || 0) * 1.25
+    + (stats.agility || 0) + (stats.intelligence || 0)
+    + (stats.maxHP || 0) / 10 + (stats.critChance || 0) * 2
+    + (stats.critDamage || 0) * 0.5;
+}
+
+function ItemComparison({ item, equipped }) {
+  if (!equipped) {
+    return <div className="mt-2 flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-emerald-300">
+      <TrendingUp size={13} /><span className="font-mono-g text-[9px]">Fills empty slot</span>
+    </div>;
+  }
+  const keys = COMPARISON_STATS.filter(([key]) => (item.stats?.[key] || 0) !== (equipped.stats?.[key] || 0));
+  const delta = itemPower(item.stats) - itemPower(equipped.stats);
+  const positive = delta > 0.001;
+  const negative = delta < -0.001;
+  const Icon = positive ? TrendingUp : negative ? TrendingDown : Minus;
+  const tone = positive ? "text-emerald-300 border-emerald-400/30 bg-emerald-500/10" : negative ? "text-rose-300 border-rose-400/30 bg-rose-500/10" : "text-slate-300 border-white/15 bg-white/5";
+  return <div className={"mt-2 rounded-md border px-2 py-1.5 " + tone} data-testid="equipment-comparison">
+    <div className="flex items-center gap-1.5 font-mono-g text-[9px] font-bold">
+      <Icon size={13} />
+      {positive ? "LIKELY UPGRADE" : negative ? "LIKELY WEAKER" : "SIMILAR POWER"}
+    </div>
+    {keys.length > 0 && <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+      {keys.map(([key, label]) => {
+        const d = (item.stats?.[key] || 0) - (equipped.stats?.[key] || 0);
+        return <span key={key} className={"font-mono-g text-[8px] " + (d > 0 ? "text-emerald-200" : "text-rose-200")}>
+          {label} {d > 0 ? "+" : ""}{Number.isInteger(d) ? d : d.toFixed(1)}
+        </span>;
+      })}
+    </div>}
+    <div className="font-mono-g text-[7px] opacity-60 mt-1">Estimated from item stats · compare class and playstyle too</div>
+  </div>;
+}
+
+function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel, equipped }) {
   const rarity = EQUIPMENT_RARITIES[item.rarity] || EQUIPMENT_RARITIES.E1;
   return (
     <div className="glass-card rounded-xl p-3 border" style={{ borderColor: rarity.color + "55" }}>
@@ -55,6 +97,7 @@ function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel }
           </div>
         </div>
       </div>
+      {(item.slot === "PrimaryWeapon" || item.slot === "SecondaryWeapon") && <ItemComparison item={item} equipped={equipped} />}
       <div className="flex gap-1.5 mt-2">
         {action && <NeonButton color="cyan" className="!px-2 !py-1 !text-[9px] flex-1" onClick={action}>{actionLabel}</NeonButton>}
         {secondaryAction && <NeonButton color="yellow" className="!px-2 !py-1 !text-[9px]" onClick={secondaryAction}>{secondaryLabel}</NeonButton>}
@@ -241,6 +284,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
+                  equipped={hero?.equipment?.[item.slot] || null}
                   action={() => equip(item)}
                   actionLabel="EQUIP"
                   secondaryAction={() => sell(item)}
