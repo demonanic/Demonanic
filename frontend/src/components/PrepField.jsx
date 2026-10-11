@@ -163,7 +163,14 @@ export default function PrepField({ state, handlers }) {
         {/* placed towers */}
         {state.towers.map((tw, idx) => {
           const t = C.TOWERS[tw.type];
-          const pos = tw;
+          // Render towers at the canonical marker center when their saved
+          // coordinates correspond to a marked slot. This also visually
+          // normalizes towers saved before slot snapping was introduced.
+          const nearestSlot = PLACEMENT_SLOTS.reduce((best, slot) => {
+            const distance = Math.hypot(tw.x - slot.x, tw.y - slot.y);
+            return !best || distance < best.distance ? { slot, distance } : best;
+          }, null);
+          const pos = nearestSlot && nearestSlot.distance < 42 ? nearestSlot.slot : tw;
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute rounded flex items-center justify-center bracket"
