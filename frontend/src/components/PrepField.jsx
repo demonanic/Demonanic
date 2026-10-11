@@ -21,8 +21,20 @@ export default function PrepField({ state, handlers }) {
   const atCap = state.towers.length >= cap;
 
   const toLogical = (e) => {
-    const r = fieldRef.current.getBoundingClientRect();
-    return { x: clampX(((e.clientX - r.left) / r.width) * W), y: clampY(((e.clientY - r.top) / r.height) * H) };
+    const field = fieldRef.current;
+    const r = field.getBoundingClientRect();
+    // getBoundingClientRect includes the 1px border; map taps to the same
+    // drawable content box used by the live 420x760 canvas.
+    const borderX = field.clientLeft || 0;
+    const borderY = field.clientTop || 0;
+    const contentW = field.clientWidth || r.width;
+    const contentH = field.clientHeight || r.height;
+    const localX = e.clientX - r.left - borderX;
+    const localY = e.clientY - r.top - borderY;
+    return {
+      x: clampX((localX / contentW) * W),
+      y: clampY((localY / contentH) * H),
+    };
   };
 
   const placeAt = (e) => {
@@ -100,7 +112,7 @@ export default function PrepField({ state, handlers }) {
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center bracket"
-              style={{ left: pctX(pos.x), top: pctY(pos.y), width: "16%", height: "8%", borderColor: t.color,
+              style={{ left: pctX(pos.x), top: pctY(pos.y), width: "10%", height: "5%", borderColor: t.color,
                 pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
@@ -116,7 +128,7 @@ export default function PrepField({ state, handlers }) {
         {/* uncommitted placement preview: resources are untouched until confirmation */}
         {pendingPosition && placing && (
           <div data-testid="tower-placement-preview" className="absolute -translate-x-1/2 -translate-y-1/2 rounded flex items-center justify-center border-2 border-dashed animate-pulse"
-            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), width: "16%", height: "8%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
+            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), width: "10%", height: "5%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
             <div className="w-3.5 h-3.5 rounded" style={{ background: C.TOWERS[pendingPosition.type].color, boxShadow: "0 0 8px " + C.TOWERS[pendingPosition.type].color }} />
           </div>
         )}
