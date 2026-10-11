@@ -274,41 +274,6 @@ export default function Battle() {
     }
   };
 
-  const manageSelectedBuilding = (action) => {
-    const id = selectedBuilding;
-    const sim = simRef.current;
-    const b = id && sim?.buildings?.[id];
-    if (!b || b.unlocked === false) return;
-    if (action === "repair") {
-      const missing = Math.max(0, (b.maxHp || 1000) - (b.hp || 0));
-      const goldCost = Math.ceil(missing * 0.2);
-      const stoneCost = Math.ceil(missing * 0.1);
-      if (!missing || sim.gold < goldCost || sim.stone < stoneCost) return;
-      sim.gold -= goldCost;
-      sim.stone -= stoneCost;
-      b.hp = b.maxHp || 1000;
-      b.activity = "Repaired";
-    } else if (action === "upgrade") {
-      const level = Math.max(1, b.level || 1);
-      const goldCost = Math.ceil(100 * Math.pow(1.5, level - 1));
-      const stoneCost = Math.ceil(40 * Math.pow(1.5, level - 1));
-      if (sim.gold < goldCost || sim.stone < stoneCost) return;
-      sim.gold -= goldCost;
-      sim.stone -= stoneCost;
-      b.level = level + 1;
-      b.maxHp = Math.round((b.maxHp || 1000) * 1.15);
-      b.hp = Math.min(b.maxHp, (b.hp || 0) + Math.round(b.maxHp * 0.15));
-      b.activity = "Upgraded";
-    }
-    mutate((s) => {
-      s.gold = sim.gold;
-      s.stone = sim.stone;
-      s.buildings = s.buildings || {};
-      s.buildings[id] = { ...b };
-    });
-    forceTick((t) => t + 1);
-  };
-
   const toggleHudOpaque = () => {
     const next = !hudOpaque;
     setHudOpaque(next);
@@ -432,12 +397,7 @@ export default function Battle() {
           const names = { mine: "Mine", quarry: "Quarry", tavern: "Tavern", shoppe: "Shoppe", academy: "Academy", guild: "Guild", library: "Library", vault: "Vault" };
           const colors = { mine: "#FFE600", quarry: "#00F3FF", tavern: "#FF007F", shoppe: "#A855F7", academy: "#39FF14", guild: "#FF6600", library: "#B66CFF", vault: "#00F3FF" };
           const color = colors[selectedBuilding] || "#00F3FF";
-          const missing = Math.max(0, (b.maxHp || 1000) - (b.hp || 0));
-          const repairGold = Math.ceil(missing * 0.2);
-          const repairStone = Math.ceil(missing * 0.1);
           const level = Math.max(1, b.level || 1);
-          const upgradeGold = Math.ceil(100 * Math.pow(1.5, level - 1));
-          const upgradeStone = Math.ceil(40 * Math.pow(1.5, level - 1));
           const locked = b.unlocked === false;
           return (
             <div className="absolute z-30 top-2 left-2 right-2 max-w-[260px] rounded-xl border bg-[#090b12]/95 backdrop-blur-md p-3 shadow-xl" style={{ borderColor: color + "88" }} data-testid="battlefield-building-panel">
@@ -449,11 +409,10 @@ export default function Battle() {
                 <button className="font-mono-g text-[10px] text-slate-300 px-2 py-1 border border-white/20 rounded" onClick={() => setSelectedBuilding(null)} data-testid="close-building-panel">CLOSE</button>
               </div>
               <div className="h-1.5 rounded bg-white/10 mt-2 overflow-hidden"><div className="h-full" style={{ width: Math.max(0, Math.min(100, (b.hp || 0) / Math.max(1, b.maxHp || 1000) * 100)) + "%", background: color }} /></div>
-              {locked ? <div className="font-mono-g text-[9px] text-slate-400 mt-2">This building is locked. Unlock its gameplay in a later upgrade phase.</div> : (
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  <button className="rounded border border-cyan-400/40 text-cyan-200 font-mono-g text-[9px] p-2 disabled:opacity-40" disabled={missing <= 0 || (sim?.gold || 0) < repairGold || (sim?.stone || 0) < repairStone} onClick={() => manageSelectedBuilding("repair")} data-testid="battle-building-repair">REPAIR · {repairGold}G / {repairStone}S</button>
-                  <button className="rounded border font-mono-g text-[9px] p-2 disabled:opacity-40" style={{ borderColor: color + "88", color }} disabled={(sim?.gold || 0) < upgradeGold || (sim?.stone || 0) < upgradeStone} onClick={() => manageSelectedBuilding("upgrade")} data-testid="battle-building-upgrade">UPGRADE · {upgradeGold}G / {upgradeStone}S</button>
-                </div>
+              {locked ? (
+                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Locked building · turret inactive</div>
+              ) : (
+                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Manage repairs, upgrades, and turret ammunition in Preparation.</div>
               )}
             </div>
           );
