@@ -278,9 +278,12 @@ export const ENEMY_TIERS = {
 };
 
 // Section M — wave scaling
-export function targetEnemyCount(wave, cp) { return Math.round(12 + 2.5 * wave + 0.75 * cp); }
-export function enemyHpScale(wave, cp) { return 1 + 0.05 * (wave - 1) + 0.02 * cp; }
-export function enemyDmgScale(wave, cp) { return 1 + 0.032 * (wave - 1) + 0.015 * cp; }
+// Reduce standard wave density by about 20% without removing boss milestones.
+export function targetEnemyCount(wave, cp) { return Math.max(5, Math.round((12 + 2.5 * wave + 0.75 * cp) * 0.8)); }
+// Global combat tuning: reduce enemy durability by 15% and damage by 25%.
+// Keep wave/kingdom scaling intact so later waves still become progressively harder.
+export function enemyHpScale(wave, cp) { return (1 + 0.05 * (wave - 1) + 0.02 * cp) * 0.85; }
+export function enemyDmgScale(wave, cp) { return (1 + 0.032 * (wave - 1) + 0.015 * cp) * 0.75; }
 
 // Early-game correction based on live Android playtesting:
 // W1/W2/W3 were reading as too difficult for a fresh squad. Keep the
@@ -294,10 +297,10 @@ export function earlyWaveCombatScale(wave) {
 }
 
 export function earlyWaveEnemyCount(wave, cp) {
-  if (wave === 1) return 10;
-  if (wave === 2) return 12;
-  if (wave === 3) return 14;
-  return Math.max(6, Math.round(12 + 2.5 * wave + 0.75 * cp));
+  if (wave === 1) return 8;
+  if (wave === 2) return 10;
+  if (wave === 3) return 11;
+  return Math.max(5, Math.round((12 + 2.5 * wave + 0.75 * cp) * 0.8));
 }
 
 export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
