@@ -55,7 +55,7 @@ export default function PrepField({ state, handlers }) {
             const ok = !atCap && canAfford(state, t.construction);
             return (
               <button key={tp} disabled={!ok} data-testid={`palette-${tp}`}
-                onClick={() => setPlacing(placing === tp ? null : tp)}
+                onClick={() => { setPendingPosition(null); setPlacing(placing === tp ? null : tp); }}
                 className={`neon-btn p-1.5 rounded-lg border bg-black/40 disabled:opacity-30 ${placing === tp ? "ring-2 ring-cyan-400" : ""}`}
                 style={{ borderColor: t.color + "66" }}>
                 <div className="w-4 h-4 rounded mx-auto mb-1" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
