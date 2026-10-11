@@ -58,7 +58,8 @@ export default function PrepField({ state, handlers }) {
     e.preventDefault();
     e.stopPropagation();
     const { x, y } = toLogical(e);
-    setAwaitingPlacement(null);\n    setPendingPosition({ type: placing, x, y });
+    setAwaitingPlacement(null);
+    setPendingPosition({ type: placing, x, y });
   };
 
   const onTowerClick = (idx, e) => {
