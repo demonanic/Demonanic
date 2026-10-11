@@ -16,7 +16,7 @@ export default function TacticalMenu({
   const isManual = !!selected?.manual;
 
   return (
-    <div className="absolute top-2 right-2 z-50 w-[min(174px,calc(100%-12px))] pointer-events-auto" data-testid="tactical-menu">
+    <div className="absolute top-2 right-2 z-50 w-[min(174px,calc(100%-12px))] max-h-[48%] overflow-y-auto overscroll-contain pointer-events-auto" data-testid="tactical-menu">
       <div className={"rounded-xl border border-fuchsia-400/40 overflow-hidden shadow-[0_0_24px_rgba(217,70,239,0.18)] " + (opaque ? "bg-[#090b12]" : "bg-black/58 backdrop-blur-md")}>
         <div className="flex items-center gap-2 px-2 py-2 border-b border-white/10">
           <HeroMiniSprite cls={selected?.cls || "mage"} color={cls?.color} size="sm" dead={selectedDead} />
