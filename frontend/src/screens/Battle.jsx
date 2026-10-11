@@ -182,12 +182,20 @@ export default function Battle() {
 
   const useAbility = (i, abilityId) => {
     if (phase !== "combat" || !engineRef.current) return;
-    if (engineRef.current.useHeroAbility(i, abilityId)) forceTick((t) => t + 1);
+    if (engineRef.current.useHeroAbility(i, abilityId)) {
+      setTacticalOpen(false);
+      forceTick((t) => t + 1);
+    }
   };
 
   const castSpell = (i, spellId) => {
     if (phase !== "combat" || !engineRef.current) return;
-    if (engineRef.current.castMageSpell(i, spellId)) forceTick((t) => t + 1);
+    if (engineRef.current.castMageSpell(i, spellId)) {
+      // Close the command overlay after a successful cast so the player can
+      // immediately see the spell animation and its impact on the battlefield.
+      setTacticalOpen(false);
+      forceTick((t) => t + 1);
+    }
   };
 
   const reviveHero = (i) => {
