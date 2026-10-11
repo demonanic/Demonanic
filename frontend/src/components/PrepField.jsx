@@ -138,16 +138,25 @@ export default function PrepField({ state, handlers }) {
           const occupied = isSlotOccupied(slot);
           const previewed = pendingPosition?.x === slot.x && pendingPosition?.y === slot.y;
           return (
-            <div key={index} data-testid={`tower-slot-${index}`}
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold"
+            <button key={index} type="button" data-testid={`tower-slot-${index}`}
+              aria-label={occupied ? `Tower slot ${index + 1}, occupied` : `Place tower at slot ${index + 1}`}
+              disabled={!placing || (occupied && !previewed)}
+              onPointerDown={(e) => {
+                if (!placing || (occupied && !previewed)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setAwaitingPlacement(null);
+                setPendingPosition({ type: placing, x: slot.x, y: slot.y });
+              }}
+              className="absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold disabled:cursor-not-allowed"
               style={{
                 left: pctX(slot.x), top: pctY(slot.y), width: "12%", aspectRatio: "1",
                 border: `2px ${previewed ? "dashed" : "solid"} ${occupied ? "#64748B" : previewed ? C.TOWERS[pendingPosition.type].color : "#00F3FF"}`,
                 background: occupied ? "rgba(100,116,139,0.2)" : previewed ? "rgba(0,243,255,0.18)" : "rgba(0,243,255,0.06)",
                 color: occupied ? "#64748B" : "#00F3FF",
                 boxShadow: previewed ? "0 0 12px #00F3FF66" : "none",
-                pointerEvents: "none",
-              }}>{occupied ? "USED" : `SLOT ${index + 1}`}</div>
+                pointerEvents: "auto",
+              }}>{occupied ? "USED" : `SLOT ${index + 1}`}</button>
           );
         })}
 
