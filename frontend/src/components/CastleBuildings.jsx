@@ -47,6 +47,10 @@ export default function CastleBuildings({ state, mutate }) {
   const missingHp = Math.max(0, current.maxHp - current.hp);
   const repairGold = Math.ceil(missingHp * 0.2);
   const repairStone = Math.ceil(missingHp * 0.1);
+  const turretMaxAmmo = 18 + (Math.max(1, Number(current.level) || 1) - 1) * 4;
+  const turretAmmo = Math.max(0, Math.min(turretMaxAmmo, Number.isFinite(Number(current.turretAmmo)) ? Number(current.turretAmmo) : turretMaxAmmo));
+  const missingTurretAmmo = Math.max(0, turretMaxAmmo - turretAmmo);
+  const turretRefillCost = missingTurretAmmo;
 
   const updateBuilding = (fn) => mutate((s) => {
     s.buildings = s.buildings || {};
@@ -145,6 +149,25 @@ export default function CastleBuildings({ state, mutate }) {
             </div>
             <p className="font-mono-g text-[9px] text-slate-500 mt-1">Available workforce: {availableWorkers}. Damage-adjusted production is based on building condition.</p>
           </>}
+
+          <div className="mt-3 rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2" data-testid="building-turret-ammo">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="font-mono-g text-[9px] text-cyan-200">PERSONAL TURRET · SHORT RANGE</div>
+                <div className="font-mono-g text-[10px] text-slate-300">AMMO {turretAmmo} / {turretMaxAmmo} · Level-scaled</div>
+              </div>
+              <NeonButton color="cyan" className="!text-[10px]" disabled={!current.unlocked || current.hp <= 0 || missingTurretAmmo <= 0 || state.gold < turretRefillCost} onClick={() => updateBuilding((s, b) => {
+                const level = Math.max(1, Number(b.level) || 1);
+                const maxAmmo = 18 + (level - 1) * 4;
+                const currentAmmo = Math.max(0, Math.min(maxAmmo, Number(b.turretAmmo) || 0));
+                const missing = maxAmmo - currentAmmo;
+                if (missing <= 0 || s.gold < missing || b.hp <= 0 || b.unlocked === false) return;
+                s.gold -= missing;
+                b.turretMaxAmmo = maxAmmo;
+                b.turretAmmo = maxAmmo;
+              })}>Refill ({turretRefillCost}g)</NeonButton>
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-2 mt-3">
             <NeonButton color="red" className="!text-[10px]" disabled={missingHp <= 0 || state.gold < repairGold || state.stone < repairStone} onClick={repair}>
