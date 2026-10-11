@@ -1526,7 +1526,7 @@ export class Engine {
     let bestDistance = range;
     for (const site of this._kingdomSites()) {
       const building = this.sim.buildings?.[site.id];
-      if (!building || building.hp <= 0 || building.unlocked === false) continue;
+      if (!building || building.hp <= 0) continue;
       const distance = Math.hypot(site.x - x, site.y - y);
       if (distance < bestDistance) {
         bestDistance = distance;
@@ -1602,7 +1602,7 @@ export class Engine {
       ctx.fillStyle = color;
       ctx.font = "bold 6px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(unlocked ? b.label : "LOCKED", b.x, top - 3);
+      ctx.fillText(unlocked ? b.label : "LOCKED", b.x, top - 14);
       ctx.font = "bold 6px monospace";
       ctx.fillText("L" + level, b.x, top + h + 8);
       ctx.fillStyle = "rgba(0,0,0,0.85)";
