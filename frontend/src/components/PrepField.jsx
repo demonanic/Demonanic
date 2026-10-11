@@ -21,19 +21,13 @@ export default function PrepField({ state, handlers }) {
   const atCap = state.towers.length >= cap;
 
   const toLogical = (e) => {
-    const field = fieldRef.current;
-    const r = field.getBoundingClientRect();
-    // getBoundingClientRect includes the 1px border; map taps to the same
-    // drawable content box used by the live 420x760 canvas.
-    const borderX = field.clientLeft || 0;
-    const borderY = field.clientTop || 0;
-    const contentW = field.clientWidth || r.width;
-    const contentH = field.clientHeight || r.height;
-    const localX = e.clientX - r.left - borderX;
-    const localY = e.clientY - r.top - borderY;
+    // Keep the original mapping used by the previously working placement flow.
+    // Both the prep field and battle canvas represent the same logical W x H
+    // space; normalize the pointer against the field's rendered rectangle.
+    const r = fieldRef.current.getBoundingClientRect();
     return {
-      x: clampX((localX / contentW) * W),
-      y: clampY((localY / contentH) * H),
+      x: clampX(((e.clientX - r.left) / r.width) * W),
+      y: clampY(((e.clientY - r.top) / r.height) * H),
     };
   };
 
