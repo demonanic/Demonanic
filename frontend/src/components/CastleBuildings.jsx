@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, academyTrainingHours, academySeats } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -196,19 +196,29 @@ export default function CastleBuildings({ state, mutate }) {
                 const training = (state.academyTraining || []).find((t) => t.heroId === h.id);
                 return <div key={h.id} className="rounded-lg bg-black/35 p-2 mt-2" data-testid={`academy-training-${h.id}`}>
                   <div className="font-mono-g text-xs text-green-200">{h.name} · INT {h.stats.intelligence}</div>
-                  <p className="font-mono-g text-[10px] text-cyan-200 mt-1">Training {training?.stat || "—"} · {training ? Math.max(0, Math.ceil(((training.durationMs || 0) - (training.elapsedMs || 0)) / 60000)) : 0} min remaining</p>
+                  <p className="font-mono-g text-[10px] text-cyan-200 mt-1">{training?.paused ? "PAUSED" : "Training"} {training?.stat || "—"} · {training ? Math.max(0, Math.ceil(((training.durationMs || 0) - (training.elapsedMs || 0)) / 60000)) : 0} min remaining</p>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" disabled={!training?.paused || (state.academyTraining || []).filter((t) => !t.paused).length >= academySeats(state)} onClick={() => mutate((s) => { if (!enrollAcademyHero(s, h.id, training?.stat)) toast.error("No Academy seat available"); else toast.success("Training resumed"); })} className="flex-1 rounded border border-cyan-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-30">RESUME</button>
+                    <button type="button" onClick={() => mutate((s) => { if (!recallAcademyHero(s, h.id)) toast.error("Unable to recall hero"); else toast.success(`${h.name} returned to the bench`); })} className="flex-1 rounded border border-pink-400/30 px-2 py-1 font-mono-g text-[10px]">RECALL TO BENCH</button>
+                  </div>
                 </div>;
               })}
               {(state.bench || []).length === 0 ? <p className="font-mono-g text-[10px] text-slate-500 mt-3">No reserve heroes available. Recruit a hero at the Tavern or move a hero to the bench first.</p> : <div className="space-y-2 mt-2">
-                {(state.bench || []).map((h) => <div key={h.id} className="rounded-lg bg-black/35 p-2" data-testid={`academy-eligible-${h.id}`}>
-                  <div className="font-mono-g text-xs text-green-200">{h.name} · L{h.level} · INT {h.stats.intelligence}</div>
-                  <div className="grid grid-cols-2 gap-1 mt-2">
-                    {["attack", "defense", "agility", "intelligence"].map((stat) => <button key={stat} type="button" disabled={current.hp <= 0 || current.unlocked === false || (state.academyTraining || []).length >= academySeats(state)} onClick={() => mutate((s) => {
-                      if (!enrollAcademyHero(s, h.id, stat)) toast.error("Unable to enroll this reserve hero");
-                      else toast.success(`${h.name} enrolled for ${stat}`);
-                    })} className="neon-btn rounded border border-green-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-40"><Brain size={11} className="inline mr-1" />{stat} · {academyTrainingHours(state, h, stat).toFixed(1)}h</button>)}
-                  </div>
-                </div>)}
+                {(state.bench || []).map((h) => {
+                  const pausedCourse = (state.academyTraining || []).find((t) => t.heroId === h.id && t.paused);
+                  return <div key={h.id} className="rounded-lg bg-black/35 p-2" data-testid={`academy-eligible-${h.id}`}>
+                    <div className="font-mono-g text-xs text-green-200">{h.name} · L{h.level} · INT {h.stats.intelligence}</div>
+                    {pausedCourse ? <div className="mt-2">
+                      <p className="font-mono-g text-[10px] text-amber-200">Paused {pausedCourse.stat} · {Math.max(0, Math.ceil(((pausedCourse.durationMs || 0) - (pausedCourse.elapsedMs || 0)) / 60000))} min remaining</p>
+                      <button type="button" disabled={current.hp <= 0 || current.unlocked === false || (state.academyTraining || []).filter((t) => !t.paused).length >= academySeats(state)} onClick={() => mutate((s) => { if (!enrollAcademyHero(s, h.id, pausedCourse.stat)) toast.error("Unable to resume training"); else toast.success("Training resumed"); })} className="mt-2 w-full rounded border border-cyan-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-40">RESUME {pausedCourse.stat.toUpperCase()}</button>
+                    </div> : <div className="grid grid-cols-2 gap-1 mt-2">
+                      {["attack", "defense", "agility", "intelligence"].map((stat) => <button key={stat} type="button" disabled={current.hp <= 0 || current.unlocked === false || (state.academyTraining || []).filter((t) => !t.paused).length >= academySeats(state)} onClick={() => mutate((s) => {
+                        if (!enrollAcademyHero(s, h.id, stat)) toast.error("Unable to enroll this reserve hero");
+                        else toast.success(`${h.name} enrolled for ${stat}`);
+                      })} className="neon-btn rounded border border-green-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-40"><Brain size={11} className="inline mr-1" />{stat} · {academyTrainingHours(state, h, stat).toFixed(1)}h</button>)}
+                    </div>}
+                  </div>;
+                })}
               </div>}
             </div>
           </>}
