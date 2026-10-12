@@ -346,6 +346,63 @@ export function repairTower(state, slot) {
   if (state.food < cost) return false;
   state.food -= cost; tw.hp = d.maxHp; return true;
 }
+// Guild services: pooled defensive repairs and manufactured ammunition.
+export function guildRepairDefenses(state) {
+  const guild = state.buildings?.guild;
+  if (!guild || guild.unlocked === false || guild.hp <= 0) return false;
+  let foodCost = 0;
+  const towerRepairs = [];
+  for (let i = 0; i < (state.towers || []).length; i++) {
+    const tower = state.towers[i];
+    if (!tower) continue;
+    const maxHp = towerDerived(tower).maxHp;
+    const missing = Math.max(0, maxHp - (Number(tower.hp) || 0));
+    if (missing > 0) {
+      const cost = C.repairFoodCost(missing);
+      foodCost += cost;
+      towerRepairs.push({ tower, maxHp });
+    }
+  }
+  const barricadeRepairs = [];
+  for (const barricade of state.barricades || []) {
+    if (!barricade || !(barricade.maxHp > 0)) continue;
+    const missing = Math.max(0, barricade.maxHp - (Number(barricade.hp) || 0));
+    if (missing > 0) {
+      const cost = Math.ceil(missing / 10 * C.BARRICADE.repairFoodPer10Hp);
+      foodCost += cost;
+      barricadeRepairs.push({ barricade });
+    }
+  }
+  if (!towerRepairs.length && !barricadeRepairs.length) return false;
+  if ((Number(state.food) || 0) < foodCost) return false;
+  state.food -= foodCost;
+  towerRepairs.forEach(({ tower, maxHp }) => { tower.hp = maxHp; });
+  barricadeRepairs.forEach(({ barricade }) => { barricade.hp = barricade.maxHp; });
+  guild.activity = `Defenses repaired · ${towerRepairs.length} towers / ${barricadeRepairs.length} barricades`;
+  return { foodCost, towers: towerRepairs.length, barricades: barricadeRepairs.length };
+}
+
+export function guildManufactureAmmo(state, slot) {
+  const guild = state.buildings?.guild;
+  const tower = state.towers?.[slot];
+  if (!guild || guild.unlocked === false || guild.hp <= 0 || !tower) return false;
+  const resource = C.TOWER_RESOURCE[tower.type];
+  if (!resource || resource.kind !== "ammo") return false;
+  const derived = towerDerived(tower);
+  const current = Math.max(0, Number(tower.ammo) || 0);
+  const missing = Math.max(0, derived.maxAmmo - current);
+  if (missing <= 0) return false;
+  const batch = Math.min(missing, Math.max(1, Math.ceil(derived.maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, guild.level || 1) - 1) * 0.05)))));
+  const goldCost = Math.ceil(batch * resource.resupplyGold);
+  const stoneCost = Math.ceil(batch * resource.resupplyStone);
+  if ((Number(state.gold) || 0) < goldCost || (Number(state.stone) || 0) < stoneCost) return false;
+  state.gold -= goldCost;
+  state.stone -= stoneCost;
+  tower.ammo = Math.min(derived.maxAmmo, current + batch);
+  guild.activity = `Manufactured ${batch} ${resource.label} for ${tower.type}`;
+  return { amount: batch, goldCost, stoneCost };
+}
+
 export function resupplyTower(state, slot) {
   const tw = state.towers[slot];
   if (!tw) return false;
