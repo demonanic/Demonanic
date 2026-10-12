@@ -17,7 +17,7 @@ export function createHero(classKey) {
     equipment: {},
     quickSlots: [null, null, null],
     hp: maxHp, maxHp,
-    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,\n    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
+    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
   };
 }
 
