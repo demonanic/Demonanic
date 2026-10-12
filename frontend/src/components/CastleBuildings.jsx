@@ -260,7 +260,7 @@ export default function CastleBuildings({ state, mutate }) {
                 const maxAmmo = towerDerived(tower).maxAmmo;
                 const ammo = Math.max(0, Number(tower.ammo) || 0);
                 const missing = Math.max(0, maxAmmo - ammo);
-                const batch = Math.min(missing, Math.max(1, Math.ceil(maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, current.level || 1) - 1) * 0.05))));
+                const batch = Math.min(missing, Math.max(1, Math.ceil(maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, current.level || 1) - 1) * 0.05)))));
                 const goldCost = Math.ceil(batch * resource.resupplyGold);
                 const stoneCost = Math.ceil(batch * resource.resupplyStone);
                 return <div key={tower.id || index} className="rounded-lg bg-black/30 p-2 mt-2" data-testid={`guild-ammo-${tower.id || index}`}>
