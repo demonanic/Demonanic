@@ -263,6 +263,9 @@ export const MORALE = {
   heroDefeat: -12, towerDestroyed: -8, surrender: -25,
   castleLossPerPct: -0.5,
 };
+// Tavern morale service. Costs keep morale recovery useful without allowing free spam.
+export const TAVERN_FEAST = { gold: 80, food: 40, morale: 8 };
+
 export function healRateMultiplier(moraleFrac) {
   return Math.min(1.25, 0.5 + 0.75 * moraleFrac);
 }
