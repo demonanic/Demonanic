@@ -347,3 +347,6 @@ export const FREE_LIFE = { keepResourceFrac: 0.30, moraleReset: 20 };
 export const SCOUT = { successAdd: 20, decayPerWave: 0.15, towerSpyBase: 0.15, cancelFrac: 0.5, maxCancel: 0.75 };
 
 export const CP_NOTE = "CP = sum(hero levels) + sum(deployed tower levels).";
+
+// Academy: six-hour base course; CP and Intelligence tune duration.
+export const ACADEMY = { baseHours: 6, cpScalePerPointAbove20: 0.002, intelligenceReductionPerPointAbove10: 0.02, maxIntelligenceReduction: 0.5, startingSeats: 2, extraSeatEveryLevels: 3 };
