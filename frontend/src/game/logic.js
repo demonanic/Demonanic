@@ -232,6 +232,7 @@ function buildingProductionMultiplier(state, id) {
 
 export function produce(state, dtSeconds) {
   recoverOverTime(state, dtSeconds);
+  advanceAcademyTraining(state, dtSeconds);
   const moraleMul = C.moraleMultiplier(state.morale / 100);
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff * (dtSeconds / 60);
