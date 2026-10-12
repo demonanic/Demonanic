@@ -32,7 +32,7 @@ function normalizeState(s) {
       level: Math.max(1, Number(prior.level) || 1),
       maxHp,
       hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
-      unlocked: prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked,
+      unlocked: id === "academy" ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
       activity: prior.activity || "Idle",
       ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
       ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
