@@ -16,7 +16,8 @@ export function createHero(classKey) {
     stats, perks: [], abilityCooldowns: {}, attackConfig: C.ATTACK_CONFIGS[classKey][0],
     equipment: {},
     quickSlots: [null, null, null],
-    hp: maxHp, maxHp,\n    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
+    hp: maxHp, maxHp,
+    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,\n    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
   };
 }
 
@@ -216,6 +217,10 @@ export function recoverOverTime(state, dtSeconds) {
   for (const h of state.bench || []) {
     const maxHp = heroDerived(h).maxHp;
     if (h.hp > 0 && h.hp < maxHp) h.hp = Math.min(maxHp, h.hp + maxHp * hpFrac);
+    if (Number.isFinite(Number(h.maxMana)) && Number(h.maxMana) > 0) {
+      const manaFrac = (C.RECOVERY.heroHpPercentPerHour / 100) * hours;
+      h.mana = Math.min(Number(h.maxMana), Math.max(0, Number(h.mana) || 0) + Number(h.maxMana) * manaFrac);
+    }
   }
 }
 
