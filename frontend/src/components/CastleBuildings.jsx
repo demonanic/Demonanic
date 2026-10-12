@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo, towerDerived } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -232,7 +232,7 @@ export default function CastleBuildings({ state, mutate }) {
                 const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp < b.maxHp);
                 const towerFood = (state.towers || []).reduce((sum, t) => {
                   if (!t || !C.TOWERS[t.type]) return sum;
-                  const maxHp = C.TOWERS[t.type].baseHp * Math.pow(1 + C.TOWER_UPGRADE.hpMult, Math.max(0, (t.level || 1) - 1));
+                  const maxHp = towerDerived(t).maxHp;
                   return sum + C.repairFoodCost(Math.max(0, maxHp - (Number(t.hp) || 0)));
                 }, 0);
                 const barricadeFood = damagedBarricades.reduce((sum, b) => sum + Math.ceil((b.maxHp - b.hp) / 10 * C.BARRICADE.repairFoodPer10Hp), 0);
@@ -257,7 +257,7 @@ export default function CastleBuildings({ state, mutate }) {
                 if (!tower || !C.TOWER_RESOURCE[tower.type] || C.TOWER_RESOURCE[tower.type].kind !== "ammo") return null;
                 const resource = C.TOWER_RESOURCE[tower.type];
                 const level = Math.max(1, Number(tower.level) || 1);
-                const maxAmmo = Math.round(resource.max * Math.pow(1 + C.TOWER_UPGRADE.resourceMult, level - 1) * (1 + (tower.specializations?.[5] === "deep_quiver" ? 0.25 : 0)));
+                const maxAmmo = towerDerived(tower).maxAmmo;
                 const ammo = Math.max(0, Number(tower.ammo) || 0);
                 const missing = Math.max(0, maxAmmo - ammo);
                 const batch = Math.min(missing, Math.max(1, Math.ceil(maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, current.level || 1) - 1) * 0.05))));
