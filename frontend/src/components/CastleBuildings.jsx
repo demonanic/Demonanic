@@ -191,7 +191,7 @@ export default function CastleBuildings({ state, mutate }) {
             <div className="mt-3 rounded-lg border border-green-400/25 bg-green-400/5 p-3" data-testid="academy-enrollment">
               <div className="font-display font-bold text-lg text-green-200">ENROLL RESERVE HERO</div>
               <p className="font-mono-g text-[10px] text-slate-400 mt-1">Only benched heroes can enroll. They move into the Academy while training and return to the bench when their course is complete. Intelligence alone improves learning speed.</p>
-              <div className="font-mono-g text-[10px] text-green-200 mt-2">SEATS {(state.academyTraining || []).length} / {academySeats(state)}</div>
+              <div className="font-mono-g text-[10px] text-green-200 mt-2">SEATS {(state.academyTraining || []).filter((t) => !t.paused).length} / {academySeats(state)}</div>
               {(state.academyHeroes || []).map((h) => {
                 const training = (state.academyTraining || []).find((t) => t.heroId === h.id);
                 return <div key={h.id} className="rounded-lg bg-black/35 p-2 mt-2" data-testid={`academy-training-${h.id}`}>
