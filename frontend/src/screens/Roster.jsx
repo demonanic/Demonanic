@@ -4,10 +4,9 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD, StatBar } from "@/components/ui-kit";
 import { HeroCard } from "@/components/cards";
 import { Input } from "@/components/ui/input";
-import { Home as HomeIcon, UserPlus, Trash2, Pencil, Check } from "lucide-react";
-import * as C from "@/game/config";
+import { Home as HomeIcon, Trash2, Pencil, Check } from "lucide-react";
 import {
-  heroDerived, allocateSp, buyPerk, recruitHero, swapHero, renameHero, retireHero,
+  heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero,
 } from "@/game/logic";
 
 export default function Roster() {
@@ -88,25 +87,7 @@ export default function Roster() {
           </div>
         )}
 
-        <div className="glass-card rounded-xl p-3" data-testid="roster-recruit">
-          <SectionTitle color="magenta">Recruit New Hero</SectionTitle>
-          <p className="font-mono-g text-[10px] text-slate-400 mt-1 mb-2">Cost {C.recruitCost(owned)}g — always available (no Castle Power gate).</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {C.HERO_ORDER.map((cls) => {
-              const c = C.HERO_CLASSES[cls];
-              return (
-                <button key={cls} data-testid={`roster-recruit-${cls}`} onClick={() => act((s) => recruitHero(s, cls), `${c.name} recruited`)}
-                  className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40" style={{ borderColor: c.color + "55" }}>
-                  <div className="w-6 h-7 rounded" style={{ background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
-                  <div className="text-left">
-                    <div className="font-mono-g text-xs font-bold" style={{ color: c.color }}>{c.name}</div>
-                    <div className="font-mono-g text-[9px] text-slate-400 flex items-center gap-1"><UserPlus size={9} />{C.recruitCost(owned)}g</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+
       </div>
 
       {hero && (
