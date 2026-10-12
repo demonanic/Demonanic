@@ -27,7 +27,7 @@ function normalizeState(s) {
     shoppe: { unlocked: true },
     vault: { unlocked: false },
     academy: { unlocked: true },
-    guild: { unlocked: false },
+    guild: { unlocked: true },
     library: { unlocked: false },
   };
   Object.entries(buildingDefaults).forEach(([id, defaults]) => {
@@ -38,7 +38,7 @@ function normalizeState(s) {
       level: Math.max(1, Number(prior.level) || 1),
       maxHp,
       hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
-      unlocked: id === "academy" ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
+      unlocked: (id === "academy" || id === "guild") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
       activity: prior.activity || "Idle",
       ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
       ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
