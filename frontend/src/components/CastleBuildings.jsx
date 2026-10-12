@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates } from "@/game/logic";
+import { productionRates, hostTavernFeast } from "@/game/logic";
+import { TAVERN_FEAST } from "@/game/config";
 import { workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
 
@@ -139,6 +140,23 @@ export default function CastleBuildings({ state, mutate }) {
             <div className="text-right"><div className="font-mono-g text-[10px]" style={{ color: status.color }}>{status.label}</div><div className="font-mono-g text-[9px] text-slate-500">{Math.round(current.hp)} / {current.maxHp} HP</div></div>
           </div>
           <div className="mt-2"><StatBar frac={current.hp / Math.max(1, current.maxHp)} color={status.color} height={5} /></div>
+
+          {building.id === "tavern" && <>
+            <div className="mt-3 rounded-lg border border-pink-400/25 bg-pink-400/5 p-3" data-testid="tavern-morale-service">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-mono-g text-[10px] text-pink-200">CASTLE MORALE</div>
+                  <div className="font-display font-bold text-2xl">{Math.round(state.morale || 0)} / 100</div>
+                </div>
+                <div className="text-right font-mono-g text-[9px] text-slate-400">FEAST BONUS<br />+{TAVERN_FEAST.morale} morale</div>
+              </div>
+              <StatBar frac={(state.morale || 0) / 100} color="#FF007F" height={6} />
+              <p className="font-mono-g text-[9px] text-slate-400 mt-2">Host a feast to lift morale. Higher morale improves the castle's resource production.</p>
+              <NeonButton color="magenta" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (state.morale || 0) >= 100 || state.gold < TAVERN_FEAST.gold || state.food < TAVERN_FEAST.food} onClick={() => mutate((s) => { hostTavernFeast(s); })}>
+                Host Feast ({TAVERN_FEAST.gold}g / {TAVERN_FEAST.food} food)
+              </NeonButton>
+            </div>
+          </>}
 
           {building.workers && <>
             <div className="flex items-center justify-between gap-2 mt-3 rounded-lg bg-white/5 p-2">
