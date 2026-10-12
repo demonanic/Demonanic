@@ -1,6 +1,8 @@
-import { createNewState, createHero, academySeats, academyTrainingHours, enrollAcademyHero, recallAcademyHero, advanceAcademyTraining, recoverOverTime } from "./logic";
+import { createNewState, createHero, academySeats, academyTrainingHours, enrollAcademyHero, recallAcademyHero, advanceAcademyTraining, recoverOverTime, heroDerived } from "./logic";
 
-function heroDerivedForTest(hero) { return heroDerived(hero).maxHp; }\n\nfunction academyState() {
+function heroDerivedForTest(hero) { return heroDerived(hero).maxHp; }
+
+function academyState() {
   const state = createNewState(["knight"]);
   state.bench = [createHero("archer")];
   state.buildings = { academy: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };
