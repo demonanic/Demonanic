@@ -1,4 +1,4 @@
-import { buildWave, createNewState, setSquad } from "./logic";
+import { buildWave, createNewState } from "./logic";
 
 function seededRandom(seed) {
   let value = seed >>> 0;
@@ -53,6 +53,17 @@ describe("counter-aware wave composition", () => {
     const baseline = aggregateWaves(withoutWizard);
     const counterAware = aggregateWaves(withWizard);
     expect(counterAware.slime || 0).toBeGreaterThan(baseline.slime || 0);
+  });
+
+  test("ignores empty tower slots when applying multi-tower counter weights", () => {
+    const oneTower = createNewState(["knight", "rouge", "archer", "archer"]);
+    const oneTowerWithEmptySlot = createNewState(["knight", "rouge", "archer", "archer"]);
+    oneTower.wave = oneTowerWithEmptySlot.wave = 20;
+    oneTower.towers.push({ id: "wizard-1", type: "wizard" });
+    oneTowerWithEmptySlot.towers.push({ id: "wizard-1", type: "wizard" }, null);
+
+    expect(buildWave(oneTower, seededRandom(123)).enemies)
+      .toEqual(buildWave(oneTowerWithEmptySlot, seededRandom(123)).enemies);
   });
 
   test("does not mutate the saved tower or hero state while generating a wave", () => {
