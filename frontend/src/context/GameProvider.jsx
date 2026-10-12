@@ -51,6 +51,8 @@ function normalizeState(s) {
         h.perks = normalizePerks(h.cls, h.perks);
         if (!h.abilityCooldowns || typeof h.abilityCooldowns !== "object") h.abilityCooldowns = {};
         h.maxHp = heroDerived(h).maxHp;
+        h.maxMana = Math.max(1, Number(h.maxMana) || (100 + (Number(h.stats?.intelligence) || 10) * 5));
+        h.mana = Math.max(0, Math.min(h.maxMana, Number.isFinite(Number(h.mana)) ? Number(h.mana) : h.maxMana));
         if (h.hp > 0) h.hp = Math.min(h.hp, h.maxHp);
       }
     });
