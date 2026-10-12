@@ -438,6 +438,7 @@ export function enrollAcademyHero(state, heroId, stat, now = Date.now()) {
   if (!academy || academy.unlocked === false || academy.hp <= 0 || !allowed.includes(stat)) return false;
   state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
   state.academyHeroes = Array.isArray(state.academyHeroes) ? state.academyHeroes : [];
+  state.academyTraining = state.academyTraining.filter((t) => state.academyHeroes.some((h) => h.id === t.heroId));
   if (state.academyTraining.length >= academySeats(state) || state.academyTraining.some((t) => t.heroId === heroId)) return false;
   const heroIndex = (state.bench || []).findIndex((h) => h.id === heroId);
   if (heroIndex < 0) return false; // Only reserve heroes may enroll.
