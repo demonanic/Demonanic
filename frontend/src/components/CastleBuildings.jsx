@@ -240,7 +240,7 @@ export default function CastleBuildings({ state, mutate }) {
                   </div>
                   <NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (!damagedTowers.length && !damagedBarricades.length) || state.gold < repairGold || state.stone < repairStone} onClick={() => mutate((s) => {
                     const result = guildRepairDefenses(s);
-                    if (!result) toast.error("Not enough Food or no damaged defenses");
+                    if (!result) toast.error("Insufficient Gold/Stone or no damaged defenses");
                     else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades · ${result.goldCost}g / ${result.stoneCost}s`);
                   })}>Repair All Defenses ({repairGold}g / {repairStone}s)</NeonButton>
                 </>;
