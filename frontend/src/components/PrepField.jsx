@@ -19,8 +19,30 @@ export default function PrepField({ state, handlers }) {
   const cap = slotCap(state);
   const n = state.heroes.length || 1;
   const atCap = state.towers.length >= cap;
-  const isSlotOccupied = (slot) => state.towers.some((tower) =>
-    Math.hypot(tower.x - slot.x, tower.y - slot.y) < 42
+
+  // Assign each existing tower to one unique visual slot, including legacy
+  // saves whose coordinates predate slot-based placement. Keep the saved
+  // coordinates untouched: this mapping affects preparation-screen display only.
+  const towerSlotAssignments = (() => {
+    const pairs = state.towers.flatMap((tower, towerIndex) =>
+      PLACEMENT_SLOTS.map((slot, slotIndex) => ({
+        towerIndex, slotIndex,
+        distance: Math.hypot(tower.x - slot.x, tower.y - slot.y),
+      }))
+    ).sort((a, b) => a.distance - b.distance);
+    const assignedTowers = new Set();
+    const assignedSlots = new Set();
+    const result = Array(state.towers.length).fill(null);
+    for (const pair of pairs) {
+      if (assignedTowers.has(pair.towerIndex) || assignedSlots.has(pair.slotIndex)) continue;
+      assignedTowers.add(pair.towerIndex);
+      assignedSlots.add(pair.slotIndex);
+      result[pair.towerIndex] = PLACEMENT_SLOTS[pair.slotIndex];
+    }
+    return result;
+  })();
+  const isSlotOccupied = (slot) => towerSlotAssignments.some((assigned) =>
+    assigned && assigned.x === slot.x && assigned.y === slot.y
   );
 
   // Keep the preview visible until the state actually contains the newly built
@@ -163,14 +185,8 @@ export default function PrepField({ state, handlers }) {
         {/* placed towers */}
         {state.towers.map((tw, idx) => {
           const t = C.TOWERS[tw.type];
-          // Render towers at the canonical marker center when their saved
-          // coordinates correspond to a marked slot. This also visually
-          // normalizes towers saved before slot snapping was introduced.
-          const nearestSlot = PLACEMENT_SLOTS.reduce((best, slot) => {
-            const distance = Math.hypot(tw.x - slot.x, tw.y - slot.y);
-            return !best || distance < best.distance ? { slot, distance } : best;
-          }, null);
-          const pos = nearestSlot && nearestSlot.distance < 42 ? nearestSlot.slot : tw;
+          // Use the same unique slot assignment as the occupied markers.
+          const pos = towerSlotAssignments[idx] || tw;
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute rounded flex items-center justify-center bracket"
