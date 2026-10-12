@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -13,7 +13,7 @@ const BUILDINGS = [
   { id: "tavern", name: "Tavern", icon: Users, color: "#FF007F", desc: "Hero recruitment and Morale services.", workers: null },
   { id: "shoppe", name: "Shoppe", icon: Coins, color: "#A855F7", desc: "Equipment and item transactions.", workers: null },
   { id: "academy", name: "Academy", icon: ShieldCheck, color: "#39FF14", desc: "Train heroes in permanent stat improvements.", workers: null },
-  { id: "guild", name: "Guild", icon: Hammer, color: "#FF6600", desc: "Repairs and defensive support unlock later.", workers: null, locked: true },
+  { id: "guild", name: "Guild", icon: Hammer, color: "#FF6600", desc: "Repair damaged defenses and manufacture ammunition for physical towers.", workers: null },
   { id: "library", name: "Library", icon: ChevronUp, color: "#A855F7", desc: "Spell and perk research unlocks later.", workers: null, locked: true },
   { id: "vault", name: "Vault", icon: ShieldCheck, color: "#00F3FF", desc: "Protects deposited Gold when implemented.", workers: null, locked: true },
 ];
@@ -223,6 +223,60 @@ export default function CastleBuildings({ state, mutate }) {
             </div>
           </>}
 
+          {building.id === "guild" && <>
+            <div className="mt-3 rounded-lg border border-orange-400/25 bg-orange-400/5 p-3" data-testid="guild-defense-service">
+              <div className="font-display font-bold text-lg text-orange-200">DEFENSE WORKSHOP</div>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Guild smiths repair damaged towers and barricades using Food. Higher Guild levels manufacture larger ammunition batches.</p>
+              {(() => {
+                const damagedTowers = (state.towers || []).filter((t) => t && t.hp < C.TOWERS[t.type]?.baseHp * Math.pow(1 + C.TOWER_UPGRADE.hpMult, Math.max(0, (t.level || 1) - 1)));
+                const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp < b.maxHp);
+                const towerFood = (state.towers || []).reduce((sum, t) => {
+                  if (!t || !C.TOWERS[t.type]) return sum;
+                  const maxHp = C.TOWERS[t.type].baseHp * Math.pow(1 + C.TOWER_UPGRADE.hpMult, Math.max(0, (t.level || 1) - 1));
+                  return sum + C.repairFoodCost(Math.max(0, maxHp - (Number(t.hp) || 0)));
+                }, 0);
+                const barricadeFood = damagedBarricades.reduce((sum, b) => sum + Math.ceil((b.maxHp - b.hp) / 10 * C.BARRICADE.repairFoodPer10Hp), 0);
+                const totalFood = towerFood + barricadeFood;
+                return <>
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED TOWERS</div><div className="font-display font-bold text-xl">{damagedTowers.length}</div></div>
+                    <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED BARRICADES</div><div className="font-display font-bold text-xl">{damagedBarricades.length}</div></div>
+                  </div>
+                  <NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (!damagedTowers.length && !damagedBarricades.length) || state.food < totalFood} onClick={() => mutate((s) => {
+                    const result = guildRepairDefenses(s);
+                    if (!result) toast.error("Not enough Food or no damaged defenses");
+                    else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades · ${result.foodCost} Food`);
+                  })}>Repair All Defenses ({totalFood} Food)</NeonButton>
+                </>;
+              })()}
+            </div>
+            <div className="mt-3 rounded-lg border border-orange-400/25 bg-black/20 p-3" data-testid="guild-ammunition-workshop">
+              <div className="font-display font-bold text-lg text-orange-200">AMMUNITION MANUFACTURING</div>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Manufacture ammunition in batches for Archer, Catapult, and Ballista towers. Wizard Towers use Mana and cannot use this workshop.</p>
+              {(state.towers || []).map((tower, index) => {
+                if (!tower || !C.TOWER_RESOURCE[tower.type] || C.TOWER_RESOURCE[tower.type].kind !== "ammo") return null;
+                const resource = C.TOWER_RESOURCE[tower.type];
+                const level = Math.max(1, Number(tower.level) || 1);
+                const maxAmmo = Math.round(resource.max * Math.pow(1 + C.TOWER_UPGRADE.resourceMult, level - 1) * (1 + (tower.specializations?.[5] === "deep_quiver" ? 0.25 : 0)));
+                const ammo = Math.max(0, Number(tower.ammo) || 0);
+                const missing = Math.max(0, maxAmmo - ammo);
+                const batch = Math.min(missing, Math.max(1, Math.ceil(maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, current.level || 1) - 1) * 0.05))));
+                const goldCost = Math.ceil(batch * resource.resupplyGold);
+                const stoneCost = Math.ceil(batch * resource.resupplyStone);
+                return <div key={tower.id || index} className="rounded-lg bg-black/30 p-2 mt-2" data-testid={`guild-ammo-${tower.id || index}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div><div className="font-mono-g text-xs text-orange-100">{C.TOWERS[tower.type]?.name || tower.type}</div><div className="font-mono-g text-[10px] text-slate-400">{resource.label} {ammo} / {maxAmmo}</div></div>
+                    <button type="button" disabled={current.hp <= 0 || current.unlocked === false || missing <= 0 || state.gold < goldCost || state.stone < stoneCost} onClick={() => mutate((s) => {
+                      const result = guildManufactureAmmo(s, index);
+                      if (!result) toast.error("Unable to manufacture ammunition");
+                      else toast.success(`Made ${result.amount} ammunition · ${result.goldCost}g / ${result.stoneCost}s`);
+                    })} className="neon-btn rounded border border-orange-400/40 px-2 py-2 font-mono-g text-[10px] disabled:opacity-35">MAKE {Math.min(batch, missing)} ({goldCost}g{stoneCost ? ` / ${stoneCost}s` : ""})</button>
+                  </div>
+                </div>;
+              })}
+              {!(state.towers || []).some((t) => t && C.TOWER_RESOURCE[t.type]?.kind === "ammo") && <p className="font-mono-g text-[10px] text-slate-500 mt-2">Build an Archer, Catapult, or Ballista tower to manufacture ammunition here.</p>}
+            </div>
+          </>}
           {building.workers && <>
             <div className="flex items-center justify-between gap-2 mt-3 rounded-lg bg-white/5 p-2">
               <div><div className="font-mono-g text-[9px] text-slate-500">UNASSIGNED WORKERS</div><div className="font-display font-bold text-lg">{availableWorkers}</div></div>
