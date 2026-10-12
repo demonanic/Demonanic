@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero } from "@/game/logic";
+import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
 
@@ -154,6 +156,34 @@ export default function CastleBuildings({ state, mutate }) {
               <NeonButton color="magenta" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (state.morale || 0) >= 100 || state.gold < TAVERN_FEAST.gold || state.food < TAVERN_FEAST.food} onClick={() => mutate((s) => { hostTavernFeast(s); })}>
                 Host Feast ({TAVERN_FEAST.gold}g / {TAVERN_FEAST.food} food)
               </NeonButton>
+            </div>
+            <div className="mt-3 pt-3 border-t border-pink-400/20" data-testid="tavern-hero-recruitment">
+              <div className="font-display font-bold text-lg text-pink-200">RECRUIT HERO</div>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1 mb-2">Cost {C.recruitCost((state.heroes?.length || 0) + (state.bench?.length || 0))}g · fills an empty squad slot or goes to the bench.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {C.HERO_ORDER.map((cls) => {
+                  const heroClass = C.HERO_CLASSES[cls];
+                  const cost = C.recruitCost((state.heroes?.length || 0) + (state.bench?.length || 0));
+                  return (
+                    <button key={cls} type="button" data-testid={`tavern-recruit-${cls}`}
+                      disabled={current.hp <= 0 || current.unlocked === false || state.gold < cost}
+                      onClick={() => mutate((s) => {
+                        if (s.buildings?.tavern?.hp <= 0 || s.buildings?.tavern?.unlocked === false) return;
+                        if (!recruitHero(s, cls)) return;
+                        s.buildings.tavern.activity = `Recruited ${heroClass.name}`;
+                        toast.success(`${heroClass.name} recruited`);
+                      })}
+                      className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40 disabled:opacity-40"
+                      style={{ borderColor: heroClass.color + "55" }}>
+                      <div className="w-6 h-7 rounded" style={{ background: heroClass.color, boxShadow: `0 0 8px ${heroClass.color}` }} />
+                      <div className="text-left">
+                        <div className="font-mono-g text-xs font-bold" style={{ color: heroClass.color }}>{heroClass.name}</div>
+                        <div className="font-mono-g text-[9px] text-slate-400">{cost}g</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </>}
 
