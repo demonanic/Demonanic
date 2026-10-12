@@ -416,6 +416,57 @@ export function addMorale(state, delta) {
   state.morale = Math.max(0, Math.min(100, state.morale + delta));
 }
 
+// Academy training: one permanent stat point per completed course.
+export function academySeats(state) {
+  const level = Math.max(1, Number(state.buildings?.academy?.level) || 1);
+  return 2 + Math.floor(Math.max(0, level - 1) / 3);
+}
+export function academyTrainingHours(state, hero, stat) {
+  const allowed = ["attack", "defense", "agility", "intelligence"];
+  if (!hero || !allowed.includes(stat)) return 6;
+  const cp = castlePower(state);
+  const cpScale = 1 + Math.max(0, cp - 20) * 0.002;
+  const prior = Number(hero.academyTrainingCounts?.[stat]) || 0;
+  const intelligence = Math.max(0, Number(hero.stats?.intelligence) || 0);
+  const intScale = Math.max(0.5, 1 - 0.02 * Math.max(0, intelligence - 10));
+  return 6 * cpScale * (prior + 1) * intScale;
+}
+export function enrollAcademyHero(state, heroId, stat, now = Date.now()) {
+  const allowed = ["attack", "defense", "agility", "intelligence"];
+  const academy = state.buildings?.academy;
+  if (!academy || academy.unlocked === false || academy.hp <= 0 || !allowed.includes(stat)) return false;
+  state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
+  if (state.academyTraining.length >= academySeats(state) || state.academyTraining.some((t) => t.heroId === heroId)) return false;
+  const hero = [...(state.heroes || []), ...(state.bench || [])].find((h) => h.id === heroId);
+  if (!hero) return false;
+  const hours = academyTrainingHours(state, hero, stat);
+  state.academyTraining.push({ heroId, stat, startedAt: now, completesAt: now + hours * 3600000, durationMs: hours * 3600000 });
+  academy.activity = `Training ${hero.name} · ${stat}`;
+  return true;
+}
+export function advanceAcademyTraining(state, dtSeconds, now = Date.now()) {
+  if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
+  state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
+  // Use elapsed simulation time so normal ticks and offline catch-up share one path.
+  for (const training of state.academyTraining) {
+    training.elapsedMs = Math.min(training.durationMs || 0, (Number(training.elapsedMs) || 0) + dtSeconds * 1000);
+  }
+  const done = state.academyTraining.filter((t) => (t.elapsedMs || 0) >= (t.durationMs || Infinity));
+  for (const training of done) {
+    const hero = [...(state.heroes || []), ...(state.bench || [])].find((h) => h.id === training.heroId);
+    if (hero && ["attack", "defense", "agility", "intelligence"].includes(training.stat)) {
+      hero.stats = hero.stats || {};
+      hero.stats[training.stat] = (Number(hero.stats[training.stat]) || 0) + 1;
+      hero.academyTrainingCounts = hero.academyTrainingCounts || {};
+      hero.academyTrainingCounts[training.stat] = (Number(hero.academyTrainingCounts[training.stat]) || 0) + 1;
+      hero.maxHp = heroDerived(hero).maxHp;
+      if (hero.hp > 0) hero.hp = Math.min(hero.maxHp, hero.hp + Math.max(0, hero.maxHp - (Number(hero.maxHp) || 0)));
+    }
+    state.buildings.academy.activity = hero ? `Trained ${hero.name} · ${training.stat}` : "Training completed";
+  }
+  state.academyTraining = state.academyTraining.filter((t) => !done.includes(t));
+}
+
 // Tavern service: a modest, resource-funded morale boost. No resources are
 // charged when the building is disabled, the player cannot afford it, or
 // morale is already full.
