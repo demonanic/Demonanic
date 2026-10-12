@@ -177,7 +177,9 @@ export default function PrepField({ state, handlers }) {
                 background: occupied ? "rgba(100,116,139,0.2)" : previewed ? "rgba(0,243,255,0.18)" : "rgba(0,243,255,0.06)",
                 color: occupied ? "#64748B" : "#00F3FF",
                 boxShadow: previewed ? "0 0 12px #00F3FF66" : "none",
-                pointerEvents: "auto",
+                // Slot badges should only intercept touches while choosing an available slot.
+                // Otherwise they sit above placed towers and block repair/resupply selection.
+                pointerEvents: placing && !occupied ? "auto" : "none",
               }}>{occupied ? "USED" : `SLOT ${index + 1}`}</button>
           );
         })}
