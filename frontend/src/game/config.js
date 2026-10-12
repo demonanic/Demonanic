@@ -234,10 +234,10 @@ export const HERO_CLASSES = {
     perks: ["Eagle Eye (+range)", "Rapid Draw (+atk speed)", "Focus Fire (+dmg vs low HP)"] },
 };
 export const HERO_ORDER = ["knight", "rouge", "mage", "archer"];
-// OPEN: recruitment pricing placeholder. Exponential from the 4-hero baseline.
+// Recruitment should require saving beyond the starting treasury.
 export function recruitCost(ownedHeroes) {
   const over = Math.max(0, ownedHeroes - 3);
-  return Math.ceil(200 * Math.pow(1.6, over - 1));
+  return Math.ceil(550 * Math.pow(1.6, over - 1));
 }
 export const BASE_STATS = { attack: 10, defense: 10, agility: 10, intelligence: 10 };
 export const ATTACK_CONFIGS = {
@@ -335,7 +335,8 @@ export const EARLY_WAVE_POOLS = {
 
 // Section O — surrender / revival
 export function surrenderTaxRate(wave) { return Math.min(0.25, 0.05 + 0.02 * Math.floor(wave / 5)); }
-export function paidRevivalCost(heroLevel) { return Math.min(2000, 100 * heroLevel); }
+// A minimum fee keeps low-level revival from being effectively disposable.
+export function paidRevivalCost(heroLevel) { return Math.min(2000, Math.max(300, 100 * heroLevel)); }
 export const FREE_LIFE = { keepResourceFrac: 0.30, moraleReset: 20 };
 
 // Scout knowledge (Section N)
