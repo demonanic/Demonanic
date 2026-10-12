@@ -12,6 +12,8 @@ export const useGame = () => useContext(GameCtx);
 function normalizeState(s) {
   if (!s || typeof s !== "object") return s;
   if (!s.bench) s.bench = [];
+  if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
+  if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
   // First-pass persistent castle-building state. Defaults preserve old profiles.
   if (!s.buildings || typeof s.buildings !== "object") s.buildings = {};
   const buildingDefaults = {
