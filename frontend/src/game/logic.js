@@ -436,10 +436,14 @@ export function enrollAcademyHero(state, heroId, stat, now = Date.now()) {
   const academy = state.buildings?.academy;
   if (!academy || academy.unlocked === false || academy.hp <= 0 || !allowed.includes(stat)) return false;
   state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
+  state.academyHeroes = Array.isArray(state.academyHeroes) ? state.academyHeroes : [];
   if (state.academyTraining.length >= academySeats(state) || state.academyTraining.some((t) => t.heroId === heroId)) return false;
-  const hero = [...(state.heroes || []), ...(state.bench || [])].find((h) => h.id === heroId);
-  if (!hero) return false;
+  const heroIndex = (state.bench || []).findIndex((h) => h.id === heroId);
+  if (heroIndex < 0) return false; // Only reserve heroes may enroll.
+  const hero = state.bench[heroIndex];
   const hours = academyTrainingHours(state, hero, stat);
+  state.bench.splice(heroIndex, 1);
+  state.academyHeroes.push(hero);
   state.academyTraining.push({ heroId, stat, startedAt: now, completesAt: now + hours * 3600000, durationMs: hours * 3600000 });
   academy.activity = `Training ${hero.name} · ${stat}`;
   return true;
@@ -447,20 +451,28 @@ export function enrollAcademyHero(state, heroId, stat, now = Date.now()) {
 export function advanceAcademyTraining(state, dtSeconds, now = Date.now()) {
   if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
   state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
+  state.academyHeroes = Array.isArray(state.academyHeroes) ? state.academyHeroes : [];
   // Use elapsed simulation time so normal ticks and offline catch-up share one path.
   for (const training of state.academyTraining) {
     training.elapsedMs = Math.min(training.durationMs || 0, Math.max(Number(training.elapsedMs) || 0, now - (Number(training.startedAt) || now)));
   }
   const done = state.academyTraining.filter((t) => (t.elapsedMs || 0) >= (t.durationMs || Infinity));
   for (const training of done) {
-    const hero = [...(state.heroes || []), ...(state.bench || [])].find((h) => h.id === training.heroId);
+    const hero = state.academyHeroes.find((h) => h.id === training.heroId);
     if (hero && ["attack", "defense", "agility", "intelligence"].includes(training.stat)) {
       hero.stats = hero.stats || {};
       hero.stats[training.stat] = (Number(hero.stats[training.stat]) || 0) + 1;
       hero.academyTrainingCounts = hero.academyTrainingCounts || {};
       hero.academyTrainingCounts[training.stat] = (Number(hero.academyTrainingCounts[training.stat]) || 0) + 1;
-      hero.maxHp = heroDerived(hero).maxHp;
-      if (hero.hp > 0) hero.hp = Math.min(hero.maxHp, hero.hp + Math.max(0, hero.maxHp - (Number(hero.maxHp) || 0)));
+      const oldMaxHp = Number(hero.maxHp) || heroDerived(hero).maxHp;
+      const nextMaxHp = heroDerived(hero).maxHp;
+      hero.maxHp = nextMaxHp;
+      if (hero.hp > 0) hero.hp = Math.min(nextMaxHp, hero.hp + Math.max(0, nextMaxHp - oldMaxHp));
+    }
+    if (hero) {
+      state.academyHeroes = state.academyHeroes.filter((h) => h.id !== hero.id);
+      state.bench = state.bench || [];
+      state.bench.push(hero);
     }
     state.buildings.academy.activity = hero ? `Trained ${hero.name} · ${training.stat}` : "Training completed";
   }
