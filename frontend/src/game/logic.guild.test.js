@@ -15,12 +15,14 @@ describe("Guild services", () => {
     const state = guildState();
     state.towers[0].hp = 100;
     state.barricades[0] = { hp: 50, maxHp: 100 };
-    const foodBefore = state.food;
+    const goldBefore = state.gold;
+    const stoneBefore = state.stone;
     const result = guildRepairDefenses(state);
-    expect(result).toEqual({ foodCost: expect.any(Number), towers: 1, barricades: 1 });
+    expect(result).toEqual({ goldCost: expect.any(Number), stoneCost: expect.any(Number), towers: 1, barricades: 1 });
     expect(state.towers[0].hp).toBe(towerDerived(state.towers[0]).maxHp);
     expect(state.barricades[0].hp).toBe(100);
-    expect(state.food).toBeLessThan(foodBefore);
+    expect(state.gold).toBeLessThan(goldBefore);
+    expect(state.stone).toBeLessThan(stoneBefore);
   });
 
   test("does not repair when Guild is locked or supplies are insufficient", () => {
@@ -29,7 +31,7 @@ describe("Guild services", () => {
     state.buildings.guild.unlocked = false;
     expect(guildRepairDefenses(state)).toBe(false);
     state.buildings.guild.unlocked = true;
-    state.food = 0;
+    state.gold = 0;
     expect(guildRepairDefenses(state)).toBe(false);
     expect(state.towers[0].hp).toBe(100);
   });
