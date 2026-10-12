@@ -16,7 +16,7 @@ export function createHero(classKey) {
     stats, perks: [], abilityCooldowns: {}, attackConfig: C.ATTACK_CONFIGS[classKey][0],
     equipment: {},
     quickSlots: [null, null, null],
-    hp: maxHp, maxHp,
+    hp: maxHp, maxHp,\n    maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
   };
 }
 
