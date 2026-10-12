@@ -19,7 +19,7 @@ const BUILDINGS = [
 ];
 
 function initialBuilding(id) {
-  return { level: 1, hp: 1000, maxHp: 1000, unlocked: !["academy", "guild", "library", "vault"].includes(id), activity: "Idle" };
+  return { level: 1, hp: 1000, maxHp: 1000, unlocked: !["academy", "library", "vault"].includes(id), activity: "Idle" };
 }
 
 function buildingState(state, id) {
@@ -226,27 +226,23 @@ export default function CastleBuildings({ state, mutate }) {
           {building.id === "guild" && <>
             <div className="mt-3 rounded-lg border border-orange-400/25 bg-orange-400/5 p-3" data-testid="guild-defense-service">
               <div className="font-display font-bold text-lg text-orange-200">DEFENSE WORKSHOP</div>
-              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Guild smiths repair damaged towers and barricades using Food. Higher Guild levels manufacture larger ammunition batches.</p>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Guild smiths repair damaged towers and barricades using Gold and Stone. Higher Guild levels manufacture larger ammunition batches.</p>
               {(() => {
                 const damagedTowers = (state.towers || []).filter((t) => t && t.hp < C.TOWERS[t.type]?.baseHp * Math.pow(1 + C.TOWER_UPGRADE.hpMult, Math.max(0, (t.level || 1) - 1)));
                 const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp < b.maxHp);
-                const towerFood = (state.towers || []).reduce((sum, t) => {
-                  if (!t || !C.TOWERS[t.type]) return sum;
-                  const maxHp = towerDerived(t).maxHp;
-                  return sum + C.repairFoodCost(Math.max(0, maxHp - (Number(t.hp) || 0)));
-                }, 0);
-                const barricadeFood = damagedBarricades.reduce((sum, b) => sum + Math.ceil((b.maxHp - b.hp) / 10 * C.BARRICADE.repairFoodPer10Hp), 0);
-                const totalFood = towerFood + barricadeFood;
+                const repairCosts = [...(state.towers || []).filter(Boolean).map((t) => ({ missing: Math.max(0, towerDerived(t).maxHp - (Number(t.hp) || 0)) })), ...damagedBarricades.map((b) => ({ missing: Math.max(0, b.maxHp - b.hp) }))];
+                const repairGold = repairCosts.reduce((sum, item) => sum + Math.ceil(item.missing * 0.2), 0);
+                const repairStone = repairCosts.reduce((sum, item) => sum + Math.ceil(item.missing * 0.1), 0);
                 return <>
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED TOWERS</div><div className="font-display font-bold text-xl">{damagedTowers.length}</div></div>
                     <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED BARRICADES</div><div className="font-display font-bold text-xl">{damagedBarricades.length}</div></div>
                   </div>
-                  <NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (!damagedTowers.length && !damagedBarricades.length) || state.food < totalFood} onClick={() => mutate((s) => {
+                  <NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (!damagedTowers.length && !damagedBarricades.length) || state.gold < repairGold || state.stone < repairStone} onClick={() => mutate((s) => {
                     const result = guildRepairDefenses(s);
                     if (!result) toast.error("Not enough Food or no damaged defenses");
-                    else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades · ${result.foodCost} Food`);
-                  })}>Repair All Defenses ({totalFood} Food)</NeonButton>
+                    else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades · ${result.goldCost}g / ${result.stoneCost}s`);
+                  })}>Repair All Defenses ({repairGold}g / {repairStone}s)</NeonButton>
                 </>;
               })()}
             </div>
@@ -256,7 +252,6 @@ export default function CastleBuildings({ state, mutate }) {
               {(state.towers || []).map((tower, index) => {
                 if (!tower || !C.TOWER_RESOURCE[tower.type] || C.TOWER_RESOURCE[tower.type].kind !== "ammo") return null;
                 const resource = C.TOWER_RESOURCE[tower.type];
-                const level = Math.max(1, Number(tower.level) || 1);
                 const maxAmmo = towerDerived(tower).maxAmmo;
                 const ammo = Math.max(0, Number(tower.ammo) || 0);
                 const missing = Math.max(0, maxAmmo - ammo);
