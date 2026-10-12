@@ -416,6 +416,21 @@ export function addMorale(state, delta) {
   state.morale = Math.max(0, Math.min(100, state.morale + delta));
 }
 
+// Tavern service: a modest, resource-funded morale boost. No resources are
+// charged when the building is disabled, the player cannot afford it, or
+// morale is already full.
+export function hostTavernFeast(state) {
+  const tavern = state.buildings?.tavern;
+  if (!tavern || tavern.unlocked === false || tavern.hp <= 0) return false;
+  const cost = C.TAVERN_FEAST;
+  if (state.morale >= 100 || state.gold < cost.gold || state.food < cost.food) return false;
+  state.gold -= cost.gold;
+  state.food -= cost.food;
+  addMorale(state, cost.morale);
+  tavern.activity = "Hosted a Feast";
+  return true;
+}
+
 export function healHero(state, hero) {
   if (!hero || hero.hp <= 0) return false;
   const maxHp = heroDerived(hero).maxHp;
