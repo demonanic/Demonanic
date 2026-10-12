@@ -20,7 +20,7 @@ function normalizeState(s) {
     tavern: { unlocked: true },
     shoppe: { unlocked: true },
     vault: { unlocked: false },
-    academy: { unlocked: false },
+    academy: { unlocked: true },
     guild: { unlocked: false },
     library: { unlocked: false },
   };
