@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
+import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, academyTrainingHours, academySeats } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -184,6 +184,32 @@ export default function CastleBuildings({ state, mutate }) {
                   );
                 })}
               </div>
+            </div>
+          </>}
+
+          {building.id === "academy" && <>
+            <div className="mt-3 rounded-lg border border-green-400/25 bg-green-400/5 p-3" data-testid="academy-enrollment">
+              <div className="font-display font-bold text-lg text-green-200">ENROLL RESERVE HERO</div>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Only benched heroes can enroll. They move into the Academy while training and return to the bench when their course is complete. Intelligence alone improves learning speed.</p>
+              <div className="font-mono-g text-[10px] text-green-200 mt-2">SEATS {(state.academyTraining || []).length} / {academySeats(state)}</div>
+              {(state.academyHeroes || []).map((h) => {
+                const training = (state.academyTraining || []).find((t) => t.heroId === h.id);
+                return <div key={h.id} className="rounded-lg bg-black/35 p-2 mt-2" data-testid={`academy-training-${h.id}`}>
+                  <div className="font-mono-g text-xs text-green-200">{h.name} · INT {h.stats.intelligence}</div>
+                  <p className="font-mono-g text-[10px] text-cyan-200 mt-1">Training {training?.stat || "—"} · {training ? Math.max(0, Math.ceil(((training.durationMs || 0) - (training.elapsedMs || 0)) / 60000)) : 0} min remaining</p>
+                </div>;
+              })}
+              {(state.bench || []).length === 0 ? <p className="font-mono-g text-[10px] text-slate-500 mt-3">No reserve heroes available. Recruit a hero at the Tavern or move a hero to the bench first.</p> : <div className="space-y-2 mt-2">
+                {(state.bench || []).map((h) => <div key={h.id} className="rounded-lg bg-black/35 p-2" data-testid={`academy-eligible-${h.id}`}>
+                  <div className="font-mono-g text-xs text-green-200">{h.name} · L{h.level} · INT {h.stats.intelligence}</div>
+                  <div className="grid grid-cols-2 gap-1 mt-2">
+                    {["attack", "defense", "agility", "intelligence"].map((stat) => <button key={stat} type="button" disabled={current.hp <= 0 || current.unlocked === false || (state.academyTraining || []).length >= academySeats(state)} onClick={() => mutate((s) => {
+                      if (!enrollAcademyHero(s, h.id, stat)) toast.error("Unable to enroll this reserve hero");
+                      else toast.success(`${h.name} enrolled for ${stat}`);
+                    })} className="neon-btn rounded border border-green-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-40"><Brain size={11} className="inline mr-1" />{stat} · {academyTrainingHours(state, h, stat).toFixed(1)}h</button>)}
+                  </div>
+                </div>)}
+              </div>}
             </div>
           </>}
 
