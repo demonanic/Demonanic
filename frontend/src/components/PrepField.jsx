@@ -190,7 +190,7 @@ export default function PrepField({ state, handlers }) {
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute rounded flex items-center justify-center bracket"
-              style={{ left: pctX(pos.x), top: pctY(pos.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: t.color,
+              style={{ position: "absolute", left: pctX(pos.x), top: pctY(pos.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: t.color,
                 pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
