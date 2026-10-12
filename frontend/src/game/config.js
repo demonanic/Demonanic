@@ -237,7 +237,8 @@ export const HERO_ORDER = ["knight", "rouge", "mage", "archer"];
 // Recruitment should require saving beyond the starting treasury.
 export function recruitCost(ownedHeroes) {
   const over = Math.max(0, ownedHeroes - 3);
-  return Math.ceil(550 * Math.pow(1.6, over - 1));
+  // Subtract a tiny epsilon so floating-point noise doesn't round exact prices up.
+  return Math.ceil(550 * Math.pow(1.6, over - 1) - 1e-9);
 }
 export const BASE_STATS = { attack: 10, defense: 10, agility: 10, intelligence: 10 };
 export const ATTACK_CONFIGS = {
