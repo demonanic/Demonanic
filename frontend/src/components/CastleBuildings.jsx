@@ -12,7 +12,7 @@ const BUILDINGS = [
   { id: "quarry", name: "Quarry", icon: Mountain, color: "#00F3FF", desc: "Produces Stone from assigned Workers.", workers: "stone" },
   { id: "tavern", name: "Tavern", icon: Users, color: "#FF007F", desc: "Hero recruitment and Morale services.", workers: null },
   { id: "shoppe", name: "Shoppe", icon: Coins, color: "#A855F7", desc: "Equipment and item transactions.", workers: null },
-  { id: "academy", name: "Academy", icon: ShieldCheck, color: "#39FF14", desc: "Reserve-hero training unlocks later.", workers: null, locked: true },
+  { id: "academy", name: "Academy", icon: ShieldCheck, color: "#39FF14", desc: "Train heroes in permanent stat improvements.", workers: null },
   { id: "guild", name: "Guild", icon: Hammer, color: "#FF6600", desc: "Repairs and defensive support unlock later.", workers: null, locked: true },
   { id: "library", name: "Library", icon: ChevronUp, color: "#A855F7", desc: "Spell and perk research unlocks later.", workers: null, locked: true },
   { id: "vault", name: "Vault", icon: ShieldCheck, color: "#00F3FF", desc: "Protects deposited Gold when implemented.", workers: null, locked: true },
