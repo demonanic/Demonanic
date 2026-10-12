@@ -486,10 +486,7 @@ export function buildWave(state, seedRand = Math.random) {
     return counts;
   }, {});
   if (heroClasses.has("mage")) specialistWeights.warlock += 2;
-  if ((towerCounts.wizard || 0) > 0) {
-    specialistWeights.slime += 2;
-    specialistWeights.warlock += 1;
-  }
+  if ((towerCounts.wizard || 0) > 0) specialistWeights.warlock += 1;
   if ((towerCounts.archer || 0) + (towerCounts.ballista || 0) > 0) {
     specialistWeights.orc += 1;
     specialistWeights.reaper += 1;
@@ -500,8 +497,8 @@ export function buildWave(state, seedRand = Math.random) {
     specialistWeights.darkElf += 1;
     specialistWeights.warlock += 1;
   }
-  const pickSpecialist = () => {
-    const entries = Object.entries(specialistWeights);
+  const pickWeighted = (weights) => {
+    const entries = Object.entries(weights);
     const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
     let roll = seedRand() * totalWeight;
     for (const [key, weight] of entries) {
@@ -510,6 +507,10 @@ export function buildWave(state, seedRand = Math.random) {
     }
     return entries[entries.length - 1][0];
   };
+  const pickSpecialist = () => pickWeighted(specialistWeights);
+  const basicWeights = { ghost: 1, slime: 1, goblin: 1 };
+  if ((towerCounts.wizard || 0) > 0) basicWeights.slime += 2;
+  const pickBasic = () => pickWeighted(basicWeights);
 
   const enemies = [];
   let idCounter = 0;
@@ -526,7 +527,7 @@ export function buildWave(state, seedRand = Math.random) {
       } else if (seedRand() < specCap) {
         poolKey = pickSpecialist();
       } else {
-        poolKey = C.BASIC_POOL[Math.floor(seedRand() * C.BASIC_POOL.length)];
+        poolKey = pickBasic();
       }
       const base = C.ENEMIES[poolKey];
       enemies.push(makeEnemy(idCounter++, base, hpS, dmgS, g, objective));
