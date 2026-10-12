@@ -493,7 +493,8 @@ export function buildWave(state, seedRand = Math.random) {
     specialistWeights.darkElf += 1;
   }
   if ((towerCounts.catapult || 0) > 0) specialistWeights.reaper += 2;
-  if ((state.towers || []).length >= 2) {
+  const deployedTowerCount = (state.towers || []).filter(Boolean).length;
+  if (deployedTowerCount >= 2) {
     specialistWeights.darkElf += 1;
     specialistWeights.warlock += 1;
   }
