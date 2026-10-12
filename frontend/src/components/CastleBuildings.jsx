@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
 import { productionRates, hostTavernFeast } from "@/game/logic";
-import { TAVERN_FEAST } from "@/game/config";
-import { workerCost } from "@/game/config";
+import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
 
 const BUILDINGS = [
