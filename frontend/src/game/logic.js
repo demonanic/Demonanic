@@ -438,16 +438,46 @@ export function enrollAcademyHero(state, heroId, stat, now = Date.now()) {
   if (!academy || academy.unlocked === false || academy.hp <= 0 || !allowed.includes(stat)) return false;
   state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
   state.academyHeroes = Array.isArray(state.academyHeroes) ? state.academyHeroes : [];
-  state.academyTraining = state.academyTraining.filter((t) => state.academyHeroes.some((h) => h.id === t.heroId));
-  if (state.academyTraining.length >= academySeats(state) || state.academyTraining.some((t) => t.heroId === heroId)) return false;
+  state.academyTraining = state.academyTraining.filter((t) => state.academyHeroes.some((h) => h.id === t.heroId) || (state.bench || []).some((h) => h.id === t.heroId && t.paused));
+  const active = state.academyTraining.filter((t) => !t.paused);
+  if (active.length >= academySeats(state)) return false;
   const heroIndex = (state.bench || []).findIndex((h) => h.id === heroId);
   if (heroIndex < 0) return false; // Only reserve heroes may enroll.
   const hero = state.bench[heroIndex];
+  const existing = state.academyTraining.find((t) => t.heroId === heroId && t.paused);
+  if (existing) {
+    if (existing.stat !== stat) return false; // Resume the same course; progress and duration are locked.
+    state.bench.splice(heroIndex, 1);
+    state.academyHeroes.push(hero);
+    existing.paused = false;
+    existing.startedAt = now - (Number(existing.elapsedMs) || 0);
+    existing.completesAt = now + Math.max(0, existing.durationMs - (Number(existing.elapsedMs) || 0));
+    academy.activity = `Resumed ${hero.name} · ${stat}`;
+    return true;
+  }
+  if (state.academyTraining.some((t) => t.heroId === heroId)) return false;
   const hours = academyTrainingHours(state, hero, stat);
   state.bench.splice(heroIndex, 1);
   state.academyHeroes.push(hero);
-  state.academyTraining.push({ heroId, stat, startedAt: now, completesAt: now + hours * 3600000, durationMs: hours * 3600000 });
+  state.academyTraining.push({ heroId, stat, startedAt: now, completesAt: now + hours * 3600000, durationMs: hours * 3600000, elapsedMs: 0, paused: false });
   academy.activity = `Training ${hero.name} · ${stat}`;
+  return true;
+}
+export function recallAcademyHero(state, heroId, now = Date.now()) {
+  state.academyHeroes = Array.isArray(state.academyHeroes) ? state.academyHeroes : [];
+  state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
+  const index = state.academyHeroes.findIndex((h) => h.id === heroId);
+  if (index < 0) return false;
+  const hero = state.academyHeroes[index];
+  const training = state.academyTraining.find((t) => t.heroId === heroId);
+  if (training && !training.paused) {
+    training.elapsedMs = Math.min(training.durationMs, Math.max(Number(training.elapsedMs) || 0, now - (Number(training.startedAt) || now)));
+    training.paused = true;
+  }
+  state.academyHeroes.splice(index, 1);
+  state.bench = state.bench || [];
+  state.bench.push(hero);
+  if (state.buildings?.academy) state.buildings.academy.activity = `Recalled ${hero.name}`;
   return true;
 }
 export function advanceAcademyTraining(state, dtSeconds, now = Date.now()) {
