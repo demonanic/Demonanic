@@ -449,7 +449,7 @@ export function advanceAcademyTraining(state, dtSeconds, now = Date.now()) {
   state.academyTraining = Array.isArray(state.academyTraining) ? state.academyTraining : [];
   // Use elapsed simulation time so normal ticks and offline catch-up share one path.
   for (const training of state.academyTraining) {
-    training.elapsedMs = Math.min(training.durationMs || 0, (Number(training.elapsedMs) || 0) + dtSeconds * 1000);
+    training.elapsedMs = Math.min(training.durationMs || 0, Math.max(Number(training.elapsedMs) || 0, now - (Number(training.startedAt) || now)));
   }
   const done = state.academyTraining.filter((t) => (t.elapsedMs || 0) >= (t.durationMs || Infinity));
   for (const training of done) {
