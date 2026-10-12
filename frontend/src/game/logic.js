@@ -476,6 +476,41 @@ export function buildWave(state, seedRand = Math.random) {
           : Math.min(0.5, 0.2 + cp * 0.01);
   const objectives = ["castle", "towers", "resources", "castle", "squad"];
 
+  // Counter-aware specialists: keep the existing specialist introduction cap,
+  // but bias the random pick toward enemies that challenge the player's current
+  // defensive composition. This affects composition only, never enemy stats.
+  const specialistWeights = Object.fromEntries(C.SPEC_POOL.map((key) => [key, 1]));
+  const heroClasses = new Set((state.heroes || []).map((hero) => hero.cls || hero.class).filter(Boolean));
+  const towerCounts = (state.towers || []).reduce((counts, tower) => {
+    if (tower?.type) counts[tower.type] = (counts[tower.type] || 0) + 1;
+    return counts;
+  }, {});
+  if (heroClasses.has("mage")) specialistWeights.warlock += 2;
+  if ((towerCounts.wizard || 0) > 0) {
+    specialistWeights.slime += 2;
+    specialistWeights.warlock += 1;
+  }
+  if ((towerCounts.archer || 0) + (towerCounts.ballista || 0) > 0) {
+    specialistWeights.orc += 1;
+    specialistWeights.reaper += 1;
+    specialistWeights.darkElf += 1;
+  }
+  if ((towerCounts.catapult || 0) > 0) specialistWeights.reaper += 2;
+  if ((state.towers || []).length >= 2) {
+    specialistWeights.darkElf += 1;
+    specialistWeights.warlock += 1;
+  }
+  const pickSpecialist = () => {
+    const entries = Object.entries(specialistWeights);
+    const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = seedRand() * totalWeight;
+    for (const [key, weight] of entries) {
+      roll -= weight;
+      if (roll < 0) return key;
+    }
+    return entries[entries.length - 1][0];
+  };
+
   const enemies = [];
   let idCounter = 0;
   const bossWave = state.wave % 5 === 0;
@@ -485,8 +520,14 @@ export function buildWave(state, seedRand = Math.random) {
     const objective = objectives[g % objectives.length];
     for (let i = 0; i < gCount; i++) {
       const earlyPool = C.EARLY_WAVE_POOLS[state.wave];
-      const pool = earlyPool || (seedRand() < specCap ? C.SPEC_POOL : C.BASIC_POOL);
-      const poolKey = pool[Math.floor(seedRand() * pool.length)];
+      let poolKey;
+      if (earlyPool) {
+        poolKey = earlyPool[Math.floor(seedRand() * earlyPool.length)];
+      } else if (seedRand() < specCap) {
+        poolKey = pickSpecialist();
+      } else {
+        poolKey = C.BASIC_POOL[Math.floor(seedRand() * C.BASIC_POOL.length)];
+      }
       const base = C.ENEMIES[poolKey];
       enemies.push(makeEnemy(idCounter++, base, hpS, dmgS, g, objective));
     }
