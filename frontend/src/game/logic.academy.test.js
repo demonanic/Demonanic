@@ -30,7 +30,7 @@ describe("Academy training", () => {
 
   test("enrollment occupies a seat and completion grants exactly one permanent stat point", () => {
     const state = academyState();
-    const hero = state.heroes[0];
+    const hero = state.bench[0];
     const now = Date.now();
     expect(enrollAcademyHero(state, hero.id, "attack", now)).toBe(true);
     expect(state.bench.some((h) => h.id === hero.id)).toBe(false);
