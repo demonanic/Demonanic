@@ -4,9 +4,10 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD, StatBar } from "@/components/ui-kit";
 import { HeroCard } from "@/components/cards";
 import { Input } from "@/components/ui/input";
-import { Home as HomeIcon, Trash2, Pencil, Check } from "lucide-react";
+import { Home as HomeIcon, Trash2, Pencil, Check, Brain } from "lucide-react";
+import * as C from "@/game/config";
 import {
-  heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero,
+  heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero, enrollAcademyHero, academyTrainingHours, academySeats,
 } from "@/game/logic";
 
 export default function Roster() {
@@ -70,7 +71,21 @@ export default function Roster() {
         <TopResourceHUD state={state} compact />
       </header>
 
-      <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-4">\n        <div className="glass-card rounded-xl p-3 border border-green-400/25" data-testid="academy-enrollment">
+          <SectionTitle color="green">Academy Enrollment</SectionTitle>
+          <p className="font-mono-g text-[10px] text-slate-400 mt-1">Choose a hero and a permanent stat increase. Intelligence alone improves learning speed. Seats: {academySeats(state)}.</p>
+          {state.buildings?.academy?.unlocked === false || !state.buildings?.academy ? <p className="font-mono-g text-[10px] text-amber-300 mt-2">The Academy must be unlocked and operational before enrollment.</p> : <div className="space-y-2 mt-2">
+            {[...(state.heroes || []), ...(state.bench || [])].map((h) => {
+              const training = (state.academyTraining || []).find((t) => t.heroId === h.id);
+              return <div key={h.id} className="rounded-lg bg-black/30 p-2" data-testid={`academy-hero-${h.id}`}>
+                <div className="font-mono-g text-xs text-green-200">{h.name} · INT {h.stats.intelligence}</div>
+                {training ? <p className="font-mono-g text-[10px] text-cyan-200 mt-1">Training {training.stat} · {Math.max(0, Math.ceil(((training.durationMs || 0) - (training.elapsedMs || 0)) / 60000))} min remaining</p> : <div className="grid grid-cols-2 gap-1 mt-2">{["attack","defense","agility","intelligence"].map((stat) => <button key={stat} disabled={(state.academyTraining || []).length >= academySeats(state) || state.buildings.academy.hp <= 0} onClick={() => mutate((s) => { if (!enrollAcademyHero(s, h.id, stat)) toast.error("Cannot enroll this hero"); else toast.success(`${h.name} enrolled for ${stat}`); })} className="neon-btn rounded border border-green-400/30 px-2 py-1 font-mono-g text-[10px] disabled:opacity-40"><Brain size={11} className="inline mr-1" />{stat} · {academyTrainingHours(state,h,stat).toFixed(1)}h</button>)}</div>}
+              </div>;
+            })}
+          </div>}
+        </div>
+
+
         <div>
           <SectionTitle color="cyan">Active Squad</SectionTitle>
           <div className="grid gap-2.5 mt-2" data-testid="roster-squad">
