@@ -350,16 +350,16 @@ export function repairTower(state, slot) {
 export function guildRepairDefenses(state) {
   const guild = state.buildings?.guild;
   if (!guild || guild.unlocked === false || guild.hp <= 0) return false;
-  let foodCost = 0;
+  let goldCost = 0;
+  let stoneCost = 0;
   const towerRepairs = [];
-  for (let i = 0; i < (state.towers || []).length; i++) {
-    const tower = state.towers[i];
+  for (const tower of state.towers || []) {
     if (!tower) continue;
     const maxHp = towerDerived(tower).maxHp;
     const missing = Math.max(0, maxHp - (Number(tower.hp) || 0));
     if (missing > 0) {
-      const cost = C.repairFoodCost(missing);
-      foodCost += cost;
+      goldCost += Math.ceil(missing * 0.2);
+      stoneCost += Math.ceil(missing * 0.1);
       towerRepairs.push({ tower, maxHp });
     }
   }
@@ -368,18 +368,19 @@ export function guildRepairDefenses(state) {
     if (!barricade || !(barricade.maxHp > 0)) continue;
     const missing = Math.max(0, barricade.maxHp - (Number(barricade.hp) || 0));
     if (missing > 0) {
-      const cost = Math.ceil(missing / 10 * C.BARRICADE.repairFoodPer10Hp);
-      foodCost += cost;
+      goldCost += Math.ceil(missing * 0.2);
+      stoneCost += Math.ceil(missing * 0.1);
       barricadeRepairs.push({ barricade });
     }
   }
   if (!towerRepairs.length && !barricadeRepairs.length) return false;
-  if ((Number(state.food) || 0) < foodCost) return false;
-  state.food -= foodCost;
+  if ((Number(state.gold) || 0) < goldCost || (Number(state.stone) || 0) < stoneCost) return false;
+  state.gold -= goldCost;
+  state.stone -= stoneCost;
   towerRepairs.forEach(({ tower, maxHp }) => { tower.hp = maxHp; });
   barricadeRepairs.forEach(({ barricade }) => { barricade.hp = barricade.maxHp; });
   guild.activity = `Defenses repaired · ${towerRepairs.length} towers / ${barricadeRepairs.length} barricades`;
-  return { foodCost, towers: towerRepairs.length, barricades: barricadeRepairs.length };
+  return { goldCost, stoneCost, towers: towerRepairs.length, barricades: barricadeRepairs.length };
 }
 
 export function guildManufactureAmmo(state, slot) {
