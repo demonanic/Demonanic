@@ -7,13 +7,13 @@ import PrepField from "@/components/PrepField";
 import CastleBuildings from "@/components/CastleBuildings";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
+import { Home as HomeIcon, Swords, Terminal, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
   castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
   buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
-  recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
+  swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
 
 export default function Preparation() {
@@ -26,7 +26,6 @@ export default function Preparation() {
   const cap = slotCap(state);
   const cp = castlePower(state);
   const rates = productionRates(state);
-  const owned = state.heroes.length + (state.bench?.length || 0);
 
   const act = (fn, okMsg, failMsg) => mutate((s) => { if (!fn(s)) { toast.error(failMsg || "Cannot afford / invalid"); } else if (okMsg) toast.success(okMsg); });
 
@@ -180,26 +179,6 @@ export default function Preparation() {
                     testid={"hero-slot-" + i}
                   />
                 ))}
-              </div>
-
-              <div className="glass-card rounded-xl p-3 mt-3" data-testid="recruit-panel">
-                <SectionTitle color="magenta">Recruit Hero</SectionTitle>
-                <p className="font-mono-g text-[10px] text-slate-400 mt-1 mb-2">Cost {C.recruitCost(owned)}g · fills an empty slot or goes to the bench.</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {C.HERO_ORDER.map((cls) => {
-                    const c = C.HERO_CLASSES[cls];
-                    return (
-                      <button key={cls} data-testid={`recruit-${cls}`} onClick={() => act((s) => recruitHero(s, cls), `${c.name} recruited`)}
-                        className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40" style={{ borderColor: c.color + "55" }}>
-                        <HeroMiniSprite cls={cls} color={c.color} size="sm" />
-                        <div className="text-left">
-                          <div className="font-mono-g text-xs font-bold" style={{ color: c.color }}>{c.name}</div>
-                          <div className="font-mono-g text-[9px] text-slate-400 flex items-center gap-1"><UserPlus size={9} />{C.recruitCost(owned)}g</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               {state.bench && state.bench.length > 0 && (
