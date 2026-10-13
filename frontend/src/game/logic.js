@@ -118,9 +118,9 @@ export function createNewState(squadClasses) {
   const barricades = Array.from({ length: C.BARRICADE.positions }, () => ({ hp: 0, maxHp: 0 }));
   const castleMaxHp = C.castleMaxHp(0);
   return {
-    gold: C.STARTING.gold, food: C.STARTING.food, stone: C.STARTING.stone,
+    gold: C.STARTING.gold, stone: C.STARTING.stone, metal: C.STARTING.metal,
     workers: C.STARTING.workers, workersGold: C.STARTING.workersGold,
-    workersStone: C.STARTING.workersStone, farmers: C.STARTING.farmers,
+    workersStone: C.STARTING.workersStone, mineGoldRatio: C.STARTING.mineGoldRatio,
     morale: C.MORALE.base,
     castleHp: castleMaxHp, castleMaxHp,
     wave: 1, highestWaveCleared: 0, freeLifeUsed: false,
@@ -192,10 +192,10 @@ export function slotCap(state) { return C.slotCapacity(castlePower(state)); }
 
 // ---- economy ----
 export function canAfford(state, cost) {
-  return (state.gold >= (cost.gold || 0)) && (state.stone >= (cost.stone || 0)) && (state.food >= (cost.food || 0));
+  return (state.gold >= (cost.gold || 0)) && (state.stone >= (cost.stone || 0)) && (state.metal >= (cost.metal || 0));
 }
 export function spend(state, cost) {
-  state.gold -= (cost.gold || 0); state.stone -= (cost.stone || 0); state.food -= (cost.food || 0);
+  state.gold -= (cost.gold || 0); state.stone -= (cost.stone || 0); state.metal -= (cost.metal || 0);
 }
 
 // continuous production: returns delta resources for dt seconds
@@ -241,9 +241,11 @@ export function produce(state, dtSeconds) {
   const moraleMul = C.moraleMultiplier(state.morale / 100);
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff * (dtSeconds / 60);
-  state.gold += C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine");
+  const mineOutput = C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine");
+  const goldRatio = Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5));
+  state.gold += mineOutput * goldRatio;
+  state.metal = (Number(state.metal) || 0) + mineOutput * (1 - goldRatio);
   state.stone += C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry");
-  state.food += C.workforceOutput(C.PRODUCTION.foodPerFarmerMin, state.farmers) * mul;
 }
 
 export function productionRates(state) {
@@ -251,19 +253,14 @@ export function productionRates(state) {
   const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
   const mul = moraleMul * castleEff;
   return {
-    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine"),
+    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine") * Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5)),
+    metal: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine") * (1 - Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5))),
     stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"),
-    food: C.workforceOutput(C.PRODUCTION.foodPerFarmerMin, state.farmers) * mul,
     moraleMul, castleEff,
   };
 }
 
 // ---- workforce ----
-export function buyFarmer(state) {
-  const cost = C.farmerCost(state.farmers);
-  if (state.gold < cost) return false;
-  state.gold -= cost; state.farmers += 1; return true;
-}
 export function buyWorker(state, allocateTo) {
   const cost = C.workerCost(state.workers);
   if (state.gold < cost) return false;
@@ -342,9 +339,9 @@ export function repairTower(state, slot) {
   const d = towerDerived(tw);
   const missing = d.maxHp - tw.hp;
   if (missing <= 0) return false;
-  const cost = C.repairFoodCost(missing);
-  if (state.food < cost) return false;
-  state.food -= cost; tw.hp = d.maxHp; return true;
+  const cost = C.repairStoneCost(missing);
+  if (state.stone < cost) return false;
+  state.stone -= cost; tw.hp = d.maxHp; return true;
 }
 // Guild services: pooled defensive repairs and manufactured ammunition.
 export function guildRepairDefenses(state) {
@@ -446,9 +443,9 @@ export function repairBarricade(state, pos) {
   const b = state.barricades[pos];
   const missing = b.maxHp - b.hp;
   if (missing <= 0) return false;
-  const cost = C.repairFoodCost(missing);
-  if (state.food < cost) return false;
-  state.food -= cost; b.hp = b.maxHp; return true;
+  const cost = C.repairStoneCost(missing);
+  if (state.stone < cost) return false;
+  state.stone -= cost; b.hp = b.maxHp; return true;
 }
 
 // ---- hero progression ----
@@ -581,9 +578,9 @@ export function hostTavernFeast(state) {
   const tavern = state.buildings?.tavern;
   if (!tavern || tavern.unlocked === false || tavern.hp <= 0) return false;
   const cost = C.TAVERN_FEAST;
-  if (state.morale >= 100 || state.gold < cost.gold || state.food < cost.food) return false;
+  if (state.morale >= 100 || state.gold < cost.gold || state.stone < cost.stone) return false;
   state.gold -= cost.gold;
-  state.food -= cost.food;
+  state.stone -= cost.stone;
   addMorale(state, cost.morale);
   tavern.activity = "Hosted a Feast";
   return true;
@@ -594,9 +591,9 @@ export function healHero(state, hero) {
   const maxHp = heroDerived(hero).maxHp;
   const missing = maxHp - hero.hp;
   if (missing <= 0) return false;
-  const cost = Math.ceil(missing / 10) * C.HERO_HEAL_FOOD_PER_10HP;
-  if (state.food < cost) return false;
-  state.food -= cost;
+  const cost = Math.ceil(missing / 10) * C.HERO_HEAL_GOLD_PER_10HP;
+  if (state.gold < cost) return false;
+  state.gold -= cost;
   hero.hp = maxHp;
   return true;
 }
@@ -619,9 +616,9 @@ export function recoverAllWounded(state) {
 export function repairCastle(state) {
   const missing = state.castleMaxHp - state.castleHp;
   if (missing <= 0) return false;
-  const cost = C.repairFoodCost(missing);
-  if (state.food < cost) return false;
-  state.food -= cost; state.castleHp = state.castleMaxHp; return true;
+  const cost = C.repairStoneCost(missing);
+  if (state.stone < cost) return false;
+  state.stone -= cost; state.castleHp = state.castleMaxHp; return true;
 }
 
 // ---- wave composition ----
@@ -744,8 +741,8 @@ export function makeSingleEnemy(state, typeKey) {
 // ---- wave results & failure ----
 export function freeLife(state) {
   state.gold = Math.floor(state.gold * C.FREE_LIFE.keepResourceFrac);
-  state.food = Math.floor(state.food * C.FREE_LIFE.keepResourceFrac);
   state.stone = Math.floor(state.stone * C.FREE_LIFE.keepResourceFrac);
+  state.metal = Math.floor((Number(state.metal) || 0) * C.FREE_LIFE.keepResourceFrac);
   for (const h of state.heroes) { const d = heroDerived(h); h.hp = d.maxHp; }
   for (const t of state.towers) if (t) {
     const d = towerDerived(t);
