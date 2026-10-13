@@ -7,9 +7,7 @@ Keep values in sync with frontend/src/game/config.js.
 # Section B — starting economy & workforce
 STARTING = {
     "gold": 500,
-    "food": 300,
     "stone": 150,
-    "farmers": 2,
     "workers": 2,
     "workers_gold": 1,
     "workers_stone": 1,
@@ -17,7 +15,6 @@ STARTING = {
 
 GOLD_WORKER_BASE = 8.0   # gold/min per worker
 STONE_WORKER_BASE = 3.0  # stone/min per worker
-FARMER_BASE = 10.0       # food/min per farmer
 
 # Section A — offline accrual cap
 OFFLINE_CAP_HOURS = 12
