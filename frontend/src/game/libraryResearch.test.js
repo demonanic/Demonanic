@@ -2,7 +2,7 @@ import { createNewState } from "./logic";
 import {
   SPELL_DATABASE, createSpellBlueprint, startSpellResearch, advanceLibraryResearch,
   librarySuccessChance, ensureMageSpellData, mageCanUseSpell, unlockMageSecondaryAffinity,
-  resolveLibraryCompletion,
+  resolveLibraryCompletion, ensureResearchMageBenched,
 } from "./libraryResearch";
 
 function libraryState() {
@@ -97,6 +97,7 @@ test("send to roster leaves active lineup unchanged", () => {
 test("legacy active research moves its assigned mage out of the squad during save normalization", () => {
   const state = libraryState();
   const mage = state.heroes[0];
+  state.bench.push({ id: "reserve-1", cls: "knight", name: "Reserve Knight", level: 2, hp: 100 });
   state.libraryResearch = { mageId: mage.id, blueprintId: "legacy-blueprint", remainingSeconds: 1800, durationSeconds: 3600 };
   const changed = ensureResearchMageBenched(state);
   expect(changed).toBe(true);
