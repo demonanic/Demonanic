@@ -15,7 +15,7 @@ const BUILDINGS = [
   { id: "academy", name: "Academy", icon: ShieldCheck, color: "#39FF14", desc: "Train heroes in permanent stat improvements.", workers: null },
   { id: "guild", name: "Guild", icon: Hammer, color: "#FF6600", desc: "Repair damaged defenses and manufacture ammunition for physical towers.", workers: null },
   { id: "library", name: "Library", icon: ChevronUp, color: "#A855F7", desc: "Spell and perk research unlocks later.", workers: null, locked: true },
-  { id: "vault", name: "Vault", icon: ShieldCheck, color: "#00F3FF", desc: "Protects deposited Gold when implemented.", workers: null, locked: true },
+  { id: "vault", name: "Vault", icon: ShieldCheck, color: "#00F3FF", desc: "Splits newly produced Gold between protected savings and the spendable Treasury.", workers: null },
 ];
 
 function initialBuilding(id) {
@@ -64,7 +64,7 @@ export default function CastleBuildings({ state, mutate }) {
     if (building.workers === "gold") {
       const next = Math.max(0, Math.min(s.workers || 0, (s.workersGold || 0) + delta));
       const actual = next - (s.workersGold || 0);
-      if (actual > 0 && (s.workersStone || 0) + (s.workersGold || 0) + actual > s.workers) return;
+      if (actual > 0 && (s.workersStone || 0) + (s.workersGold || 0) + (s.guildWorkers || 0) + actual > s.workers) return;
       s.workersGold = next;
       s.workersStone = Math.max(0, (s.workersStone || 0) - Math.max(0, next - (s.workers || 0)));
     } else if (building.workers === "stone") {
