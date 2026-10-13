@@ -54,7 +54,7 @@ export default function LibraryResearch({ state, mutate }) {
       {mages.length === 0 ? <p className="mt-3 rounded border border-rose-400/30 p-2 text-xs text-rose-200">A mage is required for spell discovery. Recruit or move a mage into your roster first.</p> : (
         <div className="mt-3 rounded border border-fuchsia-400/20 bg-black/25 p-2">
           <label className="font-mono-g text-[10px] text-fuchsia-100">RESEARCH MAGE
-            <select aria-label="Research mage" value={mage?.id || ""} onChange={(e) => setMageId(e.target.value)} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">
+            <select aria-label="Research mage" value={mage?.id || ""} onChange={(e) => { const next = mages.find((hero) => hero.id === e.target.value); setMageId(e.target.value); if (next && !mageAffinities(next).includes(element)) setElement(next.primaryAffinity); }} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">
               {mages.map((hero) => <option key={hero.id} value={hero.id}>{hero.name} · L{hero.level}{state.bench?.some((item) => item.id === hero.id) ? " · ROSTER" : " · SQUAD"}</option>)}
             </select>
           </label>
@@ -77,7 +77,7 @@ export default function LibraryResearch({ state, mutate }) {
         <div><Sparkles size={12} className="inline mr-1" />Chance uses the selected mage Intelligence and Library level.</div>
         <div>Elements: Fire · Ice · Poison · Electric · Mind</div><div>Effects: Area · Time · Intensity</div>
       </div>
-      <NeonButton color="magenta" className="w-full mt-2" disabled={!ready || !mage || !affinities.includes(element) || !!order || (state.gold || 0) < LIBRARY_RULES.discoveryGold || (state.stone || 0) < LIBRARY_RULES.discoveryStone} onClick={discover}><FlaskConical size={13} className="inline mr-1" /> {mode === "custom" ? "ROLL FOR CUSTOM BLUEPRINT" : "ROLL FOR RANDOM SPELL" } · 80G / 20S</NeonButton>
+      <NeonButton color="magenta" className="w-full mt-2" disabled={!ready || !mage || (mode === "custom" && !affinities.includes(element)) || !!order || (state.gold || 0) < LIBRARY_RULES.discoveryGold || (state.stone || 0) < LIBRARY_RULES.discoveryStone} onClick={discover}><FlaskConical size={13} className="inline mr-1" /> {mode === "custom" ? "ROLL FOR CUSTOM BLUEPRINT" : "ROLL FOR RANDOM SPELL" } · 80G / 20S</NeonButton>
 
       {order && <div className="mt-3 rounded border border-fuchsia-400/30 bg-black/30 p-2" data-testid="library-active-research">
         <div className="font-display font-bold text-sm text-fuchsia-100"><Clock3 size={13} className="inline mr-1" /> RESEARCH IN PROGRESS</div>
