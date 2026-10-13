@@ -94,7 +94,7 @@ export default function Battle() {
     const gainsTowers = { ...res.xpGains.towers };
     const preLevels = state.heroes.map((h) => h.level);
     mutate((s) => {
-      s.gold = sim.gold; s.food = sim.food; s.stone = sim.stone;
+      s.gold = sim.gold; s.metal = sim.metal; s.stone = sim.stone;
       s.morale = sim.morale; s.castleHp = sim.castleHp; s.kills = sim.kills;
       s.vault = sim.vault || s.vault || [];
       s.buildings = structuredClone(sim.buildings || s.buildings || {});
@@ -124,7 +124,7 @@ export default function Battle() {
       reason: finalReason,
       wave: waveNum.current, killed: res.killed,
       totalXp: Math.round(totalXp),
-      goldAfter: Math.round(sim.gold), foodAfter: Math.round(sim.food), stoneAfter: Math.round(sim.stone),
+      goldAfter: Math.round(sim.gold), metalAfter: Math.round(sim.metal || 0), stoneAfter: Math.round(sim.stone),
       morale: Math.round(sim.morale), castleHp: Math.round(sim.castleHp),
       gearDrops: Math.max(0, (sim.vault || []).length - (state.vault || []).length),
       leveledUp: state.heroes.filter((h, i) => C.heroLevelForXp((h.xp || 0) + (gainsHeroes[i] || 0)) > preLevels[i]).length,
