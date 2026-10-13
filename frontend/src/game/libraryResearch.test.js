@@ -6,7 +6,7 @@ import {
 } from "./libraryResearch";
 
 function libraryState() {
-  const state = createNewState(["mage", "knight", "archer", "rogue"]);
+  const state = createNewState(["mage", "knight", "archer", "rouge"]);
   state.buildings = { library: { level: 1, hp: 1000, maxHp: 1000, unlocked: true } };
   state.gold = 1000;
   state.stone = 500;
