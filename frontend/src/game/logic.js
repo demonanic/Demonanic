@@ -235,7 +235,25 @@ function buildingProductionMultiplier(state, id) {
   return damageEfficiency * levelMultiplier;
 }
 
+export function guildStorageCapacity(state) {
+  const level = Math.max(1, Number(state.buildings?.guild?.level) || 1);
+  return { metal: C.GUILD.baseMetalStorage + (level - 1) * C.GUILD.storagePerLevel, stone: C.GUILD.baseStoneStorage + (level - 1) * C.GUILD.storagePerLevel };
+}
+export function guildAmmoCapacity(state) {
+  const level = Math.max(1, Number(state.buildings?.guild?.level) || 1);
+  return C.GUILD.baseAmmoCache + (level - 1) * C.GUILD.ammoCachePerLevel;
+}
+export function goldAllocation(state) {
+  const vaultPercent = Math.max(0, Math.min(100, Number(state.goldVaultPercent) || 0));
+  return { vaultPercent, treasuryPercent: 100 - vaultPercent };
+}
+export function setGoldAllocation(state, percent) {
+  state.goldVaultPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  state.goldTreasuryPercent = 100 - state.goldVaultPercent;
+  return true;
+}
 export function produce(state, dtSeconds) {
+  if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
   recoverOverTime(state, dtSeconds);
   advanceAcademyTraining(state, dtSeconds);
   const moraleMul = C.moraleMultiplier(state.morale / 100);
@@ -243,21 +261,17 @@ export function produce(state, dtSeconds) {
   const mul = moraleMul * castleEff * (dtSeconds / 60);
   const mineOutput = C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine");
   const goldRatio = Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5));
-  state.gold += mineOutput * goldRatio;
-  state.metal = (Number(state.metal) || 0) + mineOutput * (1 - goldRatio);
-  state.stone += C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry");
-}
-
-export function productionRates(state) {
-  const moraleMul = C.moraleMultiplier(state.morale / 100);
-  const castleEff = C.castleEfficiency(state.castleHp / state.castleMaxHp);
-  const mul = moraleMul * castleEff;
-  return {
-    gold: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine") * Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5)),
-    metal: C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, state.workersGold) * mul * buildingProductionMultiplier(state, "mine") * (1 - Math.max(0, Math.min(1, Number.isFinite(Number(state.mineGoldRatio)) ? Number(state.mineGoldRatio) : 0.5))),
-    stone: C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"),
-    moraleMul, castleEff,
-  };
+  const goldProduced = mineOutput * goldRatio;
+  const allocation = goldAllocation(state);
+  state.gold += goldProduced * allocation.treasuryPercent / 100;
+  state.vaultGold = Math.max(0, Number(state.vaultGold) || 0) + goldProduced * allocation.vaultPercent / 100;
+  const cap = guildStorageCapacity(state);
+  const guild = state.buildings?.guild;
+  if (!guild || (guild.unlocked !== false && Number(guild.hp) > 0)) {
+    state.metal = Math.min(cap.metal, Math.max(0, Number(state.metal) || 0) + mineOutput * (1 - goldRatio));
+    state.stone = Math.min(cap.stone, Math.max(0, Number(state.stone) || 0) + C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"));
+  }
+  advanceGuildManufacturing(state, dtSeconds);
 }
 
 // ---- workforce ----
@@ -380,25 +394,59 @@ export function guildRepairDefenses(state) {
   return { goldCost, stoneCost, towers: towerRepairs.length, barricades: barricadeRepairs.length };
 }
 
-export function guildManufactureAmmo(state, slot) {
+export function guildManufacturingRate(state) {
   const guild = state.buildings?.guild;
+  const workers = Math.max(0, Number(state.guildWorkers) || 0);
+  if (!guild || guild.unlocked === false || guild.hp <= 0 || workers <= 0) return 0;
+  const level = Math.max(1, Number(guild.level) || 1);
+  const cp = Math.max(0, castlePower(state));
+  return C.GUILD.baseManufacturingPerMinute * (1 + (level - 1) * C.GUILD.guildLevelBonus) * (1 + Math.max(0, cp - 20) * C.GUILD.cpBonusPerPointAbove20) * workers;
+}
+export function startGuildManufacturing(state, ammoType, quantity) {
+  const guild = state.buildings?.guild;
+  const resource = C.TOWER_RESOURCE[ammoType];
+  const amount = Math.floor(Number(quantity));
+  if (!guild || guild.unlocked === false || guild.hp <= 0 || !resource || resource.kind !== "ammo" || amount <= 0 || amount > 5000 || (state.guildManufacturing && state.guildManufacturing.remaining > 0)) return false;
+  const cache = state.guildAmmoCache || (state.guildAmmoCache = {});
+  const cacheUsed = Object.values(cache).reduce((sum, n) => sum + Math.max(0, Number(n) || 0), 0);
+  if (cacheUsed + amount > guildAmmoCapacity(state)) return false;
+  const metalCost = Math.ceil(amount * C.GUILD.metalPerAmmo);
+  const stoneCost = Math.ceil(amount * C.GUILD.stonePerAmmo);
+  if ((Number(state.metal) || 0) < metalCost || (Number(state.stone) || 0) < stoneCost) return false;
+  state.metal -= metalCost; state.stone -= stoneCost;
+  state.guildManufacturing = { ammoType, total: amount, remaining: amount, elapsed: 0 };
+  guild.activity = `Manufacturing ${amount} ${resource.label}`;
+  const rate = guildManufacturingRate(state);
+  return { amount, metalCost, stoneCost, durationSeconds: rate > 0 ? Math.ceil(amount / (rate / 60)) : Infinity };
+}
+export function advanceGuildManufacturing(state, dtSeconds) {
+  const order = state.guildManufacturing;
+  if (!order || !(order.remaining > 0) || !Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
+  const rate = guildManufacturingRate(state) / 60;
+  if (rate <= 0) return;
+  order.remaining = Math.max(0, order.remaining - rate * dtSeconds);
+  order.elapsed = (Number(order.elapsed) || 0) + dtSeconds;
+  if (order.remaining <= 0.000001) {
+    const cache = state.guildAmmoCache || (state.guildAmmoCache = {});
+    cache[order.ammoType] = Math.max(0, Number(cache[order.ammoType]) || 0) + order.total;
+    const resource = C.TOWER_RESOURCE[order.ammoType];
+    if (state.buildings?.guild) state.buildings.guild.activity = `Completed ${order.total} ${resource?.label || "ammo"}`;
+    state.guildManufacturing = null;
+  }
+}
+export function guildManufactureAmmo(state, slot) {
   const tower = state.towers?.[slot];
-  if (!guild || guild.unlocked === false || guild.hp <= 0 || !tower) return false;
-  const resource = C.TOWER_RESOURCE[tower.type];
-  if (!resource || resource.kind !== "ammo") return false;
-  const derived = towerDerived(tower);
+  if (!tower || C.TOWER_RESOURCE[tower.type]?.kind !== "ammo") return false;
+  const maxAmmo = towerDerived(tower).maxAmmo;
   const current = Math.max(0, Number(tower.ammo) || 0);
-  const missing = Math.max(0, derived.maxAmmo - current);
-  if (missing <= 0) return false;
-  const batch = Math.min(missing, Math.max(1, Math.ceil(derived.maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, guild.level || 1) - 1) * 0.05)))));
-  const goldCost = Math.ceil(batch * resource.resupplyGold);
-  const stoneCost = Math.ceil(batch * resource.resupplyStone);
-  if ((Number(state.gold) || 0) < goldCost || (Number(state.stone) || 0) < stoneCost) return false;
-  state.gold -= goldCost;
-  state.stone -= stoneCost;
-  tower.ammo = Math.min(derived.maxAmmo, current + batch);
-  guild.activity = `Manufactured ${batch} ${resource.label} for ${tower.type}`;
-  return { amount: batch, goldCost, stoneCost };
+  const cache = state.guildAmmoCache || (state.guildAmmoCache = {});
+  const available = Math.max(0, Number(cache[tower.type]) || 0);
+  const amount = Math.min(Math.max(0, maxAmmo - current), available);
+  if (amount <= 0) return false;
+  tower.ammo = current + amount;
+  cache[tower.type] = available - amount;
+  if (state.buildings?.guild) state.buildings.guild.activity = `Refilled ${amount} ammunition`;
+  return { amount, remaining: cache[tower.type] };
 }
 
 export function resupplyTower(state, slot) {
@@ -409,11 +457,20 @@ export function resupplyTower(state, slot) {
   const max = r.kind === "ammo" ? d.maxAmmo : d.maxMana;
   const missing = Math.max(0, max - current);
   if (missing <= 0) return false;
+  if (r.kind === "ammo") {
+    const cache = state.guildAmmoCache || {};
+    const available = Math.max(0, Number(cache[tw.type]) || 0);
+    const amount = Math.min(missing, available);
+    if (amount <= 0) return false;
+    tw.ammo = current + amount;
+    cache[tw.type] = available - amount;
+    state.guildAmmoCache = cache;
+    return amount;
+  }
   const gold = Math.ceil(missing * r.resupplyGold);
   const stone = Math.ceil(missing * r.resupplyStone);
   if (state.gold < gold || state.stone < stone) return false;
-  state.gold -= gold; state.stone -= stone;
-  if (r.kind === "ammo") tw.ammo = max; else tw.mana = max;
+  state.gold -= gold; state.stone -= stone; tw.mana = max;
   return true;
 }
 // charged at wave start
