@@ -9,7 +9,10 @@ export default function LibraryResearch({ state, mutate }) {
   const [element, setElement] = useState("fire");
   const [effect, setEffect] = useState("intensity");
   const [hours, setHours] = useState(6);
-  const mages = [...(state.heroes || []), ...(state.bench || [])].filter((hero) => hero?.cls === "mage");
+  const order = state.libraryResearch;
+  // A researching mage is shown only in the active-research status, not as an available assignment.
+  const mages = [...(state.heroes || []), ...(state.bench || [])]
+    .filter((hero) => hero?.cls === "mage" && hero.id !== order?.mageId);
   const [mageId, setMageId] = useState(mages[0]?.id || "");
   const mage = mages.find((hero) => hero.id === mageId) || mages[0] || null;
   const affinities = mageAffinities(mage);
@@ -19,7 +22,6 @@ export default function LibraryResearch({ state, mutate }) {
   const spells = state.librarySpells || [];
   const occupiedSlots = mage ? (mage.spellbook || []).length + blueprints.filter((blueprint) => blueprint.mageId === mage.id).length : 0;
   const spellCapacity = mageSpellbookCapacity(mage);
-  const order = state.libraryResearch;
   const chance = librarySuccessChance(state, mage ? intelligence : 10);
   const ready = library.unlocked !== false && Number(library.hp) > 0;
   const researchProgress = order ? Math.max(0, Math.min(1, 1 - order.remainingSeconds / Math.max(1, order.durationSeconds))) : 0;
@@ -55,7 +57,7 @@ export default function LibraryResearch({ state, mutate }) {
         <div className="text-right"><div className="font-mono-g text-[9px] text-slate-400">SUCCESS CHANCE</div><div className="font-display font-bold text-xl text-fuchsia-200">{Math.round(chance)}%</div></div>
       </div>
       {!ready && <p className="mt-2 text-xs text-rose-300">Repair and unlock the Library to continue.</p>}
-      {mages.length === 0 ? <p className="mt-3 rounded border border-rose-400/30 p-2 text-xs text-rose-200">A mage is required for spell discovery. Recruit or move a mage into your roster first.</p> : (
+      {mages.length === 0 ? <p className="mt-3 rounded border border-rose-400/30 p-2 text-xs text-rose-200">{order ? "Your assigned mage is busy researching. Other mages can be assigned after the current research finishes." : "A mage is required for spell discovery. Recruit or move a mage into your roster first."}</p> : (
         <div className="mt-3 rounded border border-fuchsia-400/20 bg-black/25 p-2">
           <label className="font-mono-g text-[10px] text-fuchsia-100">RESEARCH MAGE
             <select aria-label="Research mage" value={mage?.id || ""} onChange={(e) => { const next = mages.find((hero) => hero.id === e.target.value); setMageId(e.target.value); if (next && !mageAffinities(next).includes(element)) setElement(next.primaryAffinity); }} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">
