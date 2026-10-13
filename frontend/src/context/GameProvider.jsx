@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
-import { createNewState, produce } from "@/game/logic";
+import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
 import { emptyEquipmentState } from "@/game/equipment";
 import { normalizePerks } from "@/game/perks";
 import { heroDerived } from "@/game/logic";
@@ -137,6 +137,10 @@ export function GameProvider({ children, user }) {
         delete data.state._offlineGains;
 
         const finalState = normalizeState(data.state);
+        // Backend offline accrual already handles resources. Advance only the
+        // saved Guild order here to avoid double-crediting resource production.
+        const offlineMinutes = Math.max(0, Math.min(720, Number(data._offlineGains?.minutes) || 0));
+        if (offlineMinutes > 0) advanceGuildManufacturing(finalState, offlineMinutes * 60);
         writeLocalBackup(finalState);
         setState(finalState);
         setScreen(finalState.needsSquad ? "squad" : "home");
