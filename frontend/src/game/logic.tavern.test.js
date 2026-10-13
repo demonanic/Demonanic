@@ -33,7 +33,7 @@ describe("Tavern morale service", () => {
   test("does not charge resources when morale is already full", () => {
     const state = stateWithTavern();
     state.morale = 100;
-    const before = { gold: state.gold, food: state.food };
+    const before = { gold: state.gold, stone: state.stone };
 
     expect(hostTavernFeast(state)).toBe(false);
     expect(state.gold).toBe(before.gold);
@@ -57,6 +57,6 @@ describe("Tavern morale service", () => {
 
     expect(hostTavernFeast(state)).toBe(false);
     expect(state.gold).toBe(before.gold);
-    expect(state.food).toBe(before.food);
+    expect(state.stone).toBe(before.stone);
   });
 });
