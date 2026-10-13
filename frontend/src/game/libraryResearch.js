@@ -51,15 +51,21 @@ function spellName(element, effect) {
 }
 
 export function createSpellBlueprint(state, { mode = "custom", element = "fire", effect = "intensity", roll = Math.random } = {}) {
-  if (!libraryReady(state) || !SPELL_ELEMENTS.includes(element) || !SPELL_EFFECTS.includes(effect)) return { ok: false, reason: "library" };
+  if (!libraryReady(state) || !SPELL_ELEMENTS.includes(element) || !SPELL_EFFECTS.includes(effect) || !["custom", "random"].includes(mode)) return { ok: false, reason: "library" };
   const costGold = LIBRARY_RULES.discoveryGold;
   const costStone = LIBRARY_RULES.discoveryStone;
   if ((Number(state.gold) || 0) < costGold || (Number(state.stone) || 0) < costStone) return { ok: false, reason: "resources" };
+  state.libraryBlueprints = Array.isArray(state.libraryBlueprints) ? state.libraryBlueprints : [];
+  state.librarySpells = Array.isArray(state.librarySpells) ? state.librarySpells : [];
+  // Check catalog availability before charging or rolling: an impossible attempt is free.
+  const catalog = mode === "random"
+    ? SPELL_DATABASE.filter((candidate) => !state.librarySpells.some((known) => known.id === candidate.id) && !state.libraryBlueprints.some((known) => known.catalogId === candidate.id))
+    : null;
+  if (mode === "random" && !catalog.length) return { ok: false, reason: "catalog" };
   state.gold -= costGold;
   state.stone -= costStone;
   const chance = librarySuccessChance(state);
   const success = roll() * 100 < chance;
-  state.libraryBlueprints = Array.isArray(state.libraryBlueprints) ? state.libraryBlueprints : [];
   if (!success) {
     state.libraryFailedDesigns = (Number(state.libraryFailedDesigns) || 0) + 1;
     state.buildings.library.activity = "Design failed";
@@ -67,13 +73,7 @@ export function createSpellBlueprint(state, { mode = "custom", element = "fire",
   }
   let spell;
   if (mode === "random") {
-    const catalog = SPELL_DATABASE.filter((candidate) => !(state.librarySpells || []).some((known) => known.id === candidate.id) && !state.libraryBlueprints.some((known) => known.catalogId === candidate.id));
-    if (!catalog.length) {
-      state.gold += costGold;
-      state.stone += costStone;
-      return { ok: false, reason: "catalog" };
-    }
-    spell = catalog[Math.floor(roll() * catalog.length)];
+    spell = catalog[Math.min(catalog.length - 1, Math.floor(Math.max(0, roll()) * catalog.length))];
   } else {
     const id = `custom_${Date.now().toString(36)}_${Math.floor(roll() * 0xffffff).toString(36)}`;
     spell = { id, name: spellName(element, effect), element, effect, basePower: 0.7, baseMana: 15, description: `Custom ${element} spell focused on ${effect}.` };
