@@ -1,5 +1,5 @@
 import { createNewState } from "./logic";
-import { createSpellBlueprint, startSpellResearch, advanceLibraryResearch, librarySuccessChance } from "./libraryResearch";
+import { SPELL_DATABASE, createSpellBlueprint, startSpellResearch, advanceLibraryResearch, librarySuccessChance } from "./libraryResearch";
 
 function libraryState() {
   const state = createNewState(["mage"]);
@@ -54,4 +54,28 @@ test("random discovery selects an entry from the catalog", () => {
   expect(result.ok).toBe(true);
   expect(result.blueprint.catalogId).toBe("ember_bolt");
   expect(result.blueprint.element).toBe("fire");
+});
+
+
+test("random discovery with an exhausted catalog costs nothing and does not roll", () => {
+  const state = libraryState();
+  state.librarySpells = SPELL_DATABASE.map((spell) => ({ ...spell }));
+  const roll = jest.fn(() => 0);
+  const goldBefore = state.gold;
+  const stoneBefore = state.stone;
+  const result = createSpellBlueprint(state, { mode: "random", roll });
+  expect(result).toEqual({ ok: false, reason: "catalog" });
+  expect(state.gold).toBe(goldBefore);
+  expect(state.stone).toBe(stoneBefore);
+  expect(roll).not.toHaveBeenCalled();
+});
+
+test("invalid discovery options are rejected without charging resources", () => {
+  const state = libraryState();
+  const goldBefore = state.gold;
+  const stoneBefore = state.stone;
+  const result = createSpellBlueprint(state, { mode: "random", element: "plasma", effect: "area" });
+  expect(result.ok).toBe(false);
+  expect(state.gold).toBe(goldBefore);
+  expect(state.stone).toBe(stoneBefore);
 });
