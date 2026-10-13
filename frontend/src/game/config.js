@@ -26,6 +26,8 @@ export const STARTING = {
 export const PRODUCTION = {
   goldPerWorkerMin: 8, stonePerWorkerMin: 3,
 };
+export const GUILD = { baseMetalStorage: 500, baseStoneStorage: 500, storagePerLevel: 250, baseAmmoCache: 300, ammoCachePerLevel: 150, baseManufacturingPerMinute: 2, guildLevelBonus: 0.25, cpBonusPerPointAbove20: 0.02, metalPerAmmo: 1, stonePerAmmo: 0.25 };
+
 
 export function workforceOutput(baseRate, n) {
   if (n <= 0) return 0;
