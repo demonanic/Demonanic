@@ -1,4 +1,5 @@
 import { createNewState, productionRates, canAfford, spend } from "./logic";
+import * as C from "./config";
 
 describe("Food-free resource economy", () => {
   test("Mine ratio assigns its full output to Gold or Metal as selected", () => {
@@ -29,7 +30,7 @@ describe("Food-free resource economy", () => {
     state.buildings = { mine: { level: 1, hp: 1000, maxHp: 1000 }, quarry: { level: 1, hp: 1000, maxHp: 1000 } };
     const rates = productionRates(state);
     expect(rates.gold).toBeCloseTo(rates.metal, 8);
-    expect(rates.gold + rates.metal).toBeCloseTo(10, 8);
+    expect(rates.gold + rates.metal).toBeCloseTo(C.PRODUCTION.goldPerWorkerMin * C.moraleMultiplier(state.morale / 100) * C.castleEfficiency(state.castleHp / state.castleMaxHp), 8);
   });
 
   test("resource affordability and spending only use Gold, Stone, and Metal", () => {
