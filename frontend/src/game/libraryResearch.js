@@ -209,8 +209,7 @@ export function resolveLibraryCompletion(state, choice) {
   const mageIndex = bench.findIndex((hero) => hero.id === notice.mageId);
   if (choice === "return" && mageIndex >= 0) {
     const [mage] = bench.splice(mageIndex, 1);
-    if ((state.heroes || []).length < 4) state.heroes.push(mage);
-    else if (state.heroes.length) {
+    if (state.heroes?.length) {
       let lowest = 0;
       for (let i = 1; i < state.heroes.length; i++) {
         if ((Number(state.heroes[i].level) || 1) < (Number(state.heroes[lowest].level) || 1)) lowest = i;
