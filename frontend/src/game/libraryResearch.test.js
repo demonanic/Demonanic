@@ -114,6 +114,21 @@ test("random discovery selects only spells compatible with the assigned mage", (
   expect(result.blueprint.element).toBe("fire");
 });
 
+test("spellbook capacity and custom-design Intelligence gates do not charge resources", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  const before = [state.gold, state.stone];
+  mage.spellbook = [{ id: "known-a" }, { id: "known-b" }];
+  expect(createSpellBlueprint(state, { mageId: mage.id, mode: "custom", element: "fire", effect: "intensity", roll: () => 0 }))
+    .toEqual({ ok: false, reason: "capacity", capacity: 2 });
+  mage.spellbook = [];
+  mage.level = 12;
+  mage.stats.intelligence = 13;
+  expect(createSpellBlueprint(state, { mageId: mage.id, mode: "custom", element: "fire", effect: "intensity", roll: () => 0 }))
+    .toEqual({ ok: false, reason: "intelligence", requiredIntelligence: 14 });
+  expect([state.gold, state.stone]).toEqual(before);
+});
+
 test("invalid mage or options are rejected without charging resources", () => {
   const state = libraryState();
   const before = [state.gold, state.stone];
