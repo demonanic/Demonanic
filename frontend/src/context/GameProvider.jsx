@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
 import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
-import { advanceLibraryResearch } from "@/game/libraryResearch";
+import { advanceLibraryResearch, ensureMageSpellData } from "@/game/libraryResearch";
 import { emptyEquipmentState } from "@/game/equipment";
 import { normalizePerks } from "@/game/perks";
 import { heroDerived } from "@/game/logic";
@@ -35,6 +35,7 @@ function normalizeState(s) {
   if (!Array.isArray(s.libraryBlueprints)) s.libraryBlueprints = [];
   if (!Array.isArray(s.librarySpells)) s.librarySpells = [];
   if (!s.libraryResearch || !(Number(s.libraryResearch.remainingSeconds) > 0)) s.libraryResearch = null;
+  if (!s.libraryCompletionNotice || typeof s.libraryCompletionNotice !== "object") s.libraryCompletionNotice = null;
 
   if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
   if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
@@ -72,7 +73,7 @@ function normalizeState(s) {
     s.heroes.forEach((h) => {
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
       if (h) {
-        h.perks = normalizePerks(h.cls, h.perks);
+        h.perks = normalizePerks(h.cls, h.perks);\n        ensureMageSpellData(h);
         if (!h.abilityCooldowns || typeof h.abilityCooldowns !== "object") h.abilityCooldowns = {};
         h.maxHp = heroDerived(h).maxHp;
         h.maxMana = Math.max(1, Number(h.maxMana) || (100 + (Number(h.stats?.intelligence) || 10) * 5));
@@ -80,6 +81,20 @@ function normalizeState(s) {
         if (h.hp > 0) h.hp = Math.min(h.hp, h.maxHp);
       }
     });
+  }
+  if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h) ensureMageSpellData(h); });
+  // Migrate older global Library orders to one stable mage without discarding progress.
+  if (s.libraryResearch) {
+    const blueprint = (s.libraryBlueprints || []).find((item) => item.id === s.libraryResearch.blueprintId);
+    const mage = [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage" && (h.id === s.libraryResearch.mageId || h.id === blueprint?.mageId)) ||
+      [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage");
+    if (mage) {
+      s.libraryResearch.mageId = mage.id;
+      if (blueprint) { blueprint.mageId = mage.id; blueprint.mageName = mage.name; }
+    } else {
+      // Do not lose an old research order if no mage exists in the saved roster.
+      s.libraryResearch.mageId = s.libraryResearch.mageId || null;
+    }
   }
   if (s.needsSquad === undefined) {
     s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
