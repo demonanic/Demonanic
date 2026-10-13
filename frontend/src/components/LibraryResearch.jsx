@@ -2,7 +2,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Brain, FlaskConical, BookOpen, Sparkles, Clock3 } from "lucide-react";
 import { NeonButton, StatBar } from "@/components/ui-kit";
-import * as C from "@/game/config";
 import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch } from "@/game/libraryResearch";
 
 export default function LibraryResearch({ state, mutate }) {
@@ -17,7 +16,6 @@ export default function LibraryResearch({ state, mutate }) {
   const chance = librarySuccessChance(state);
   const ready = library.unlocked !== false && Number(library.hp) > 0;
   const researchProgress = order ? Math.max(0, Math.min(1, 1 - order.remainingSeconds / Math.max(1, order.durationSeconds))) : 0;
-  const selectedBlueprint = blueprints[0];
 
   const discover = () => mutate((s) => {
     const result = createSpellBlueprint(s, { mode, element, effect });
