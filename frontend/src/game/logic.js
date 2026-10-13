@@ -2,7 +2,7 @@
 import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
 import { getPerk, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
-import { advanceLibraryResearch } from "./libraryResearch";
+import { advanceLibraryResearch, ensureMageSpellData } from "./libraryResearch";
 
 let _heroSeq = 0;
 export function createHero(classKey) {
@@ -10,7 +10,7 @@ export function createHero(classKey) {
   const stats = { ...C.BASE_STATS };
   for (const k in cls.mods) stats[k] += cls.mods[k];
   const maxHp = heroMaxHp(cls, 1, stats);
-  return {
+  const hero = {
     id: `${classKey}-${Date.now().toString(36)}-${_heroSeq++}`,
     key: classKey, name: cls.name, cls: classKey,
     level: 1, xp: 0, sp: 0, ap: 0,
@@ -20,6 +20,8 @@ export function createHero(classKey) {
     hp: maxHp, maxHp,
     maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
   };
+  ensureMageSpellData(hero);
+  return hero;
 }
 
 export function heroMaxHp(cls, level, stats) {
