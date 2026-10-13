@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
 import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
-import { advanceLibraryResearch, ensureMageSpellData } from "@/game/libraryResearch";
+import { advanceLibraryResearch, ensureMageSpellData, ensureResearchMageBenched } from "@/game/libraryResearch";
 import { emptyEquipmentState } from "@/game/equipment";
 import { normalizePerks } from "@/game/perks";
 import { heroDerived } from "@/game/logic";
@@ -98,6 +98,8 @@ function normalizeState(s) {
       // Do not lose an old research order if no mage exists in the saved roster.
       s.libraryResearch.mageId = s.libraryResearch.mageId || null;
     }
+    // Older saves may already have an active research order but still list its mage in the squad.
+    ensureResearchMageBenched(s);
   }
   if (s.needsSquad === undefined) {
     s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
