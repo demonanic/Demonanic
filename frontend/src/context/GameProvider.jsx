@@ -131,6 +131,7 @@ export function GameProvider({ children, user }) {
       const { data } = await gameApi.getState();
 
       if (data?.state) {
+        const reportedOfflineMinutes = Math.max(0, Math.min(720, Number(data.state._offlineGains?.minutes) || 0));
         if (data.state._offlineGains && data.state._offlineGains.minutes > 1) {
           setOfflineGains(data.state._offlineGains);
         }
@@ -139,8 +140,7 @@ export function GameProvider({ children, user }) {
         const finalState = normalizeState(data.state);
         // Backend offline accrual already handles resources. Advance only the
         // saved Guild order here to avoid double-crediting resource production.
-        const offlineMinutes = Math.max(0, Math.min(720, Number(data._offlineGains?.minutes) || 0));
-        if (offlineMinutes > 0) advanceGuildManufacturing(finalState, offlineMinutes * 60);
+        if (reportedOfflineMinutes > 0) advanceGuildManufacturing(finalState, reportedOfflineMinutes * 60);
         writeLocalBackup(finalState);
         setState(finalState);
         setScreen(finalState.needsSquad ? "squad" : "home");
