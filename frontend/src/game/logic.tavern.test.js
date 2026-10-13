@@ -13,11 +13,11 @@ function stateWithTavern() {
 describe("Tavern morale service", () => {
   test("feast spends resources and raises morale by the configured amount", () => {
     const state = stateWithTavern();
-    const before = { gold: state.gold, food: state.food };
+    const before = { gold: state.gold, stone: state.stone };
 
     expect(hostTavernFeast(state)).toBe(true);
     expect(state.gold).toBe(before.gold - TAVERN_FEAST.gold);
-    expect(state.food).toBe(before.food - TAVERN_FEAST.food);
+    expect(state.stone).toBe(before.stone - TAVERN_FEAST.stone);
     expect(state.morale).toBe(50 + TAVERN_FEAST.morale);
     expect(state.buildings.tavern.activity).toBe("Hosted a Feast");
   });
@@ -37,17 +37,17 @@ describe("Tavern morale service", () => {
 
     expect(hostTavernFeast(state)).toBe(false);
     expect(state.gold).toBe(before.gold);
-    expect(state.food).toBe(before.food);
+    expect(state.stone).toBe(before.stone);
   });
 
   test("rejects unaffordable feasts without charging either resource", () => {
     const state = stateWithTavern();
     state.gold = TAVERN_FEAST.gold - 1;
-    const beforeFood = state.food;
+    const beforeStone = state.stone;
 
     expect(hostTavernFeast(state)).toBe(false);
     expect(state.gold).toBe(TAVERN_FEAST.gold - 1);
-    expect(state.food).toBe(beforeFood);
+    expect(state.stone).toBe(beforeStone);
   });
 
   test("a destroyed or locked Tavern cannot host a feast", () => {
