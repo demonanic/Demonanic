@@ -63,6 +63,7 @@ function Shell() {
   return (
     <GameProvider user={user}>
       <GameRouter />
+      <LibraryCompletionNotice />
     </GameProvider>
   );
 }
