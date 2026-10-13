@@ -8,7 +8,7 @@ import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
 
 const BUILDINGS = [
-  { id: "mine", name: "Mine", icon: Coins, color: "#FFE600", desc: "Produces Gold from assigned Workers.", workers: "gold" },
+  { id: "mine", name: "Mine", icon: Coins, color: "#FFE600", desc: "Produces Gold and Metal from assigned Workers; choose the output ratio.", workers: "gold" },
   { id: "quarry", name: "Quarry", icon: Mountain, color: "#00F3FF", desc: "Produces Stone from assigned Workers.", workers: "stone" },
   { id: "tavern", name: "Tavern", icon: Users, color: "#FF007F", desc: "Hero recruitment and Morale services.", workers: null },
   { id: "shoppe", name: "Shoppe", icon: Coins, color: "#A855F7", desc: "Equipment and item transactions.", workers: null },
@@ -44,7 +44,7 @@ export default function CastleBuildings({ state, mutate }) {
   const status = condition(current.hp, current.maxHp);
   const workersAssigned = building.workers === "gold" ? (state.workersGold || 0) : building.workers === "stone" ? (state.workersStone || 0) : 0;
   const availableWorkers = Math.max(0, (state.workers || 0) - (state.workersGold || 0) - (state.workersStone || 0));
-  const baseRate = building.workers === "gold" ? rates.gold : building.workers === "stone" ? rates.stone : 0;
+  const baseRate = building.workers === "gold" ? rates.gold + rates.metal : building.workers === "stone" ? rates.stone : 0;
   const output = baseRate;
   const missingHp = Math.max(0, current.maxHp - current.hp);
   const repairGold = Math.ceil(missingHp * 0.2);
@@ -153,8 +153,8 @@ export default function CastleBuildings({ state, mutate }) {
               </div>
               <StatBar frac={(state.morale || 0) / 100} color="#FF007F" height={6} />
               <p className="font-mono-g text-[9px] text-slate-400 mt-2">Host a feast to lift morale. Higher morale improves the castle's resource production.</p>
-              <NeonButton color="magenta" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (state.morale || 0) >= 100 || state.gold < TAVERN_FEAST.gold || state.food < TAVERN_FEAST.food} onClick={() => mutate((s) => { hostTavernFeast(s); })}>
-                Host Feast ({TAVERN_FEAST.gold}g / {TAVERN_FEAST.food} food)
+              <NeonButton color="magenta" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (state.morale || 0) >= 100 || state.gold < TAVERN_FEAST.gold || state.stone < TAVERN_FEAST.stone} onClick={() => mutate((s) => { hostTavernFeast(s); })}>
+                Host Feast ({TAVERN_FEAST.gold}g / {TAVERN_FEAST.stone}s)
               </NeonButton>
             </div>
             <div className="mt-3 pt-3 border-t border-pink-400/20" data-testid="tavern-hero-recruitment">
@@ -286,6 +286,19 @@ export default function CastleBuildings({ state, mutate }) {
               <div className="rounded-lg bg-white/5 p-2"><div className="font-mono-g text-[9px] text-slate-500">ASSIGNED WORKERS</div><div className="font-display font-bold text-xl">{workersAssigned}</div></div>
               <div className="rounded-lg bg-white/5 p-2"><div className="font-mono-g text-[9px] text-slate-500">CURRENT OUTPUT</div><div className="font-display font-bold text-xl" style={{ color: building.color }}>{output.toFixed(1)} / min</div></div>
             </div>
+            {building.id === "mine" && <div className="mt-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-2" data-testid="mine-production-ratio">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono-g text-[10px] text-slate-300">MINE OUTPUT MIX</span>
+                <span className="font-mono-g text-[10px] text-yellow-200">{Math.round((state.mineGoldRatio ?? 0.5) * 100)}% Gold / {100 - Math.round((state.mineGoldRatio ?? 0.5) * 100)}% Metal</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1">
+                {[0, 0.25, 0.5, 0.75, 1].map((ratio) => <button key={ratio} type="button" aria-pressed={(state.mineGoldRatio ?? 0.5) === ratio} onClick={() => mutate((s) => { s.mineGoldRatio = ratio; })} className={`rounded border px-1 py-2 font-mono-g text-[9px] ${(state.mineGoldRatio ?? 0.5) === ratio ? "border-yellow-300 bg-yellow-300/20 text-yellow-100" : "border-white/10 text-slate-400"}`} data-testid={`mine-ratio-${Math.round(ratio * 100)}`}>{Math.round(ratio * 100)}%</button>)}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2 font-mono-g text-[10px]">
+                <div className="rounded bg-black/30 p-2">Gold <b className="text-yellow-200">+{rates.gold.toFixed(1)}/m</b></div>
+                <div className="rounded bg-black/30 p-2">Metal <b className="text-orange-300">+{rates.metal.toFixed(1)}/m</b></div>
+              </div>
+            </div>}
             <div className="flex items-center gap-2 mt-2">
               <NeonButton color="cyan" className="flex-1" disabled={workersAssigned <= 0} onClick={() => assign(-1)}>- Worker</NeonButton>
               <NeonButton color="green" className="flex-1" disabled={availableWorkers <= 0} onClick={() => assign(1)}>+ Worker</NeonButton>
