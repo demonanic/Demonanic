@@ -315,7 +315,7 @@ export function GameProvider({ children, user }) {
     }, 1000);
     const save = setInterval(() => saveNow(), 8000);
     return () => { clearInterval(id); clearInterval(save); };
-  }, [screen, !!state, saveNow, writeLocalBackup]);
+  }, [screen, hasState, saveNow, writeLocalBackup]);
 
   return (
     <GameCtx.Provider value={{
