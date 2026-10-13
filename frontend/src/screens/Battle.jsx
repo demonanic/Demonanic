@@ -21,6 +21,7 @@ export default function Battle() {
   const slowTimer = useRef();
   const endedRef = useRef(false);
   const waveNum = useRef(state?.wave || 1);
+  const battleHeroIds = useRef([]);
 
   const [phase, setPhase] = useState("scout");
   const [count, setCount] = useState(TIME.scoutCountdown);
@@ -31,12 +32,14 @@ export default function Battle() {
   const [debug, setDebug] = useState(false);
   const [selectedManualHero, setSelectedManualHero] = useState(null);
   const [tacticalOpen, setTacticalOpen] = useState(false);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [commandMode, setCommandMode] = useState("move");
   const [hudOpaque, setHudOpaque] = useState(false);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
     const sim = structuredClone(state);
+    battleHeroIds.current = (sim.heroes || []).map((hero) => hero.id);
     chargeUpkeep(sim);
     simRef.current = sim;
     waveNum.current = state.wave;
@@ -91,17 +94,23 @@ export default function Battle() {
     }
     const gainsHeroes = { ...res.xpGains.heroes };
     const gainsTowers = { ...res.xpGains.towers };
-    const preLevels = state.heroes.map((h) => h.level);
+    const preLevels = new Map((state.heroes || []).map((h) => [h.id, h.level]));
     mutate((s) => {
-      s.gold = sim.gold; s.food = sim.food; s.stone = sim.stone;
+      s.gold = sim.gold; s.metal = sim.metal; s.stone = sim.stone;
       s.morale = sim.morale; s.castleHp = sim.castleHp; s.kills = sim.kills;
       s.vault = sim.vault || s.vault || [];
+      s.buildings = structuredClone(sim.buildings || s.buildings || {});
       s.shoppe = sim.shoppe || s.shoppe;
-      s.heroes.forEach((h, i) => {
-        h.hp = sim.heroes[i].hp;
-        h.manual = !!sim.heroes[i].manual;
-        h.attackConfig = sim.heroes[i].attackConfig;
-      });
+      // The completion prompt may change the saved lineup during combat. Merge
+      // runtime results by stable hero ID so the current wave cannot corrupt swaps.
+      const simHeroesById = new Map((sim.heroes || []).map((hero) => [hero.id, hero]));
+      for (const h of [...(s.heroes || []), ...(s.bench || [])]) {
+        const runtime = simHeroesById.get(h.id);
+        if (!runtime) continue;
+        h.hp = runtime.hp;
+        h.manual = !!runtime.manual;
+        h.attackConfig = runtime.attackConfig;
+      }
       s.towers.forEach((t, i) => {
         if (!t || !sim.towers[i]) return;
         t.hp = sim.towers[i].hp;
@@ -110,7 +119,11 @@ export default function Battle() {
         t.maxAmmo = sim.towers[i].maxAmmo;
         t.maxMana = sim.towers[i].maxMana;
       });
-      for (const i in gainsHeroes) addHeroXp(s.heroes[i], gainsHeroes[i]);
+      for (const i in gainsHeroes) {
+        const heroId = battleHeroIds.current[Number(i)];
+        const hero = [...(s.heroes || []), ...(s.bench || [])].find((item) => item.id === heroId);
+        if (hero) addHeroXp(hero, gainsHeroes[i]);
+      }
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
       s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
       s.bests.totalKills = Math.max(s.bests.totalKills || 0, s.kills.total);
@@ -122,10 +135,13 @@ export default function Battle() {
       reason: finalReason,
       wave: waveNum.current, killed: res.killed,
       totalXp: Math.round(totalXp),
-      goldAfter: Math.round(sim.gold), foodAfter: Math.round(sim.food), stoneAfter: Math.round(sim.stone),
+      goldAfter: Math.round(sim.gold), metalAfter: Math.round(sim.metal || 0), stoneAfter: Math.round(sim.stone),
       morale: Math.round(sim.morale), castleHp: Math.round(sim.castleHp),
       gearDrops: Math.max(0, (sim.vault || []).length - (state.vault || []).length),
-      leveledUp: state.heroes.filter((h, i) => C.heroLevelForXp((h.xp || 0) + (gainsHeroes[i] || 0)) > preLevels[i]).length,
+      leveledUp: battleHeroIds.current.filter((id, i) => {
+        const hero = state.heroes.find((item) => item.id === id);
+        return hero && C.heroLevelForXp((hero.xp || 0) + (gainsHeroes[i] || 0)) > (preLevels.get(id) || hero.level);
+      }).length,
     });
     setScreen("results");
   };
@@ -180,12 +196,20 @@ export default function Battle() {
 
   const useAbility = (i, abilityId) => {
     if (phase !== "combat" || !engineRef.current) return;
-    if (engineRef.current.useHeroAbility(i, abilityId)) forceTick((t) => t + 1);
+    if (engineRef.current.useHeroAbility(i, abilityId)) {
+      setTacticalOpen(false);
+      forceTick((t) => t + 1);
+    }
   };
 
   const castSpell = (i, spellId) => {
     if (phase !== "combat" || !engineRef.current) return;
-    if (engineRef.current.castMageSpell(i, spellId)) forceTick((t) => t + 1);
+    if (engineRef.current.castMageSpell(i, spellId)) {
+      // Close the command overlay after a successful cast so the player can
+      // immediately see the spell animation and its impact on the battlefield.
+      setTacticalOpen(false);
+      forceTick((t) => t + 1);
+    }
   };
 
   const reviveHero = (i) => {
@@ -242,6 +266,15 @@ export default function Battle() {
     // Convert the phone's CSS pixels back into the engine's 420x760 logical space.
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    const buildingId = engineRef.current.getBuildingAt?.(x, y);
+    if (buildingId) {
+      setSelectedBuilding(buildingId);
+      setOpenHero(null);
+      setOpenTower(null);
+      return;
+    }
+    if (selectedBuilding) setSelectedBuilding(null);
 
     const heroIndex = selectedManualHero;
     if (heroIndex == null || !state.heroes[heroIndex] || state.heroes[heroIndex].hp <= 0) return;
@@ -309,6 +342,35 @@ export default function Battle() {
         </div>
       )}
 
+      {/* Compact castle-building condition overview; detailed controls stay in preparation. */}
+      {state.buildings && (
+        <div className="px-3 py-1 flex items-center gap-2 overflow-x-auto border-b border-white/5" data-testid="battle-building-conditions">
+          {[
+            ["mine", "MINE", "#FFE600"],
+            ["quarry", "QUARRY", "#00F3FF"],
+            ["tavern", "TAVERN", "#FF007F"],
+            ["shoppe", "SHOPPE", "#A855F7"],
+            ["academy", "ACADEMY", "#39FF14"],
+            ["guild", "GUILD", "#FF6600"],
+            ["library", "LIBRARY", "#A855F7"],
+            ["vault", "VAULT", "#00F3FF"],
+          ].map(([id, label, color]) => {
+            const b = state.buildings[id];
+            if (!b) return null;
+            const hp = Math.max(0, Number(b.hp) || 0);
+            const maxHp = Math.max(1, Number(b.maxHp) || 1);
+            const frac = hp / maxHp;
+            const statusColor = frac <= 0 ? "#FF0055" : frac < 0.25 ? "#FF0055" : frac < 0.5 ? "#FF6600" : frac < 0.75 ? "#FFE600" : "#39FF14";
+            return (
+              <div key={id} className="min-w-[62px] rounded border border-white/10 bg-black/35 px-1.5 py-1" title={`${label}: ${Math.round(hp)}/${maxHp} HP`}>
+                <div className="font-mono-g text-[7px] tracking-wide" style={{ color }}>{label}</div>
+                <div className="h-1 rounded bg-white/10 mt-1 overflow-hidden"><div className="h-full" style={{ width: `${Math.max(0, Math.min(100, frac * 100))}%`, background: statusColor }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* boss health bar */}
       {hud?.boss && (
         <div className="px-3 py-1.5 border-b border-rose-500/30 bg-rose-950/20" data-testid="boss-hud">
@@ -350,6 +412,33 @@ export default function Battle() {
             <div className="font-mono-g text-slate-400 text-xs mt-2">Wave {waveNum.current} incoming...</div>
           </div>
         )}
+
+        {selectedBuilding && (() => {
+          const b = sim?.buildings?.[selectedBuilding] || state.buildings?.[selectedBuilding];
+          if (!b) return null;
+          const names = { mine: "Mine", quarry: "Quarry", tavern: "Tavern", shoppe: "Shoppe", academy: "Academy", guild: "Guild", library: "Library", vault: "Vault" };
+          const colors = { mine: "#FFE600", quarry: "#00F3FF", tavern: "#FF007F", shoppe: "#A855F7", academy: "#39FF14", guild: "#FF6600", library: "#B66CFF", vault: "#00F3FF" };
+          const color = colors[selectedBuilding] || "#00F3FF";
+          const level = Math.max(1, b.level || 1);
+          const locked = b.unlocked === false;
+          return (
+            <div className="absolute z-30 top-2 left-2 right-2 max-w-[260px] rounded-xl border bg-[#090b12]/95 backdrop-blur-md p-3 shadow-xl" style={{ borderColor: color + "88" }} data-testid="battlefield-building-panel">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-display font-black text-sm" style={{ color }}>{names[selectedBuilding]?.toUpperCase()} · L{level}</div>
+                  <div className="font-mono-g text-[9px] text-slate-300 mt-1">{Math.round(b.hp || 0)} / {Math.round(b.maxHp || 1000)} HP · {b.activity || "Idle"}</div>
+                </div>
+                <button className="font-mono-g text-[10px] text-slate-300 px-2 py-1 border border-white/20 rounded" onClick={() => setSelectedBuilding(null)} data-testid="close-building-panel">CLOSE</button>
+              </div>
+              <div className="h-1.5 rounded bg-white/10 mt-2 overflow-hidden"><div className="h-full" style={{ width: Math.max(0, Math.min(100, (b.hp || 0) / Math.max(1, b.maxHp || 1000) * 100)) + "%", background: color }} /></div>
+              {locked ? (
+                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Locked building · defensive turret remains active</div>
+              ) : (
+                <div className="font-mono-g text-[9px] text-slate-400 mt-2">Manage repairs, upgrades, and turret ammunition in Preparation.</div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Floating tactical HUD: stays in one corner so the battlefield remains visible. */}
         {!tacticalOpen && (

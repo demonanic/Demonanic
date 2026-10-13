@@ -11,6 +11,7 @@ import Battle from "@/screens/Battle";
 import Results from "@/screens/Results";
 import Profile from "@/screens/Profile";
 import Armory from "@/screens/Armory";
+import LibraryCompletionNotice from "@/components/LibraryCompletionNotice";
 
 function Splash({ label = "SUMMONING..." }) {
   return (
@@ -62,6 +63,7 @@ function Shell() {
   return (
     <GameProvider user={user}>
       <GameRouter />
+      <LibraryCompletionNotice />
     </GameProvider>
   );
 }
@@ -72,7 +74,7 @@ export default function App() {
       <AuthProvider>
         <Shell />
       </AuthProvider>
-      <Toaster position="top-center" theme="dark" />
+      <Toaster position="bottom-center" theme="dark" richColors closeButton visibleToasts={1} expand={false} duration={3200} offset="18px" />
     </div>
   );
 }

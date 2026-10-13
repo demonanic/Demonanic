@@ -31,6 +31,12 @@ logging.basicConfig(level=logging.INFO)
 # ----------------------------- Offline accrual -----------------------------
 def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
     """Credit continuous production for elapsed offline time (12h cap)."""
+    # Safe legacy migration: convert Food to Metal at 10:1, then remove old fields.
+    if "metal" not in state:
+        state["metal"] = max(0, int(float(state.get("food", 0) or 0) / 10))
+    state.pop("food", None)
+    state.pop("farmers", None)
+    state["mineGoldRatio"] = max(0.0, min(1.0, float(state.get("mineGoldRatio", 0.5) or 0.0)))
     last_seen = state.get("lastSeen")
     if not last_seen:
         return state
@@ -48,7 +54,6 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
 
     workers_gold = int(state.get("workersGold", 0))
     workers_stone = int(state.get("workersStone", 0))
-    farmers = int(state.get("farmers", 0))
 
     # Rest/recovery loop: morale recovers while away, and wounded heroes
     # recover without automatically reviving defeated heroes.
@@ -81,18 +86,19 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
     c_eff = gc.castle_efficiency(castle_hp / castle_max)
     mult = m_mult * c_eff
 
-    gold_gain = gc.workforce_output(gc.GOLD_WORKER_BASE, workers_gold) * elapsed_min * mult
+    mine_gain = gc.workforce_output(gc.GOLD_WORKER_BASE, workers_gold) * elapsed_min * mult
+    gold_gain = mine_gain * state["mineGoldRatio"]
+    metal_gain = mine_gain * (1.0 - state["mineGoldRatio"])
     stone_gain = gc.workforce_output(gc.STONE_WORKER_BASE, workers_stone) * elapsed_min * mult
-    food_gain = gc.workforce_output(gc.FARMER_BASE, farmers) * elapsed_min * mult
 
     state["gold"] = float(state.get("gold", 0)) + gold_gain
+    state["metal"] = float(state.get("metal", 0)) + metal_gain
     state["stone"] = float(state.get("stone", 0)) + stone_gain
-    state["food"] = float(state.get("food", 0)) + food_gain
     state["_offlineGains"] = {
         "minutes": round(elapsed_min, 1),
         "gold": round(gold_gain, 1),
         "stone": round(stone_gain, 1),
-        "food": round(food_gain, 1),
+        "metal": round(metal_gain, 1),
         "moraleRecovered": round(morale_after - morale_before, 1),
         "heroHpRecovered": round(hero_recovery, 1),
     }
@@ -126,6 +132,12 @@ async def get_state(current=Depends(get_current_user)):
 @api_router.put("/game/state")
 async def save_state(body: SaveStateInput, current=Depends(get_current_user)):
     state = body.state
+    # Apply the resource migration on saves too, so Food cannot be written back by old clients.
+    if "metal" not in state:
+        state["metal"] = max(0, int(float(state.get("food", 0) or 0) / 10))
+    state.pop("food", None)
+    state.pop("farmers", None)
+    state["mineGoldRatio"] = max(0.0, min(1.0, float(state.get("mineGoldRatio", 0.5) or 0.0)))
     state["lastSeen"] = datetime.now(timezone.utc).isoformat()
     await db.game_states.update_one(
         {"user_id": current["id"]},

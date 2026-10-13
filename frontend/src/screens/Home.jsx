@@ -18,7 +18,7 @@ export default function Home() {
   useEffect(() => {
     if (offlineGains) {
       toast.success(`Offline production (${offlineGains.minutes}m capped 12h)`, {
-        description: `+${offlineGains.gold} gold · +${offlineGains.food} food · +${offlineGains.stone} stone`,
+        description: `+${offlineGains.gold} gold · +${offlineGains.stone} stone${offlineGains.metal ? ` · +${offlineGains.metal} metal` : ""}`,
       });
       setOfflineGains(null);
     }

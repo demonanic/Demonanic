@@ -87,8 +87,10 @@ class TestGameState:
         assert g.status_code == 200
         st = g.json()["state"]
         assert st["wave"] == 3
-        # gold/stone/food may have increased due to tiny elapsed time, but the wave field must persist
+        # Gold, Stone, and Metal may accrue slightly, but the wave field must persist
         assert st["gold"] >= 1234
+        assert "food" not in st
+        assert st["metal"] >= 7
         assert "lastSeen" in st
 
 

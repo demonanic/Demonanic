@@ -36,11 +36,38 @@ export function AuthProvider({ children }) {
 
       console.log("[Demonanic Auth] BOOT /me SUCCESS:", data);
 
+      if (data && typeof data === "object") {
+        localStorage.setItem("dm_user", JSON.stringify(data));
+      }
       setUser(data);
     } catch (e) {
       console.error("[Demonanic Auth] BOOT /me FAILED:", e);
 
-      localStorage.removeItem("dm_token");
+      const status = e?.response?.status;
+      if (status === 401 || status === 403) {
+        // Only discard credentials when the backend explicitly rejects them.
+        localStorage.removeItem("dm_token");
+        localStorage.removeItem("dm_user");
+        setUser(false);
+        return;
+      }
+
+      // A timeout/network/server failure is not proof that the session expired.
+      // Keep the token and use the last known user identity so GameProvider can
+      // attempt server loading and its per-user local backup recovery.
+      try {
+        const cachedUser = JSON.parse(localStorage.getItem("dm_user") || "null");
+        if (cachedUser && typeof cachedUser === "object" && cachedUser.id) {
+          console.warn("[Demonanic Auth] RESTORING CACHED USER AFTER TEMPORARY AUTH FAILURE");
+          setUser(cachedUser);
+          return;
+        }
+      } catch (cacheError) {
+        console.error("[Demonanic Auth] CACHED USER READ FAILED:", cacheError);
+      }
+
+      // Older installations may not have a cached user. Preserve the token,
+      // but ask the player to log in instead of silently registering a new profile.
       setUser(false);
     }
   }, []);
@@ -58,40 +85,23 @@ export function AuthProvider({ children }) {
     });
 
     try {
-      const { data } = await authApi.login(
-        username,
-        password
-      );
+      const { data } = await authApi.login(username, password);
 
-      console.log(
-        "[Demonanic Auth] LOGIN SUCCESS:",
-        data
-      );
+      console.log("[Demonanic Auth] LOGIN SUCCESS:", data);
 
       localStorage.setItem("dm_token", data.token);
-
-      console.log(
-        "[Demonanic Auth] TOKEN SAVED"
-      );
+      if (data.user && typeof data.user === "object") {
+        localStorage.setItem("dm_user", JSON.stringify(data.user));
+      }
+      console.log("[Demonanic Auth] TOKEN SAVED");
 
       setUser(data.user);
-
       return true;
     } catch (e) {
-      console.error(
-        "[Demonanic Auth] LOGIN FAILED:",
-        e
-      );
-
+      console.error("[Demonanic Auth] LOGIN FAILED:", e);
       const message = apiErr(e);
-
-      console.error(
-        "[Demonanic Auth] DISPLAY ERROR:",
-        message
-      );
-
+      console.error("[Demonanic Auth] DISPLAY ERROR:", message);
       setError(message);
-
       return false;
     }
   };
@@ -105,50 +115,32 @@ export function AuthProvider({ children }) {
     });
 
     try {
-      const { data } = await authApi.register(
-        username,
-        password
-      );
+      const { data } = await authApi.register(username, password);
 
-      console.log(
-        "[Demonanic Auth] REGISTER SUCCESS:",
-        data
-      );
+      console.log("[Demonanic Auth] REGISTER SUCCESS:", data);
 
       localStorage.setItem("dm_token", data.token);
-
+      if (data.user && typeof data.user === "object") {
+        localStorage.setItem("dm_user", JSON.stringify(data.user));
+      }
       setUser(data.user);
-
       return true;
     } catch (e) {
-      console.error(
-        "[Demonanic Auth] REGISTER FAILED:",
-        e
-      );
-
+      console.error("[Demonanic Auth] REGISTER FAILED:", e);
       setError(apiErr(e));
-
       return false;
     }
   };
 
   const logout = () => {
     console.log("[Demonanic Auth] LOGOUT");
-
     localStorage.removeItem("dm_token");
+    localStorage.removeItem("dm_user");
     setUser(false);
   };
 
   return (
-    <AuthCtx.Provider
-      value={{
-        user,
-        error,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthCtx.Provider value={{ user, error, login, register, logout }}>
       {children}
     </AuthCtx.Provider>
   );

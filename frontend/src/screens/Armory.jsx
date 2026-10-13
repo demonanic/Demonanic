@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
+import { ArrowLeft, Backpack, Coins, ShoppingBag, Trash2, Shield, Swords, Wind, Brain, Heart, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD } from "@/components/ui-kit";
 import * as C from "@/game/config";
@@ -18,6 +18,7 @@ import {
   destroyItem,
 } from "@/game/equipment";
 import { equipHeroItem, unequipHeroItem, heroDerived } from "@/game/logic";
+import { SPELL_ELEMENTS, MAGE_SECONDARY_AFFINITY_LEVEL, mageAffinities, mageCanUseSpell, spellIntelligenceRequirement, unlockMageSecondaryAffinity } from "@/game/libraryResearch";
 
 const STAT_ICONS = {
   attack: <Swords size={11} />,
@@ -36,7 +37,49 @@ function formatTime(ms) {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 }
 
-function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel }) {
+const COMPARISON_STATS = [
+  ["attack", "ATK"], ["defense", "DEF"], ["agility", "AGI"],
+  ["intelligence", "INT"], ["maxHP", "HP"], ["critChance", "CRIT%"], ["critDamage", "CRIT DMG"],
+];
+
+function itemPower(stats = {}) {
+  // Readable heuristic for quick comparison, not a replacement for class-specific combat simulation.
+  return (stats.attack || 0) * 1.5 + (stats.defense || 0) * 1.25
+    + (stats.agility || 0) + (stats.intelligence || 0)
+    + (stats.maxHP || 0) / 10 + (stats.critChance || 0) * 2
+    + (stats.critDamage || 0) * 0.5;
+}
+
+function ItemComparison({ item, equipped }) {
+  if (!equipped) {
+    return <div className="mt-2 flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-emerald-300">
+      <TrendingUp size={13} /><span className="font-mono-g text-[9px]">Fills empty slot</span>
+    </div>;
+  }
+  const keys = COMPARISON_STATS.filter(([key]) => (item.stats?.[key] || 0) !== (equipped.stats?.[key] || 0));
+  const delta = itemPower(item.stats) - itemPower(equipped.stats);
+  const positive = delta > 0.001;
+  const negative = delta < -0.001;
+  const Icon = positive ? TrendingUp : negative ? TrendingDown : Minus;
+  const tone = positive ? "text-emerald-300 border-emerald-400/30 bg-emerald-500/10" : negative ? "text-rose-300 border-rose-400/30 bg-rose-500/10" : "text-slate-300 border-white/15 bg-white/5";
+  return <div className={"mt-2 rounded-md border px-2 py-1.5 " + tone} data-testid="equipment-comparison">
+    <div className="flex items-center gap-1.5 font-mono-g text-[9px] font-bold">
+      <Icon size={13} />
+      {positive ? "LIKELY UPGRADE" : negative ? "LIKELY WEAKER" : "SIMILAR POWER"}
+    </div>
+    {keys.length > 0 && <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+      {keys.map(([key, label]) => {
+        const d = (item.stats?.[key] || 0) - (equipped.stats?.[key] || 0);
+        return <span key={key} className={"font-mono-g text-[8px] " + (d > 0 ? "text-emerald-200" : "text-rose-200")}>
+          {label} {d > 0 ? "+" : ""}{Number.isInteger(d) ? d : d.toFixed(1)}
+        </span>;
+      })}
+    </div>}
+    <div className="font-mono-g text-[7px] opacity-60 mt-1">Estimated from item stats · compare class and playstyle too</div>
+  </div>;
+}
+
+function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel, equipped }) {
   const rarity = EQUIPMENT_RARITIES[item.rarity] || EQUIPMENT_RARITIES.E1;
   return (
     <div className="glass-card rounded-xl p-3 border" style={{ borderColor: rarity.color + "55" }}>
@@ -55,6 +98,7 @@ function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel }
           </div>
         </div>
       </div>
+      <ItemComparison item={item} equipped={equipped} />
       <div className="flex gap-1.5 mt-2">
         {action && <NeonButton color="cyan" className="!px-2 !py-1 !text-[9px] flex-1" onClick={action}>{actionLabel}</NeonButton>}
         {secondaryAction && <NeonButton color="yellow" className="!px-2 !py-1 !text-[9px]" onClick={secondaryAction}>{secondaryLabel}</NeonButton>}
@@ -108,6 +152,7 @@ export default function Armory() {
   const { state, mutate, setScreen, saveNow } = useGame();
   const [tab, setTab] = useState("vault");
   const [heroIndex, setHeroIndex] = useState(0);
+  const [spellMageId, setSpellMageId] = useState("");
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -127,6 +172,9 @@ export default function Armory() {
   if (!state) return null;
 
   const heroes = state.heroes || [];
+  const allMages = [...heroes, ...(state.bench || [])].filter((item) => item?.cls === "mage");
+  const spellMage = allMages.find((item) => item.id === spellMageId) || allMages[0] || null;
+  const spellMageAffinities = mageAffinities(spellMage);
   const hero = heroes[heroIndex] || heroes[0];
   const d = hero ? heroDerived(hero) : null;
   const vault = state.vault || [];
@@ -164,6 +212,17 @@ export default function Armory() {
 
   const slotItems = vault;
 
+  // Compare against the slot the equip action will actually replace.
+  // Ring I items use Ring II when Ring I is occupied and Ring II is free.
+  const comparisonItemForHero = (item, targetHero = hero) => {
+    if (!targetHero || !item) return null;
+    let targetSlot = item.slot;
+    if (item.slot === "Ring1" && targetHero.equipment?.Ring1 && !targetHero.equipment?.Ring2) {
+      targetSlot = "Ring2";
+    }
+    return targetHero.equipment?.[targetSlot] || null;
+  };
+
   return (
     <div className="h-full w-full flex flex-col">
       <header className="p-3 flex items-center gap-2 border-b border-white/10 flex-wrap">
@@ -187,10 +246,48 @@ export default function Armory() {
           <button onClick={() => setTab("shoppe")} className={`flex-1 rounded-lg border p-2 font-mono-g text-[10px] ${tab === "shoppe" ? "border-yellow-400 bg-yellow-500/15 text-yellow-300" : "border-white/10 text-slate-500"}`} data-testid="armory-shoppe-tab">
             <ShoppingBag size={12} className="inline mr-1" /> SHOPPE ({shopItems.length})
           </button>
+          <button onClick={() => setTab("spells")} className={`flex-1 rounded-lg border p-2 font-mono-g text-[10px] ${tab === "spells" ? "border-fuchsia-400 bg-fuchsia-500/15 text-fuchsia-200" : "border-white/10 text-slate-500"}`} data-testid="armory-spells-tab">
+            <Brain size={12} className="inline mr-1" /> SPELLS
+          </button>
         </div>
       </div>
 
-      {tab === "vault" ? (
+      {tab === "spells" ? (
+        <div className="flex-1 overflow-y-auto thin-scroll p-3">
+          <div className="glass-card rounded-xl p-3 border border-fuchsia-400/25">
+            <SectionTitle color="magenta">Mage Spellbooks</SectionTitle>
+            <p className="font-mono-g text-[10px] text-slate-400 mt-1">Each mage owns their research. Equip up to 4 spells; affinity and Intelligence requirements apply in battle.</p>
+            {allMages.length === 0 ? <p className="mt-3 font-mono-g text-xs text-slate-500">No mages in your squad or roster.</p> : <>
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {allMages.map((item) => <button key={item.id} onClick={() => setSpellMageId(item.id)} className={`rounded border px-2 py-1.5 font-mono-g text-[9px] ${(spellMage?.id === item.id) ? "border-fuchsia-300 bg-fuchsia-500/15 text-fuchsia-200" : "border-white/10 text-slate-400"}`}>{item.name} L{item.level}</button>)}
+              </div>
+              {spellMage && <>
+                <div className="mt-3 rounded bg-black/30 p-2 font-mono-g text-[10px] text-slate-300">
+                  <div>PRIMARY: <span className="text-fuchsia-200">{spellMage.primaryAffinity?.toUpperCase()}</span>{spellMage.secondaryAffinity ? " · SECONDARY: " + spellMage.secondaryAffinity.toUpperCase() : ""}</div>
+                  <div>INTELLIGENCE: {spellMage.stats?.intelligence || 10} · EQUIPPED: {(spellMage.equippedSpells || []).length}/4</div>
+                </div>
+                {!spellMage.secondaryAffinity && (spellMage.level || 1) >= MAGE_SECONDARY_AFFINITY_LEVEL && <div className="mt-3">
+                  <div className="font-mono-g text-[9px] text-slate-400 mb-1">UNLOCK SECONDARY AFFINITY</div>
+                  <div className="grid grid-cols-3 gap-1">{SPELL_ELEMENTS.filter((element) => element !== spellMage.primaryAffinity).map((element) => <button key={element} onClick={() => mutate((s) => { const target = [...(s.heroes || []), ...(s.bench || [])].find((h) => h.id === spellMage.id); const result = unlockMageSecondaryAffinity(target, element); if (result.ok) toast.success(element.toUpperCase() + " affinity unlocked"); else toast.error("Cannot unlock affinity"); })} className="rounded border border-fuchsia-400/25 bg-fuchsia-500/5 p-1.5 font-mono-g text-[8px] text-fuchsia-200">{element.toUpperCase()}</button>)}</div>
+                </div>}
+                <div className="mt-3 font-display font-bold text-sm text-fuchsia-100">KNOWN SPELLS ({spellMage.spellbook?.length || 0})</div>
+                {!spellMage.spellbook?.length ? <p className="mt-1 font-mono-g text-[10px] text-slate-500">No researched spells. Use the Library to discover one for this mage.</p> : spellMage.spellbook.map((spell) => {
+                  const equipped = (spellMage.equippedSpells || []).includes(spell.id);
+                  const compatible = mageCanUseSpell(spellMage, spell);
+                  const atCapacity = (spellMage.equippedSpells || []).length >= 4;
+                  return <div key={spell.id} className="mt-2 rounded border border-fuchsia-400/15 bg-black/25 p-2">
+                    <div className="font-display font-bold text-sm text-fuchsia-100">{spell.name}</div>
+                    <div className="font-mono-g text-[9px] text-slate-400 mt-1">{spell.element?.toUpperCase()} · {spell.effect?.toUpperCase()} · INT {spellIntelligenceRequirement(spell)} required · {spell.manaCost || spell.baseMana} mana</div>
+                    <p className="font-mono-g text-[9px] text-slate-500 mt-1">{spell.description}</p>
+                    {!compatible && <div className="font-mono-g text-[9px] text-rose-300 mt-1">Currently incompatible with this mage's affinity or Intelligence.</div>}
+                    <button disabled={!compatible || (!equipped && atCapacity)} onClick={() => mutate((s) => { const target = [...(s.heroes || []), ...(s.bench || [])].find((h) => h.id === spellMage.id); if (!target) return; target.equippedSpells = Array.isArray(target.equippedSpells) ? target.equippedSpells : []; if (target.equippedSpells.includes(spell.id)) target.equippedSpells = target.equippedSpells.filter((id) => id !== spell.id); else if (target.equippedSpells.length < 4) target.equippedSpells.push(spell.id); })} className="mt-2 w-full rounded border border-fuchsia-400/40 bg-fuchsia-500/10 px-2 py-2 font-mono-g text-[9px] text-fuchsia-100 disabled:opacity-40">{equipped ? "UNEQUIP SPELL" : atCapacity ? "LOADOUT FULL (4/4)" : "EQUIP SPELL"}</button>
+                  </div>;
+                })}
+              </>}
+            </>}
+          </div>
+        </div>
+      ) : tab === "vault" ? (
         <div className="flex-1 overflow-y-auto thin-scroll p-3">
           {hero && (
             <div className="glass-card rounded-xl p-3 mb-3 border border-fuchsia-400/20">
@@ -241,6 +338,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
+                  equipped={comparisonItemForHero(item)}
                   action={() => equip(item)}
                   actionLabel="EQUIP"
                   secondaryAction={() => sell(item)}
@@ -275,6 +373,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
+                  equipped={comparisonItemForHero(item)}
                   action={() => buy(index, item)}
                   actionLabel={`BUY ${item.buyPrice}g`}
                 />

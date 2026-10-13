@@ -4,10 +4,10 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, SectionTitle, TopResourceHUD, StatBar } from "@/components/ui-kit";
 import { HeroCard } from "@/components/cards";
 import { Input } from "@/components/ui/input";
-import { Home as HomeIcon, UserPlus, Trash2, Pencil, Check } from "lucide-react";
+import { Home as HomeIcon, Trash2, Pencil, Check } from "lucide-react";
 import * as C from "@/game/config";
 import {
-  heroDerived, allocateSp, buyPerk, recruitHero, swapHero, renameHero, retireHero,
+  heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero,
 } from "@/game/logic";
 
 export default function Roster() {
@@ -27,6 +27,7 @@ export default function Roster() {
     const cls = C.HERO_CLASSES[h.cls];
     const d = heroDerived(h);
     const key = `${list}-${idx}`;
+    const busyResearching = state.libraryResearch?.mageId === h.id;
     return (
       <div className="glass-card rounded-xl p-3" style={{ borderLeft: `3px solid ${cls.color}` }} data-testid={`roster-${list}-${idx}`}>
         <div className="flex items-center gap-3">
@@ -52,12 +53,32 @@ export default function Roster() {
         </div>
         {list === "bench" && (
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            <span className="font-mono-g text-[9px] text-slate-500">Swap into squad:</span>
-            {state.heroes.map((_, si) => (
-              <button key={si} onClick={() => act((s) => swapHero(s, idx, si), "Swapped")} data-testid={`roster-swap-${idx}-${si}`}
-                className="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-mono-g text-[10px]">S{si + 1}</button>
-            ))}
-            <NeonButton color="red" className="!px-2 !py-1 !text-[9px] ml-auto" onClick={() => act((s) => retireHero(s, idx), "Retired")} data-testid={`roster-retire-${idx}`}><Trash2 size={11} /></NeonButton>
+            {busyResearching ? (
+              <span className="rounded border border-fuchsia-400/40 bg-fuchsia-400/10 px-2 py-1 font-mono-g text-[10px] text-fuchsia-200" data-testid={`roster-busy-${idx}`}>BUSY RESEARCHING · unavailable until complete</span>
+            ) : (
+              <>
+                {state.heroes.length < 4 && (
+                  <NeonButton color="green" className="!px-2 !py-1 !text-[10px]" onClick={() => act((s) => {
+                    if (!s.bench?.[idx] || s.heroes.length >= 4 || s.libraryResearch?.mageId === s.bench[idx].id) return false;
+                    s.heroes.push(s.bench.splice(idx, 1)[0]);
+                    return true;
+                  }, "Added to squad", "No open squad slot available or hero is busy researching")} data-testid={`roster-add-${idx}`}>Add to Squad</NeonButton>
+                )}
+                {state.heroes.length > 0 && <span className="font-mono-g text-[9px] text-slate-500">Or replace a squad member:</span>}
+                {state.heroes.map((_, si) => (
+                  <button key={si} onClick={() => act((s) => {
+                    if (s.libraryResearch?.mageId === s.bench?.[idx]?.id) return false;
+                    return swapHero(s, idx, si);
+                  }, "Swapped", "This hero is busy researching")} data-testid={`roster-swap-${idx}-${si}`}
+                    aria-label={`Replace squad slot ${si + 1} with ${h.name}`}
+                    className="px-2 h-6 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-mono-g text-[10px]">Replace S{si + 1}</button>
+                ))}
+                <NeonButton color="red" className="!px-2 !py-1 !text-[9px] ml-auto" onClick={() => act((s) => {
+                  if (s.libraryResearch?.mageId === s.bench?.[idx]?.id) return false;
+                  return retireHero(s, idx);
+                }, "Retired", "A researching hero cannot be retired")} data-testid={`roster-retire-${idx}`}><Trash2 size={11} /></NeonButton>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -71,8 +92,7 @@ export default function Roster() {
         <TopResourceHUD state={state} compact />
       </header>
 
-      <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-4">
-        <div>
+      <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-4">\n        <div>
           <SectionTitle color="cyan">Active Squad</SectionTitle>
           <div className="grid gap-2.5 mt-2" data-testid="roster-squad">
             {state.heroes.map((h, i) => <Row key={h.id} h={h} list="squad" idx={i} />)}
@@ -88,25 +108,7 @@ export default function Roster() {
           </div>
         )}
 
-        <div className="glass-card rounded-xl p-3" data-testid="roster-recruit">
-          <SectionTitle color="magenta">Recruit New Hero</SectionTitle>
-          <p className="font-mono-g text-[10px] text-slate-400 mt-1 mb-2">Cost {C.recruitCost(owned)}g — always available (no Castle Power gate).</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {C.HERO_ORDER.map((cls) => {
-              const c = C.HERO_CLASSES[cls];
-              return (
-                <button key={cls} data-testid={`roster-recruit-${cls}`} onClick={() => act((s) => recruitHero(s, cls), `${c.name} recruited`)}
-                  className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40" style={{ borderColor: c.color + "55" }}>
-                  <div className="w-6 h-7 rounded" style={{ background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
-                  <div className="text-left">
-                    <div className="font-mono-g text-xs font-bold" style={{ color: c.color }}>{c.name}</div>
-                    <div className="font-mono-g text-[9px] text-slate-400 flex items-center gap-1"><UserPlus size={9} />{C.recruitCost(owned)}g</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+
       </div>
 
       {hero && (

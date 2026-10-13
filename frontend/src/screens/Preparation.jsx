@@ -4,15 +4,16 @@ import { useGame } from "@/context/GameProvider";
 import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "@/components/ui-kit";
 import { HeroCard, TowerCard } from "@/components/cards";
 import PrepField from "@/components/PrepField";
+import CastleBuildings from "@/components/CastleBuildings";
 import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Home as HomeIcon, Swords, Terminal, UserPlus, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
+import { Home as HomeIcon, Swords, Terminal, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
 import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
-  castlePower, slotCap, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
-  buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
-  recruitHero, swapHero, heroDerived, productionRates, healHero, reviveHero,
+  castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
+  buyBarricade, repairBarricade, buyWorker, allocateSp, buyPerk, repairCastle,
+  swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
 
 export default function Preparation() {
@@ -25,12 +26,21 @@ export default function Preparation() {
   const cap = slotCap(state);
   const cp = castlePower(state);
   const rates = productionRates(state);
-  const owned = state.heroes.length + (state.bench?.length || 0);
 
   const act = (fn, okMsg, failMsg) => mutate((s) => { if (!fn(s)) { toast.error(failMsg || "Cannot afford / invalid"); } else if (okMsg) toast.success(okMsg); });
 
   const handlers = {
-    build: (type, x, y) => act((s) => buildTower(s, type, x, y), `${C.TOWERS[type].name} placed`),
+    build: (type, x, y) => {
+      if (!C.TOWERS[type] || state.towers.length >= cap || !canAfford(state, C.TOWERS[type].construction)) {
+        toast.error("Tower placement failed — check resources and available slots");
+        return false;
+      }
+      mutate((s) => {
+        if (buildTower(s, type, x, y)) toast.success(`${C.TOWERS[type].name} placed`);
+        else toast.error("Tower placement failed — check resources and available slots");
+      });
+      return true;
+    },
     reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
     dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
     repairTower: (index) => act((s) => repairTower(s, index), "Repaired"),
@@ -46,7 +56,7 @@ export default function Preparation() {
   const heal = (list, idx) => act(
     (s) => healHero(s, list === "squad" ? s.heroes[idx] : s.bench[idx]),
     "Hero fully healed",
-    "Not enough Food or hero is not wounded"
+    "Not enough Gold or hero is not wounded"
   );
 
   const revive = (list, idx) => act(
@@ -61,10 +71,15 @@ export default function Preparation() {
       if (!data?.granted) throw new Error("Reward not granted");
       mutate((s) => {
         const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
-        if (!h || h.hp > 0) return;
-        h.hp = Math.max(1, Math.round(heroDerived(h).maxHp * 0.75));
+        if (!h || h.hp > 0) {
+          toast.error("Hero is no longer defeated");
+          return;
+        }
+        const maxHp = heroDerived(h).maxHp;
+        h.hp = Math.max(1, Math.round(maxHp * 0.75));
+        h.maxHp = maxHp;
+        toast.success("Reward granted — hero revived at 75% HP");
       });
-      toast.success("Reward granted — hero revived at 75% HP");
     } catch {
       toast.error("Revival reward unavailable");
     }
@@ -93,7 +108,7 @@ export default function Preparation() {
         <span>PROD ×<b className="text-cyan-300">{(rates.moraleMul * rates.castleEff).toFixed(2)}</b></span>
         {state.castleHp < state.castleMaxHp && (
           <NeonButton color="red" className="!py-1 !px-2 ml-auto" onClick={() => act(repairCastle, "Castle repaired")} data-testid="repair-castle">
-            Repair Castle ({C.repairFoodCost(state.castleMaxHp - state.castleHp)}f)
+            Repair Castle ({C.repairStoneCost(state.castleMaxHp - state.castleHp)}s)
           </NeonButton>
         )}
       </div>
@@ -128,7 +143,8 @@ export default function Preparation() {
           <Tabs defaultValue="heroes">
             <TabsList className="bg-black/40 border border-white/10 mb-3">
               <TabsTrigger value="heroes" data-testid="tab-heroes">Squad</TabsTrigger>
-              <TabsTrigger value="workforce" data-testid="tab-workforce">Workforce</TabsTrigger>
+              <TabsTrigger value="buildings" data-testid="tab-buildings">Buildings</TabsTrigger>
+              <TabsTrigger value="workforce" data-testid="tab-workforce">Legacy Workforce</TabsTrigger>
             </TabsList>
 
             {/* SQUAD + RECRUIT */}
@@ -144,7 +160,7 @@ export default function Preparation() {
                 <div className="mt-2 font-mono-g text-[11px] text-slate-300">
                   Morale <b className="text-green-400">{Math.round(state.morale)}/100</b>
                   <span className="text-slate-600 mx-2">·</span>
-                  Food <b className="text-yellow-300">{Math.floor(state.food)}</b>
+                  Gold <b className="text-yellow-300">{Math.floor(state.gold)}</b>
                   <span className="text-slate-600 mx-2">·</span>
                   Resting recovery is active
                 </div>
@@ -159,30 +175,10 @@ export default function Preparation() {
                     onHeal={() => heal("squad", i)}
                     onRevive={() => revive("squad", i)}
                     onAdRevive={() => adRevive("squad", i)}
-                    food={state.food}
+                    gold={state.gold}
                     testid={"hero-slot-" + i}
                   />
                 ))}
-              </div>
-
-              <div className="glass-card rounded-xl p-3 mt-3" data-testid="recruit-panel">
-                <SectionTitle color="magenta">Recruit Hero</SectionTitle>
-                <p className="font-mono-g text-[10px] text-slate-400 mt-1 mb-2">Cost {C.recruitCost(owned)}g · fills an empty slot or goes to the bench.</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {C.HERO_ORDER.map((cls) => {
-                    const c = C.HERO_CLASSES[cls];
-                    return (
-                      <button key={cls} data-testid={`recruit-${cls}`} onClick={() => act((s) => recruitHero(s, cls), `${c.name} recruited`)}
-                        className="neon-btn flex items-center gap-2 p-2 rounded-lg border bg-black/40" style={{ borderColor: c.color + "55" }}>
-                        <HeroMiniSprite cls={cls} color={c.color} size="sm" />
-                        <div className="text-left">
-                          <div className="font-mono-g text-xs font-bold" style={{ color: c.color }}>{c.name}</div>
-                          <div className="font-mono-g text-[9px] text-slate-400 flex items-center gap-1"><UserPlus size={9} />{C.recruitCost(owned)}g</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               {state.bench && state.bench.length > 0 && (
@@ -208,28 +204,15 @@ export default function Preparation() {
               )}
             </TabsContent>
 
-            {/* WORKFORCE */}
+            <TabsContent value="buildings">
+              <CastleBuildings state={state} mutate={mutate} />
+            </TabsContent>
+
+            {/* Worker assignments are managed from the Buildings tab. */}
             <TabsContent value="workforce">
-              <div className="grid gap-3">
-                <div className="glass-card rounded-xl p-3" data-testid="workforce-farmers">
-                  <SectionTitle color="yellow">Farmers → Food</SectionTitle>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-mono-g text-sm text-slate-300">{state.farmers} farmers · +{rates.food.toFixed(1)} food/m</span>
-                    <NeonButton color="yellow" onClick={() => act(buyFarmer, "Farmer hired")} data-testid="buy-farmer">Hire ({C.farmerCost(state.farmers)}g)</NeonButton>
-                  </div>
-                </div>
-                <div className="glass-card rounded-xl p-3" data-testid="workforce-workers">
-                  <SectionTitle color="cyan">Workers → Gold / Stone</SectionTitle>
-                  <div className="font-mono-g text-xs text-slate-400 mt-2">{state.workers} workers · {state.workersGold} gold ({rates.gold.toFixed(1)}/m) · {state.workersStone} stone ({rates.stone.toFixed(1)}/m)</div>
-                  <div className="flex gap-2 mt-2">
-                    <NeonButton color="yellow" className="flex-1" onClick={() => act((s) => buyWorker(s, "gold"), "Gold worker hired")} data-testid="buy-worker-gold">Hire → Gold ({C.workerCost(state.workers)}g)</NeonButton>
-                    <NeonButton color="cyan" className="flex-1" onClick={() => act((s) => buyWorker(s, "stone"), "Stone worker hired")} data-testid="buy-worker-stone">Hire → Stone ({C.workerCost(state.workers)}g)</NeonButton>
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <NeonButton color="cyan" className="flex-1 !text-[10px]" onClick={() => act((s) => { if (s.workersStone > 0) { s.workersStone--; s.workersGold++; return true; } return false; }, "Reallocated → Gold")} data-testid="realloc-gold">Move Stone→Gold</NeonButton>
-                    <NeonButton color="cyan" className="flex-1 !text-[10px]" onClick={() => act((s) => { if (s.workersGold > 0) { s.workersGold--; s.workersStone++; return true; } return false; }, "Reallocated → Stone")} data-testid="realloc-stone">Move Gold→Stone</NeonButton>
-                  </div>
-                </div>
+              <div className="glass-card rounded-xl p-3" data-testid="legacy-workforce-notice">
+                <SectionTitle color="yellow">Workforce Migration</SectionTitle>
+                <p className="font-mono-g text-xs text-slate-400 mt-2">Worker hiring and building assignments are now managed from the Buildings tab. Assign Mine workers between Gold and Metal, and assign Quarry workers to Stone from the Buildings tab.</p>
               </div>
             </TabsContent>
           </Tabs>
@@ -257,12 +240,12 @@ export default function Preparation() {
   );
 }
 
-function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
+function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, gold, testid }) {
   const d = heroDerived(h);
   const cls = C.HERO_CLASSES[h.cls];
   const wounded = h.hp > 0 && h.hp < d.maxHp;
   const defeated = h.hp <= 0;
-  const healCost = Math.ceil(Math.max(0, d.maxHp - h.hp) / 10) * C.HERO_HEAL_FOOD_PER_10HP;
+  const healCost = Math.ceil(Math.max(0, d.maxHp - h.hp) / 10) * C.HERO_HEAL_GOLD_PER_10HP;
 
   return (
     <div data-testid={testid}
@@ -285,8 +268,8 @@ function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
 
       <div className="flex flex-col gap-1 shrink-0">
         {wounded && (
-          <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" disabled={food < healCost} onClick={onHeal} data-testid={testid + "-heal"}>
-            <Heart size={10} className="mr-1" /> Heal {healCost}f
+          <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" disabled={gold < healCost} onClick={onHeal} data-testid={testid + "-heal"}>
+            <Heart size={10} className="mr-1" /> Heal {healCost}g
           </NeonButton>
         )}
         {defeated && (

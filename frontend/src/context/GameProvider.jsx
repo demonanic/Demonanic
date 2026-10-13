@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
-import { createNewState, produce } from "@/game/logic";
+import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
+import { advanceLibraryResearch, ensureMageSpellData, ensureResearchMageBenched } from "@/game/libraryResearch";
 import { emptyEquipmentState } from "@/game/equipment";
 import { normalizePerks } from "@/game/perks";
 import { heroDerived } from "@/game/logic";
@@ -12,16 +13,93 @@ export const useGame = () => useContext(GameCtx);
 function normalizeState(s) {
   if (!s || typeof s !== "object") return s;
   if (!s.bench) s.bench = [];
+  // One-time economy migration: convert legacy Food to Metal at 10:1, then remove Food.
+  if (!Number.isFinite(Number(s.metal))) s.metal = Math.floor(Math.max(0, Number(s.food) || 0) / 10);
+  delete s.food;
+  delete s.farmers;
+  s.mineGoldRatio = Math.max(0, Math.min(1, Number.isFinite(Number(s.mineGoldRatio)) ? Number(s.mineGoldRatio) : 0.5));
+  s.goldVaultPercent = Math.max(0, Math.min(100, Number(s.goldVaultPercent) || 0));
+  s.goldTreasuryPercent = 100 - s.goldVaultPercent;
+  s.vaultGold = Math.max(0, Number(s.vaultGold) || 0);
+  s.guildWorkers = Math.max(0, Math.floor(Number(s.guildWorkers) || 0));
+  if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
+  if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
+
+  s.goldVaultPercent = Math.max(0, Math.min(100, Number(s.goldVaultPercent) || 0));
+  s.goldTreasuryPercent = 100 - s.goldVaultPercent;
+  s.vaultGold = Math.max(0, Number(s.vaultGold) || 0);
+  s.guildWorkers = Math.max(0, Math.floor(Number(s.guildWorkers) || 0));
+  if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
+  if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
+
+  if (!Array.isArray(s.libraryBlueprints)) s.libraryBlueprints = [];
+  if (!Array.isArray(s.librarySpells)) s.librarySpells = [];
+  if (!s.libraryResearch || !(Number(s.libraryResearch.remainingSeconds) > 0)) s.libraryResearch = null;
+  if (!s.libraryCompletionNotice || typeof s.libraryCompletionNotice !== "object") s.libraryCompletionNotice = null;
+
+  if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
+  if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
+  // Discard legacy enrollments that point at active/bench heroes. Only heroes
+  // explicitly moved into academyHeroes may occupy a training seat.
+  const academyIds = new Set(s.academyHeroes.map((h) => h?.id).filter(Boolean));
+  s.academyTraining = s.academyTraining.filter((t) => t && (academyIds.has(t.heroId) || (t.paused && s.bench.some((h) => h?.id === t.heroId))));
+  // First-pass persistent castle-building state. Defaults preserve old profiles.
+  if (!s.buildings || typeof s.buildings !== "object") s.buildings = {};
+  const buildingDefaults = {
+    mine: { unlocked: true },
+    quarry: { unlocked: true },
+    tavern: { unlocked: true },
+    shoppe: { unlocked: true },
+    vault: { unlocked: true },
+    academy: { unlocked: true },
+    guild: { unlocked: true },
+    library: { unlocked: true },
+  };
+  Object.entries(buildingDefaults).forEach(([id, defaults]) => {
+    const prior = s.buildings[id] && typeof s.buildings[id] === "object" ? s.buildings[id] : {};
+    const maxHp = Math.max(1, Number(prior.maxHp) || 1000);
+    s.buildings[id] = {
+      ...prior,
+      level: Math.max(1, Number(prior.level) || 1),
+      maxHp,
+      hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
+      unlocked: (id === "academy" || id === "guild" || id === "vault" || id === "library") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
+      activity: prior.activity || "Idle",
+      ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
+      ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
+    };
+  });
   if (Array.isArray(s.heroes)) {
     s.heroes.forEach((h) => {
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
       if (h) {
         h.perks = normalizePerks(h.cls, h.perks);
+        ensureMageSpellData(h);
         if (!h.abilityCooldowns || typeof h.abilityCooldowns !== "object") h.abilityCooldowns = {};
         h.maxHp = heroDerived(h).maxHp;
+        h.maxMana = Math.max(1, Number(h.maxMana) || (100 + (Number(h.stats?.intelligence) || 10) * 5));
+        h.mana = Math.max(0, Math.min(h.maxMana, Number.isFinite(Number(h.mana)) ? Number(h.mana) : h.maxMana));
         if (h.hp > 0) h.hp = Math.min(h.hp, h.maxHp);
       }
     });
+  }
+  if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h) ensureMageSpellData(h); });
+  const firstMage = [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage");
+  if (firstMage) (s.libraryBlueprints || []).forEach((blueprint) => { if (blueprint && !blueprint.mageId) { blueprint.mageId = firstMage.id; blueprint.mageName = firstMage.name; } });
+  // Migrate older global Library orders to one stable mage without discarding progress.
+  if (s.libraryResearch) {
+    const blueprint = (s.libraryBlueprints || []).find((item) => item.id === s.libraryResearch.blueprintId);
+    const mage = [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage" && (h.id === s.libraryResearch.mageId || h.id === blueprint?.mageId)) ||
+      [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage");
+    if (mage) {
+      s.libraryResearch.mageId = mage.id;
+      if (blueprint) { blueprint.mageId = mage.id; blueprint.mageName = mage.name; }
+    } else {
+      // Do not lose an old research order if no mage exists in the saved roster.
+      s.libraryResearch.mageId = s.libraryResearch.mageId || null;
+    }
+    // Older saves may already have an active research order but still list its mage in the squad.
+    ensureResearchMageBenched(s);
   }
   if (s.needsSquad === undefined) {
     s.needsSquad = !(Array.isArray(s.heroes) && s.heroes.length > 0);
@@ -56,6 +134,7 @@ export function GameProvider({ children, user }) {
   const saveTimer = useRef(null);
 
   stateRef.current = state;
+  const hasState = Boolean(state);
 
   const backupKey = user?.id ? `dm_state_backup_${user.id}` : null;
 
@@ -78,12 +157,19 @@ export function GameProvider({ children, user }) {
       const { data } = await gameApi.getState();
 
       if (data?.state) {
+        const reportedOfflineMinutes = Math.max(0, Math.min(720, Number(data.state._offlineGains?.minutes) || 0));
         if (data.state._offlineGains && data.state._offlineGains.minutes > 1) {
           setOfflineGains(data.state._offlineGains);
         }
         delete data.state._offlineGains;
 
         const finalState = normalizeState(data.state);
+        // Backend offline accrual already handles resources. Advance only the
+        // saved Guild order here to avoid double-crediting resource production.
+        if (reportedOfflineMinutes > 0) {
+          advanceGuildManufacturing(finalState, reportedOfflineMinutes * 60);
+          advanceLibraryResearch(finalState, reportedOfflineMinutes * 60);
+        }
         writeLocalBackup(finalState);
         setState(finalState);
         setScreen(finalState.needsSquad ? "squad" : "home");
@@ -95,14 +181,35 @@ export function GameProvider({ children, user }) {
           towers: finalState.towers?.length || 0,
         });
       } else {
-        // A genuinely new account has no server state yet.
-        const finalState = createNewState();
-        normalizeState(finalState);
-        writeLocalBackup(finalState);
-        await gameApi.saveState(finalState);
-        setState(finalState);
-        setScreen("squad");
-        console.log("[Demonanic Game] NEW PROFILE CREATED");
+        // The API says this account has no server state. Before creating or
+        // saving a fresh profile, check whether this user has a local save.
+        // Never overwrite a recoverable local profile with a blank new game.
+        let localState = null;
+        if (backupKey) {
+          try {
+            const raw = localStorage.getItem(backupKey);
+            if (raw) localState = normalizeState(JSON.parse(raw));
+          } catch (backupError) {
+            console.error("[Demonanic Game] LOCAL BACKUP READ FAILED:", backupError);
+          }
+        }
+
+        if (localState) {
+          setState(localState);
+          setScreen(localState.needsSquad ? "squad" : "home");
+          console.warn("[Demonanic Game] SERVER PROFILE MISSING; RESTORED LOCAL SAVE WITHOUT OVERWRITING IT");
+          // Do not immediately PUT this save: the missing server profile needs
+          // investigation before a local copy is allowed to replace server data.
+        } else {
+          // No server profile and no per-user local backup: initialize a new account.
+          const finalState = createNewState();
+          normalizeState(finalState);
+          writeLocalBackup(finalState);
+          await gameApi.saveState(finalState);
+          setState(finalState);
+          setScreen("squad");
+          console.log("[Demonanic Game] NEW PROFILE CREATED");
+        }
       }
     } catch (e) {
       console.error("[Demonanic Game] LOAD FAILED:", e);
@@ -176,7 +283,7 @@ export function GameProvider({ children, user }) {
   }, [writeLocalBackup]);
 
   useEffect(() => {
-    if (!state || (screen !== "prep" && screen !== "home")) return;
+    if (!hasState || (screen !== "prep" && screen !== "home")) return;
 
     const id = setInterval(() => {
       setState((prev) => {
@@ -193,7 +300,24 @@ export function GameProvider({ children, user }) {
       clearInterval(id);
       clearInterval(save);
     };
-  }, [screen, !!state, saveNow, writeLocalBackup]);
+  }, [screen, hasState, saveNow, writeLocalBackup]);
+
+  // Research continues while a wave is active. Persist locally each tick and
+  // send the full state on the existing low-frequency save cadence.
+  useEffect(() => {
+    if (!hasState || screen !== "battle") return;
+    const id = setInterval(() => {
+      setState((prev) => {
+        if (!prev?.libraryResearch) return prev;
+        const clone = structuredClone(prev);
+        advanceLibraryResearch(clone, 1);
+        writeLocalBackup(clone);
+        return clone;
+      });
+    }, 1000);
+    const save = setInterval(() => saveNow(), 8000);
+    return () => { clearInterval(id); clearInterval(save); };
+  }, [screen, hasState, saveNow, writeLocalBackup]);
 
   return (
     <GameCtx.Provider value={{

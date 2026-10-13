@@ -89,6 +89,20 @@ export class Engine {
     // State may contain empty/null tower slots. The prep/economy layer
     // intentionally supports sparse tower arrays, so never dereference a
     // missing slot while constructing the battle runtime.
+    // Personal short-range turrets belong to buildings and scale only with building level.
+    this.buildingTurrets = this._kingdomSites().reduce((acc, site) => {
+      const ref = this.sim.buildings?.[site.id];
+      if (!ref) return acc;
+      const level = Math.max(1, Number(ref.level) || 1);
+      const maxAmmo = 18 + (level - 1) * 4;
+      ref.turretMaxAmmo = maxAmmo;
+      if (!Number.isFinite(Number(ref.turretAmmo))) ref.turretAmmo = maxAmmo;
+      ref.turretAmmo = Math.max(0, Math.min(maxAmmo, Number(ref.turretAmmo)));
+      acc.push({ id: site.id, x: site.x, y: site.y - 18, color: site.color,
+        ref, level, maxAmmo, damage: 7 + (level - 1) * 3, range: 68, fireRate: 1.35, cd: 0 });
+      return acc;
+    }, []);
+
     this.towers = (Array.isArray(sim.towers) ? sim.towers : []).reduce((acc, t, idx) => {
       if (!t || !C.TOWERS[t.type] || !C.TOWER_RESOURCE[t.type]) return acc;
       const d = towerDerived(t);
@@ -135,25 +149,56 @@ export class Engine {
     if (!h || h.ref.cls !== "mage") return [];
     const level = Math.max(1, Number(h.ref.level) || 1);
     const intelligence = Math.max(0, Number(h.d.intelligence) || 0);
-    return MAGE_SPELLS.map((spell) => {
-      const cost = Math.max(8, Math.round(spell.mana * (1 - Math.min(0.25, Math.max(0, level - 1) * 0.01))));
+    const equippedIds = Array.isArray(h.ref.equippedSpells) ? h.ref.equippedSpells : [];
+    const learned = (h.ref.spellbook || []).filter((spell) => equippedIds.includes(spell.id)).map((spell) => ({
+      ...spell, researched: true, short: String(spell.name || "SPELL").toUpperCase(),
+      color: ({ fire: "#FF6600", ice: "#00F3FF", poison: "#39FF14", electric: "#FFE600", mind: "#A855F7" })[spell.element] || "#E879F9",
+      mana: Number(spell.manaCost || spell.baseMana) || 15,
+      cooldown: 7, range: 340, power: Number(spell.strength || spell.basePower) || 0.8,
+    }));
+    const spells = learned.length ? learned : MAGE_SPELLS;
+    return spells.map((spell) => {
+      const cost = Math.max(8, Math.round((spell.mana || spell.manaCost || spell.baseMana || 15) * (1 - Math.min(0.25, Math.max(0, level - 1) * 0.01))));
       const cooldown = Math.max(0, h.spellCooldowns[spell.id] || 0);
       return { ...spell, cost, cooldown, mana: Math.round(h.mana), maxMana: h.maxMana,
-        level, damage: Math.round((h.d.attack || 0) * spell.power * (1 + Math.max(0, level - 1) * 0.06 + intelligence * 0.012)),
+        level, damage: Math.round((h.d.attack || 0) * (spell.power || spell.strength || spell.basePower || 1) * (1 + Math.max(0, level - 1) * 0.06 + intelligence * 0.012)),
         available: h.alive && cooldown <= 0 && h.mana >= cost };
     });
   }
 
   castMageSpell(index, spellId) {
     const h = this.heroes[index];
-    const spell = MAGE_SPELLS.find((item) => item.id === spellId);
+    const customSpell = (h?.ref?.equippedSpells || []).includes(spellId) ? (h.ref.spellbook || []).find((item) => item.id === spellId) : null;
+    const spell = customSpell ? { ...customSpell, researched: true, short: String(customSpell.name || "SPELL").toUpperCase(), color: ({ fire: "#FF6600", ice: "#00F3FF", poison: "#39FF14", electric: "#FFE600", mind: "#A855F7" })[customSpell.element] || "#E879F9", mana: Number(customSpell.manaCost || customSpell.baseMana) || 15, cooldown: 7, range: 340, power: Number(customSpell.strength || customSpell.basePower) || 0.8 } : MAGE_SPELLS.find((item) => item.id === spellId);
     if (!h || !h.alive || h.ref.cls !== "mage" || !spell) return false;
     const status = this.getHeroSpellStatus(index).find((item) => item.id === spellId);
     if (!status || !status.available) return false;
     const target = this._nearestEnemy(h.x, h.y, spell.range);
     if (spell.id !== "arcane_ward" && !target) return false;
     let used = false;
-    if (spell.id === "fireball") {
+    if (spell.researched) {
+      const elementType = ({ fire: C.DAMAGE_TYPES.FIRE, ice: C.DAMAGE_TYPES.FROST, electric: C.DAMAGE_TYPES.LIGHTNING, poison: C.DAMAGE_TYPES.POISON })[spell.element];
+      const victims = spell.effect === "area"
+        ? this.active.filter((enemy) => enemy.hp > 0 && target && Math.hypot(enemy.x - target.x, enemy.y - target.y) <= 95)
+        : [target];
+      for (const enemy of victims) {
+        const scale = spell.effect === "area" ? 0.72 : spell.effect === "time" ? 0.82 : 1;
+        const affinity = elementType ? C.affinityMultiplier(enemy, elementType) : 1;
+        const damage = Math.max(0, status.damage * scale * affinity);
+        if (damage > 0) {
+          enemy.hp = Math.max(0, enemy.hp - damage);
+          enemy.dmgBy["H" + h.i] = (enemy.dmgBy["H" + h.i] || 0) + damage;
+          if (spell.effect === "time") {
+            enemy.slowUntil = Math.max(enemy.slowUntil || 0, this.time + 2.5);
+            enemy.slowMultiplier = spell.element === "ice" ? 0.45 : 0.75;
+          }
+          this._float(enemy.x, enemy.y - 5, spell.name.toUpperCase() + " " + Math.round(damage), spell.color);
+          this.effects.push({ kind: "hit", x: enemy.x, y: enemy.y, r: spell.effect === "area" ? 20 : 14, life: 0.45, color: spell.color, crit: false });
+          if (enemy.hp <= 0) this._killEnemy(enemy, "H" + h.i);
+          used = true;
+        }
+      }
+    } else if (spell.id === "fireball") {
       const damage = status.damage * C.affinityMultiplier(target, C.DAMAGE_TYPES.FIRE);
       if (damage > 0) {
         target.hp = Math.max(0, target.hp - damage);
@@ -511,7 +556,8 @@ export class Engine {
     // spawn: release enemies gradually (group release proxy)
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.spawnQueue.length) {
-      const capInZone = this.wave.total * 0.65;
+      // Keep the battlefield readable: limit concurrent enemies to roughly half a wave.
+      const capInZone = Math.max(4, this.wave.total * 0.5);
       if (this.active.length < capInZone) {
         const e = this.spawnQueue.shift();
         e.x = laneX(pickLane(this, e)); e.y = 10 + Math.random() * 20;
@@ -519,7 +565,8 @@ export class Engine {
         e.dmgBy = {}; e.atkCd = 0; e.state = "advance";
         this.active.push(e);
       }
-      this.spawnTimer = this.wave.hasBoss && this.spawnQueue.length === 0 ? 0 : 0.55;
+      // Wider spacing prevents large clumps while preserving steady wave pressure.
+      this.spawnTimer = this.wave.hasBoss && this.spawnQueue.length === 0 ? 0 : 0.75;
     }
 
     // enemies
@@ -692,12 +739,43 @@ export class Engine {
     // Resolve body collisions after movement so living units cannot occupy the same space.
     this._resolveUnitCollisions();
 
+    // Building turrets fire only at enemies inside their short local range.
+    for (const turret of this.buildingTurrets || []) {
+      if (turret.ref.hp <= 0) continue;
+      turret.cd = Math.max(0, turret.cd - dt);
+      if (turret.ref.turretAmmo <= 0 || turret.cd > 0) continue;
+      const target = this.active
+        .filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - turret.x, enemy.y - turret.y) <= turret.range)
+        .sort((a, b) => Math.hypot(a.x - turret.x, a.y - turret.y) - Math.hypot(b.x - turret.x, b.y - turret.y))[0];
+      if (!target) continue;
+      turret.ref.turretAmmo = Math.max(0, turret.ref.turretAmmo - 1);
+      turret.cd = turret.fireRate;
+      this.projectiles.push({
+        sourceId: "B" + turret.id, x: turret.x, y: turret.y,
+        tx: target.x, ty: target.y, target, spd: 390,
+        dmg: turret.damage, magic: false, damageType: C.DAMAGE_TYPES.ARCHER_RANGED,
+        critChance: C.BASE_CRIT, critMult: C.CRIT_MULT, color: turret.color, t: 0,
+      });
+      this.effects.push({ x: turret.x, y: turret.y, r: 5, life: 0.16, color: turret.color, ring: true });
+    }
+
     // projectiles
     for (const p of this.projectiles) {
       p.t += dt;
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const dist = Math.hypot(dx, dy);
       const step = p.spd * dt;
+      if (p.kind === "enemyBolt") {
+        const obj = p.target?.obj;
+        const alive = p.targetKind === "hero"
+          ? !!obj?.alive && obj.ref?.hp > 0
+          : !!obj && obj.ref?.hp > 0;
+        if (dist <= step || !alive) {
+          if (alive) this._resolveEnemyBolt(p);
+          p.dead = true;
+        } else { p.x += (dx / dist) * step; p.y += (dy / dist) * step; }
+        continue;
+      }
       if (dist <= step || !p.target || p.target.hp <= 0) {
         if (p.kind === "napalm") {
           this._explodeNapalm(p.x, p.y, p);
@@ -794,20 +872,35 @@ export class Engine {
     if (tactical && (e.type === "reaper" || e.type === "orc" || e.type === "lieutenant" || e.type === "ghost" || e.type === "darkElf" || e.type === "warlock")) {
       const target = tactical.obj;
       const dist = Math.hypot(target.x - e.x, target.y - e.y) || 1;
-      const attackRange = e.type === "reaper" ? 34 : e.type === "darkElf" ? 38 : e.type === "warlock" ? 38 : 30;
-      if (dist <= attackRange) {
+      // Dark Elves are ranged tower hunters; Warlocks cast ranged bolts while
+      // retaining their separate Mage-Hunter drain ability above.
+      const ranged = e.type === "darkElf" || e.type === "warlock";
+      const attackRange = e.type === "darkElf" ? 245 : e.type === "warlock" ? 225 : e.type === "reaper" ? 34 : 30;
+      if (ranged && dist <= attackRange) {
         if (e.atkCd <= 0) {
-          this._enemyAttack(e, tactical);
-          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "darkElf" ? 0.8 : e.type === "orc" ? 1.15 : 0.9;
+          this._throwEnemyBolt(e, tactical, e.type === "darkElf" ? e.damage * 1.15 : e.damage, e.type === "darkElf" ? "#F43F5E" : "#C026D3", e.type === "warlock");
+          e.atkCd = e.type === "darkElf" ? 1.35 : 1.65;
         }
         return;
       }
-      // Reapers deliberately pursue wounded heroes; other tactical enemies
-      // only peel when their preferred target is reasonably close.
-      const peelRange = e.type === "reaper" ? 260 : e.type === "darkElf" ? 300 : e.type === "warlock" ? 300 : 150;
+      if (!ranged && dist <= attackRange) {
+        if (e.atkCd <= 0) {
+          this._enemyAttack(e, tactical);
+          e.atkCd = e.type === "reaper" ? 0.72 : e.type === "orc" ? 1.15 : 0.9;
+        }
+        return;
+      }
+      // Ranged enemies hold a firing lane; melee specialists peel toward
+      // nearby targets but resume advancing if the target escapes.
+      const peelRange = e.type === "reaper" ? 260 : ranged ? 300 : 150;
       if (dist <= peelRange) {
-        e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
-        e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
+        if (ranged && dist < attackRange * 0.55) {
+          e.x -= ((target.x - e.x) / dist) * moveSpeed * dt;
+          e.y -= ((target.y - e.y) / dist) * moveSpeed * dt;
+        } else {
+          e.x += ((target.x - e.x) / dist) * moveSpeed * dt;
+          e.y += ((target.y - e.y) / dist) * moveSpeed * dt;
+        }
         return;
       }
     }
@@ -835,6 +928,21 @@ export class Engine {
       }
       return;
     }
+    // Raiders can stop at and attack physical kingdom buildings near the castle line.
+    // They resume advancing once the target is destroyed.
+    const buildingTarget = this._nearestBuilding(e.x, e.y, 32);
+    if (buildingTarget && e.y >= H - 125) {
+      if (e.atkCd <= 0) {
+        const damage = Math.max(1, e.damage * (e.type === "orc" ? 1.45 : 1));
+        buildingTarget.ref.hp = Math.max(0, buildingTarget.ref.hp - damage);
+        buildingTarget.ref.activity = buildingTarget.ref.hp <= 0 ? "Destroyed" : "Under attack";
+        this._float(buildingTarget.x, buildingTarget.y - 22, "-" + Math.round(damage), "#FF0055");
+        this.effects.push({ kind: "hit", x: buildingTarget.x, y: buildingTarget.y, r: 18, life: 0.35, color: "#FF0055" });
+        e.atkCd = e.type === "orc" ? 0.9 : 1.15;
+      }
+      return;
+    }
+
     // advance downward
     e.y += moveSpeed * dt;
     if (e.y >= CASTLE_Y) {
@@ -966,6 +1074,64 @@ export class Engine {
       h.reactiveAlly = reason === "ally" ? victim : null;
       h.reactiveReason = reason;
     }
+  }
+
+  _throwEnemyBolt(e, target, damage, color, magic = false) {
+    const obj = target?.obj;
+    if (!obj) return;
+    this.projectiles.push({
+      kind: "enemyBolt",
+      sourceId: "E" + e.type,
+      x: e.x,
+      y: e.y,
+      tx: obj.x,
+      ty: obj.y,
+      target,
+      targetKind: target.kind,
+      spd: magic ? 300 : 390,
+      dmg: damage,
+      magic,
+      color,
+      t: 0,
+    });
+    this.effects.push({ kind: "charge", x: e.x, y: e.y, r: 12, life: 0.2, color });
+  }
+
+  _resolveEnemyBolt(p) {
+    const obj = p.target?.obj;
+    if (!obj) return;
+    if (p.targetKind === "hero") {
+      const h = obj;
+      if (!h.alive || h.ref?.hp <= 0) return;
+      if (Math.random() < (h.d?.dodge || 0)) {
+        this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
+        return;
+      }
+      let damage = C.damageAfterDefense(p.dmg, h.ref.stats.defense);
+      if (h.ref.shield > 0) {
+        const absorbed = Math.min(h.ref.shield, damage);
+        h.ref.shield -= absorbed;
+        damage -= absorbed;
+      }
+      h.ref.hp = Math.max(0, h.ref.hp - damage);
+      this._float(h.x, h.y - 20, "-" + Math.round(damage), p.color);
+      if (damage > 0) this._triggerHeroReaction(h, "ally");
+      if (h.ref.hp <= 0 && h.alive) {
+        h.alive = false;
+        this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
+      }
+    } else if (p.targetKind === "tower") {
+      const tower = obj;
+      if (tower.ref.hp <= 0) return;
+      const damage = p.dmg * 0.8;
+      tower.ref.hp = Math.max(0, tower.ref.hp - damage);
+      this._float(tower.x, tower.y - 20, "-" + Math.round(damage), p.color);
+      if (tower.ref.hp <= 0) {
+        this.sim.morale = clamp(this.sim.morale + C.MORALE.towerDestroyed);
+        this.effects.push({ x: tower.x, y: tower.y, r: 30, life: 0.4, color: tower.d.color });
+      }
+    }
+    this.effects.push({ kind: "impact", x: obj.x, y: obj.y, r: 9, life: 0.22, color: p.color });
   }
 
   _enemyAttack(e, blocker) {
@@ -1382,7 +1548,7 @@ export class Engine {
       castleEscaped: this.castleEscaped,
       castleEscapeLimit: Math.floor(this.wave.total / 2) + 1,
       castleHp: this.sim.castleHp, castleMaxHp: this.sim.castleMaxHp,
-      morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
+      morale: this.sim.morale, gold: this.sim.gold, metal: this.sim.metal, stone: this.sim.stone,
       heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
       heroAbilities: this.heroes.map((h) => this.getHeroAbilityStatus(h.i)),
       heroSpells: this.heroes.map((h) => this.getHeroSpellStatus(h.i)),
@@ -1452,6 +1618,41 @@ export class Engine {
     }
   }
 
+  // Return a building hit when the player taps one of the visible kingdom assets.
+  _kingdomSites() {
+    const ids = ["mine", "quarry", "academy", "guild", "tavern", "shoppe", "library", "vault"];
+    return ids.map((id, i) => ({
+      id,
+      x: W * ((i + 0.5) / ids.length),
+      y: H - 64,
+      color: ({ mine: "#FFE600", quarry: "#00F3FF", academy: "#39FF14", guild: "#FF6600", tavern: "#FF007F", shoppe: "#A855F7", library: "#B66CFF", vault: "#00F3FF" })[id],
+      label: id.toUpperCase(),
+      shape: id,
+    }));
+  }
+
+  getBuildingAt(x, y) {
+    for (const site of this._kingdomSites()) {
+      if (Math.abs(x - site.x) <= 24 && Math.abs(y - site.y) <= 26) return site.id;
+    }
+    return null;
+  }
+
+  _nearestBuilding(x, y, range = 34) {
+    let best = null;
+    let bestDistance = range;
+    for (const site of this._kingdomSites()) {
+      const building = this.sim.buildings?.[site.id];
+      if (!building || building.hp <= 0) continue;
+      const distance = Math.hypot(site.x - x, site.y - y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { kind: "building", id: site.id, x: site.x, y: site.y, ref: building, distance };
+      }
+    }
+    return best;
+  }
+
   // ---------------- rendering ----------------
   render() {
     const ctx = this.ctx;
@@ -1480,6 +1681,74 @@ export class Engine {
       const frac = b.ref.hp / b.ref.maxHp;
       this._hazardBar(x, WALL_Y - 7, w, 14, frac);
     });
+
+    // Physical kingdom buildings occupy the bottom defensive line, not a side menu.
+    for (const b of this._kingdomSites()) {
+      const saved = this.sim.buildings?.[b.id];
+      if (!saved) continue;
+      const unlocked = saved.unlocked !== false;
+      const hp = Math.max(0, Number(saved.hp) || 0);
+      const maxHp = Math.max(1, Number(saved.maxHp) || 1);
+      const level = Math.max(1, Number(saved.level) || 1);
+      const intact = hp > 0;
+      const color = intact ? b.color : "#FF0055";
+      const w = 34, h = 28, left = b.x - w / 2, top = b.y - h / 2;
+      ctx.save();
+      ctx.globalAlpha = unlocked ? (intact ? 1 : 0.48) : 0.22;
+      ctx.shadowBlur = unlocked && intact ? 12 : 0;
+      ctx.shadowColor = color;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = "#111827";
+      ctx.lineWidth = 1.8;
+      if (b.id === "mine") {
+        ctx.beginPath(); ctx.moveTo(left, top + h); ctx.lineTo(left + 5, top + 9); ctx.lineTo(b.x - 7, top + 2); ctx.lineTo(b.x + 7, top + 2); ctx.lineTo(left + w - 5, top + 9); ctx.lineTo(left + w, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(b.x - 4, top + 13, 8, 15);
+      } else if (b.id === "quarry") {
+        ctx.beginPath(); ctx.moveTo(left, top + h); ctx.lineTo(left + 5, top + 10); ctx.lineTo(left + 12, top + 15); ctx.lineTo(b.x, top + 1); ctx.lineTo(left + 24, top + 13); ctx.lineTo(left + w - 4, top + 7); ctx.lineTo(left + w, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (b.id === "vault") {
+        ctx.strokeRect(left + 2, top + 3, w - 4, h - 4); ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI * 2); ctx.moveTo(b.x - 6, b.y); ctx.lineTo(b.x + 6, b.y); ctx.moveTo(b.x, b.y - 6); ctx.lineTo(b.x, b.y + 6); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.moveTo(left + 1, top + h); ctx.lineTo(left + 1, top + 9); ctx.lineTo(b.x, top + 1); ctx.lineTo(left + w - 1, top + 9); ctx.lineTo(left + w - 1, top + h); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeRect(b.x - 4, top + 16, 8, 12);
+        if (b.id === "academy" || b.id === "library") {
+          ctx.beginPath(); ctx.moveTo(b.x - 10, top + 8); ctx.lineTo(b.x - 10, top + 1); ctx.lineTo(b.x - 3, top + 1); ctx.moveTo(b.x + 3, top + 1); ctx.lineTo(b.x + 10, top + 1); ctx.lineTo(b.x + 10, top + 8); ctx.stroke();
+        }
+      }
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.font = "bold 6px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(unlocked ? b.label : "LOCKED", b.x, top - 14);
+      ctx.font = "bold 6px monospace";
+      ctx.fillText("L" + level, b.x, top + h + 8);
+      ctx.fillStyle = "rgba(0,0,0,0.85)";
+      ctx.fillRect(b.x - 15, top + h + 11, 30, 3);
+      ctx.fillStyle = intact ? color : "#FF0055";
+      ctx.fillRect(b.x - 15, top + h + 11, 30 * Math.max(0, Math.min(1, hp / maxHp)), 3);
+      if (!intact) {
+        ctx.strokeStyle = "#FF0055"; ctx.beginPath(); ctx.moveTo(left + 5, top + 5); ctx.lineTo(left + w - 5, top + h - 3); ctx.moveTo(left + w - 5, top + 5); ctx.lineTo(left + 5, top + h - 3); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Tiny personal turrets are visibly mounted on each physical building.
+    for (const turret of this.buildingTurrets || []) {
+      const enabled = turret.ref.hp > 0;
+      ctx.save();
+      ctx.globalAlpha = enabled ? 1 : 0.25;
+      ctx.shadowBlur = enabled ? 7 : 0;
+      ctx.shadowColor = turret.color;
+      ctx.strokeStyle = turret.color;
+      ctx.fillStyle = "#080D16";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(turret.x, turret.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(turret.x, turret.y); ctx.lineTo(turret.x, turret.y - 7); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = turret.ref.turretAmmo > 0 ? "#FFE600" : "#FF0055";
+      ctx.fillRect(turret.x - 5, turret.y + 6, 10 * (turret.maxAmmo ? turret.ref.turretAmmo / turret.maxAmmo : 0), 2);
+      ctx.restore();
+    }
 
     // towers — compact top-down gameplay sprites, weapon direction points UP toward enemies.
     for (const t of this.towers) {

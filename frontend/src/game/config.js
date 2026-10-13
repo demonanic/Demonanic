@@ -20,12 +20,14 @@ export const RECOVERY = {
 
 // Section B — starting economy & workforce
 export const STARTING = {
-  gold: 500, food: 300, stone: 150,
-  farmers: 2, workers: 2, workersGold: 1, workersStone: 1,
+  gold: 500, stone: 150, metal: 100,
+  workers: 2, workersGold: 1, workersStone: 1, mineGoldRatio: 0.5,
 };
 export const PRODUCTION = {
-  goldPerWorkerMin: 8, stonePerWorkerMin: 3, foodPerFarmerMin: 10,
+  goldPerWorkerMin: 8, stonePerWorkerMin: 3,
 };
+export const GUILD = { baseMetalStorage: 500, baseStoneStorage: 500, storagePerLevel: 250, baseAmmoCache: 300, ammoCachePerLevel: 150, baseManufacturingPerMinute: 2, guildLevelBonus: 0.25, cpBonusPerPointAbove20: 0.02, metalPerAmmo: 1, stonePerAmmo: 0.25 };
+
 
 export function workforceOutput(baseRate, n) {
   if (n <= 0) return 0;
@@ -39,7 +41,6 @@ export function castleEfficiency(hpFrac) {
 }
 
 // Section C — workforce purchase curves
-export function farmerCost(owned) { return Math.ceil(50 * Math.pow(1.18, owned)); }
 export function workerCost(owned) { return Math.ceil(75 * Math.pow(1.20, owned)); }
 
 // Section E — combat damage affinities and towers
@@ -129,16 +130,16 @@ export function towerUpgradeCost(tower) {
 
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
-    construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
+    construction: { gold: 100, stone: 20 }, upkeep: { gold: 8, stone: 2 },
     role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 625, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#00F3FF" },
   catapult: { key: "catapult", name: "Catapult", icon: "axe",
-    construction: { gold: 150, stone: 35, food: 30 }, upkeep: { gold: 12, stone: 3 },
+    construction: { gold: 150, stone: 35 }, upkeep: { gold: 12, stone: 3 },
     role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 813, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
   wizard:   { key: "wizard",   name: "Wizard Tower", icon: "sun",
-    construction: { gold: 175, stone: 30, food: 35 }, upkeep: { gold: 14, stone: 3 },
+    construction: { gold: 175, stone: 30 }, upkeep: { gold: 14, stone: 3 },
     role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 719, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
   ballista: { key: "ballista", name: "Ballista / Tower 4", icon: "gear",
-    construction: { gold: 225, stone: 50, food: 40 }, upkeep: { gold: 18, stone: 5 },
+    construction: { gold: 225, stone: 50 }, upkeep: { gold: 18, stone: 5 },
     role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 875, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#FF0055" },
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
@@ -186,10 +187,10 @@ export const TOWER_UPGRADE_CHOICES = {
   ability: { key: "ability", label: "Ability Unlock", desc: "Unlock/boost tower ability." },
 };
 
-// Repair: 1 Food per 10 missing HP
-export const REPAIR_FOOD_PER_10HP = 1;
-export function repairFoodCost(missingHp) { return Math.ceil(missingHp / 10); }
-export const HERO_HEAL_FOOD_PER_10HP = 1;
+// Repairs use Stone; hero healing uses Gold.
+export const REPAIR_STONE_PER_10HP = 1;
+export function repairStoneCost(missingHp) { return Math.ceil(missingHp / 10); }
+export const HERO_HEAL_GOLD_PER_10HP = 1;
 
 // Section F — tower slot progression (CP thresholds)
 export const SLOT_THRESHOLDS = [0, 8, 15, 24, 36]; // slot 1..5
@@ -203,7 +204,7 @@ export function slotCapacity(cp) {
 export const BARRICADE = {
   positions: 5, goldToHp: 2, minGold: 25, maxGold: 500, maxHp: 1000,
   collisionDamage: 8,
-  repairFoodPer10Hp: 1,
+  repairStonePer10Hp: 1,
 };
 
 // Section H — hero progression
@@ -234,10 +235,11 @@ export const HERO_CLASSES = {
     perks: ["Eagle Eye (+range)", "Rapid Draw (+atk speed)", "Focus Fire (+dmg vs low HP)"] },
 };
 export const HERO_ORDER = ["knight", "rouge", "mage", "archer"];
-// OPEN: recruitment pricing placeholder. Exponential from the 4-hero baseline.
+// Recruitment should require saving beyond the starting treasury.
 export function recruitCost(ownedHeroes) {
   const over = Math.max(0, ownedHeroes - 3);
-  return Math.ceil(200 * Math.pow(1.6, over - 1));
+  // Subtract a tiny epsilon so floating-point noise doesn't round exact prices up.
+  return Math.ceil(550 * Math.pow(1.6, over - 1) - 1e-9);
 }
 export const BASE_STATS = { attack: 10, defense: 10, agility: 10, intelligence: 10 };
 export const ATTACK_CONFIGS = {
@@ -262,6 +264,9 @@ export const MORALE = {
   heroDefeat: -12, towerDestroyed: -8, surrender: -25,
   castleLossPerPct: -0.5,
 };
+// Tavern morale service. Costs keep morale recovery useful without allowing free spam.
+export const TAVERN_FEAST = { gold: 80, stone: 20, morale: 8 };
+
 export function healRateMultiplier(moraleFrac) {
   return Math.min(1.25, 0.5 + 0.75 * moraleFrac);
 }
@@ -278,9 +283,12 @@ export const ENEMY_TIERS = {
 };
 
 // Section M — wave scaling
-export function targetEnemyCount(wave, cp) { return Math.round(12 + 2.5 * wave + 0.75 * cp); }
-export function enemyHpScale(wave, cp) { return 1 + 0.05 * (wave - 1) + 0.02 * cp; }
-export function enemyDmgScale(wave, cp) { return 1 + 0.032 * (wave - 1) + 0.015 * cp; }
+// Reduce standard wave density by about 20% without removing boss milestones.
+export function targetEnemyCount(wave, cp) { return Math.max(5, Math.round((12 + 2.5 * wave + 0.75 * cp) * 0.8)); }
+// Global combat tuning: reduce enemy durability by 15% and damage by 25%.
+// Keep wave/kingdom scaling intact so later waves still become progressively harder.
+export function enemyHpScale(wave, cp) { return (1 + 0.05 * (wave - 1) + 0.02 * cp) * 0.85; }
+export function enemyDmgScale(wave, cp) { return (1 + 0.032 * (wave - 1) + 0.015 * cp) * 0.75; }
 
 // Early-game correction based on live Android playtesting:
 // W1/W2/W3 were reading as too difficult for a fresh squad. Keep the
@@ -294,10 +302,10 @@ export function earlyWaveCombatScale(wave) {
 }
 
 export function earlyWaveEnemyCount(wave, cp) {
-  if (wave === 1) return 10;
-  if (wave === 2) return 12;
-  if (wave === 3) return 14;
-  return Math.max(6, Math.round(12 + 2.5 * wave + 0.75 * cp));
+  if (wave === 1) return 8;
+  if (wave === 2) return 10;
+  if (wave === 3) return 11;
+  return Math.max(5, Math.round((12 + 2.5 * wave + 0.75 * cp) * 0.8));
 }
 
 export const GROUP_WEIGHTS = [0.25, 0.20, 0.20, 0.15, 0.20];
@@ -332,10 +340,14 @@ export const EARLY_WAVE_POOLS = {
 
 // Section O — surrender / revival
 export function surrenderTaxRate(wave) { return Math.min(0.25, 0.05 + 0.02 * Math.floor(wave / 5)); }
-export function paidRevivalCost(heroLevel) { return Math.min(2000, 100 * heroLevel); }
+// A minimum fee keeps low-level revival from being effectively disposable.
+export function paidRevivalCost(heroLevel) { return Math.min(2000, Math.max(300, 100 * heroLevel)); }
 export const FREE_LIFE = { keepResourceFrac: 0.30, moraleReset: 20 };
 
 // Scout knowledge (Section N)
 export const SCOUT = { successAdd: 20, decayPerWave: 0.15, towerSpyBase: 0.15, cancelFrac: 0.5, maxCancel: 0.75 };
 
 export const CP_NOTE = "CP = sum(hero levels) + sum(deployed tower levels).";
+
+// Academy: six-hour base course; CP and Intelligence tune duration.
+export const ACADEMY = { baseHours: 6, cpScalePerPointAbove20: 0.002, intelligenceReductionPerPointAbove10: 0.02, maxIntelligenceReduction: 0.5, startingSeats: 2, extraSeatEveryLevels: 3 };
