@@ -52,7 +52,7 @@ describe("Tavern morale service", () => {
 
   test("a destroyed or locked Tavern cannot host a feast", () => {
     const state = stateWithTavern();
-    const before = { gold: state.gold, food: state.food };
+    const before = { gold: state.gold, stone: state.stone };
     state.buildings.tavern.hp = 0;
 
     expect(hostTavernFeast(state)).toBe(false);
