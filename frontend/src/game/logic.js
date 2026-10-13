@@ -252,6 +252,26 @@ export function setGoldAllocation(state, percent) {
   state.goldTreasuryPercent = 100 - state.goldVaultPercent;
   return true;
 }
+// Preview per-minute resource rates without mutating the current game state.
+export function productionRates(state) {
+  const moraleMul = C.moraleMultiplier((Number(state.morale) || 0) / 100);
+  const castleMaxHp = Math.max(1, Number(state.castleMaxHp) || 1);
+  const castleEff = C.castleEfficiency((Number(state.castleHp) || 0) / castleMaxHp);
+  const mul = moraleMul * castleEff;
+  const mineOutput = C.workforceOutput(C.PRODUCTION.goldPerWorkerMin, Math.max(0, Number(state.workersGold) || 0)) * mul * buildingProductionMultiplier(state, "mine");
+  const ratioValue = Number(state.mineGoldRatio);
+  const goldRatio = Math.max(0, Math.min(1, Number.isFinite(ratioValue) ? ratioValue : 0.5));
+  const guild = state.buildings?.guild;
+  const resourcesEnabled = !guild || (guild.unlocked !== false && Number(guild.hp) > 0);
+  return {
+    gold: mineOutput * goldRatio,
+    metal: resourcesEnabled ? mineOutput * (1 - goldRatio) : 0,
+    stone: resourcesEnabled ? C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, Math.max(0, Number(state.workersStone) || 0)) * mul * buildingProductionMultiplier(state, "quarry") : 0,
+    moraleMul,
+    castleEff,
+  };
+}
+
 export function produce(state, dtSeconds) {
   if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
   recoverOverTime(state, dtSeconds);
