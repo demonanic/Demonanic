@@ -1,10 +1,10 @@
-import { createNewState, createTower, guildRepairDefenses, guildManufactureAmmo, towerDerived } from "./logic";
+import { createNewState, createTower, guildRepairDefenses, guildManufactureAmmo, startGuildManufacturing, advanceGuildManufacturing, towerDerived } from "./logic";
 
 function guildState() {
   const state = createNewState(["knight"]);
   state.gold = 10000;
   state.stone = 10000;
-  state.buildings = { guild: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };
+  state.buildings = { guild: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };\n  state.guildWorkers = 2;
   state.towers = [createTower("archer", 10, 10), createTower("wizard", 20, 20)];
   return state;
 }
@@ -35,18 +35,14 @@ describe("Guild services", () => {
     expect(state.towers[0].hp).toBe(100);
   });
 
-  test("manufactures a level-scaled ammo batch and charges Gold and Stone", () => {
-    const state = guildState();
-    const tower = state.towers[0];
-    tower.ammo = 0;
-    const goldBefore = state.gold;
-    const stoneBefore = state.stone;
-    const result = guildManufactureAmmo(state, 0);
-    expect(result.amount).toBeGreaterThan(0);
-    expect(tower.ammo).toBe(result.amount);
-    expect(tower.ammo).toBeLessThan(towerDerived(tower).maxAmmo);
-    expect(state.gold).toBe(goldBefore - result.goldCost);
-    expect(state.stone).toBe(stoneBefore - result.stoneCost);
+  test("manufactures ammunition over time from stored Metal and Stone, then refills towers from cache", () => {
+    const state = guildState(); const tower = state.towers[0]; tower.ammo = 0; state.metal = 1000; state.stone = 1000;
+    const result = startGuildManufacturing(state, "archer", 30);
+    expect(result.amount).toBe(30); expect(tower.ammo).toBe(0); expect(state.metal).toBe(970); expect(state.stone).toBe(993);
+    advanceGuildManufacturing(state, 3600);
+    expect(state.guildAmmoCache.archer).toBe(30);
+    const refill = guildManufactureAmmo(state, 0);
+    expect(refill.amount).toBe(30); expect(tower.ammo).toBe(30); expect(state.guildAmmoCache.archer).toBe(0);
   });
 
   test("does not manufacture Mana for Wizard Towers or bypass resource costs", () => {
