@@ -39,7 +39,6 @@ export function castleEfficiency(hpFrac) {
 }
 
 // Section C — workforce purchase curves
-export function farmerCost(owned) { return Math.ceil(50 * Math.pow(1.18, owned)); }
 export function workerCost(owned) { return Math.ceil(75 * Math.pow(1.20, owned)); }
 
 // Section E — combat damage affinities and towers
