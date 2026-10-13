@@ -12,6 +12,11 @@ export const useGame = () => useContext(GameCtx);
 function normalizeState(s) {
   if (!s || typeof s !== "object") return s;
   if (!s.bench) s.bench = [];
+  // One-time economy migration: convert legacy Food to Metal at 10:1, then remove Food.
+  if (!Number.isFinite(Number(s.metal))) s.metal = Math.floor(Math.max(0, Number(s.food) || 0) / 10);
+  delete s.food;
+  delete s.farmers;
+  s.mineGoldRatio = Math.max(0, Math.min(1, Number.isFinite(Number(s.mineGoldRatio)) ? Number(s.mineGoldRatio) : 0.5));
   if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
   if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
   // Discard legacy enrollments that point at active/bench heroes. Only heroes
