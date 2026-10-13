@@ -7,14 +7,19 @@ export const MAGE_SPELL_LOADOUT_SIZE = 4;
 export const SPELL_DATABASE = [
   { id: "ember_bolt", name: "Ember Bolt", element: "fire", effect: "intensity", basePower: 1.15, baseMana: 12, requiredIntelligence: 10, description: "A focused burst of fire." },
   { id: "cinder_field", name: "Cinder Field", element: "fire", effect: "area", basePower: 0.75, baseMana: 20, requiredIntelligence: 12, description: "Burns enemies across a small area." },
+  { id: "flare_bind", name: "Flare Bind", element: "fire", effect: "time", basePower: 0.7, baseMana: 19, requiredIntelligence: 13, description: "Leaves a burning curse that disrupts enemies." },
   { id: "glacier_bind", name: "Glacier Bind", element: "ice", effect: "time", basePower: 0.65, baseMana: 18, requiredIntelligence: 12, description: "Slows a target for a sustained duration." },
   { id: "shard_burst", name: "Shard Burst", element: "ice", effect: "area", basePower: 0.9, baseMana: 22, requiredIntelligence: 14, description: "Scatters frost shards across an area." },
+  { id: "rime_lance", name: "Rime Lance", element: "ice", effect: "intensity", basePower: 1.2, baseMana: 20, requiredIntelligence: 14, description: "Drives a concentrated spike of freezing energy into one foe." },
   { id: "venom_mark", name: "Venom Mark", element: "poison", effect: "time", basePower: 0.8, baseMana: 19, requiredIntelligence: 12, description: "Applies lingering poison." },
   { id: "toxic_cloud", name: "Toxic Cloud", element: "poison", effect: "area", basePower: 0.65, baseMana: 24, requiredIntelligence: 15, description: "Fills an area with toxic fumes." },
+  { id: "venom_spike", name: "Venom Spike", element: "poison", effect: "intensity", basePower: 1.05, baseMana: 21, requiredIntelligence: 14, description: "Pierces a target with concentrated venom." },
   { id: "arc_surge", name: "Arc Surge", element: "electric", effect: "intensity", basePower: 1.3, baseMana: 24, requiredIntelligence: 15, description: "A high-intensity electrical strike." },
   { id: "chain_pulse", name: "Chain Pulse", element: "electric", effect: "area", basePower: 0.85, baseMana: 27, requiredIntelligence: 16, description: "Arcs between nearby targets." },
+  { id: "static_snare", name: "Static Snare", element: "electric", effect: "time", basePower: 0.72, baseMana: 23, requiredIntelligence: 15, description: "Disrupts movement with lingering static." },
   { id: "thought_lance", name: "Thought Lance", element: "mind", effect: "intensity", basePower: 1.05, baseMana: 17, requiredIntelligence: 13, description: "Pierces a target's mental defenses." },
   { id: "dread_haze", name: "Dread Haze", element: "mind", effect: "time", basePower: 0.55, baseMana: 21, requiredIntelligence: 14, description: "Weakens foes over time." },
+  { id: "nightmare_field", name: "Nightmare Field", element: "mind", effect: "area", basePower: 0.62, baseMana: 25, requiredIntelligence: 16, description: "Unsettles every enemy caught in a mental pulse." },
 ];
 
 export const LIBRARY_RULES = {
