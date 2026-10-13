@@ -98,7 +98,7 @@ function ItemCard({ item, action, actionLabel, secondaryAction, secondaryLabel, 
           </div>
         </div>
       </div>
-      {(item.slot === "PrimaryWeapon" || item.slot === "SecondaryWeapon") && <ItemComparison item={item} equipped={equipped} />}
+      <ItemComparison item={item} equipped={equipped} />
       <div className="flex gap-1.5 mt-2">
         {action && <NeonButton color="cyan" className="!px-2 !py-1 !text-[9px] flex-1" onClick={action}>{actionLabel}</NeonButton>}
         {secondaryAction && <NeonButton color="yellow" className="!px-2 !py-1 !text-[9px]" onClick={secondaryAction}>{secondaryLabel}</NeonButton>}
@@ -211,6 +211,17 @@ export default function Armory() {
   );
 
   const slotItems = vault;
+
+  // Compare against the slot the equip action will actually replace.
+  // Ring I items use Ring II when Ring I is occupied and Ring II is free.
+  const comparisonItemForHero = (item, targetHero = hero) => {
+    if (!targetHero || !item) return null;
+    let targetSlot = item.slot;
+    if (item.slot === "Ring1" && targetHero.equipment?.Ring1 && !targetHero.equipment?.Ring2) {
+      targetSlot = "Ring2";
+    }
+    return targetHero.equipment?.[targetSlot] || null;
+  };
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -327,7 +338,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
-                  equipped={hero?.equipment?.[item.slot] || null}
+                  equipped={comparisonItemForHero(item)}
                   action={() => equip(item)}
                   actionLabel="EQUIP"
                   secondaryAction={() => sell(item)}
@@ -362,7 +373,7 @@ export default function Armory() {
                 <ItemCard
                   key={item.id}
                   item={item}
-                  equipped={hero?.equipment?.[item.slot] || null}
+                  equipped={comparisonItemForHero(item)}
                   action={() => buy(index, item)}
                   actionLabel={`BUY ${item.buyPrice}g`}
                 />
