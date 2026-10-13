@@ -52,10 +52,18 @@ export default function Roster() {
         </div>
         {list === "bench" && (
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            <span className="font-mono-g text-[9px] text-slate-500">Swap into squad:</span>
+            {state.heroes.length < 4 && (
+              <NeonButton color="green" className="!px-2 !py-1 !text-[10px]" onClick={() => act((s) => {
+                if (!s.bench?.[idx] || s.heroes.length >= 4) return false;
+                s.heroes.push(s.bench.splice(idx, 1)[0]);
+                return true;
+              }, "Added to squad", "No open squad slot available")} data-testid={`roster-add-${idx}`}>Add to Squad</NeonButton>
+            )}
+            {state.heroes.length > 0 && <span className="font-mono-g text-[9px] text-slate-500">Or replace a squad member:</span>}
             {state.heroes.map((_, si) => (
               <button key={si} onClick={() => act((s) => swapHero(s, idx, si), "Swapped")} data-testid={`roster-swap-${idx}-${si}`}
-                className="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-mono-g text-[10px]">S{si + 1}</button>
+                aria-label={`Replace squad slot ${si + 1} with ${h.name}`}
+                className="px-2 h-6 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-mono-g text-[10px]">Replace S{si + 1}</button>
             ))}
             <NeonButton color="red" className="!px-2 !py-1 !text-[9px] ml-auto" onClick={() => act((s) => retireHero(s, idx), "Retired")} data-testid={`roster-retire-${idx}`}><Trash2 size={11} /></NeonButton>
           </div>
