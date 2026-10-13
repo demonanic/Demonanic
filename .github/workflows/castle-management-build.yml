@@ -34,6 +34,10 @@ jobs:
         working-directory: frontend
         run: npm ci --no-audit --no-fund
 
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm test -- --watchAll=false --runInBand
+
       - name: Build frontend
         working-directory: frontend
         env:
