@@ -297,6 +297,23 @@ export function GameProvider({ children, user }) {
     };
   }, [screen, !!state, saveNow, writeLocalBackup]);
 
+  // Research continues while a wave is active. Persist locally each tick and
+  // send the full state on the existing low-frequency save cadence.
+  useEffect(() => {
+    if (!state || screen !== "battle") return;
+    const id = setInterval(() => {
+      setState((prev) => {
+        if (!prev?.libraryResearch) return prev;
+        const clone = structuredClone(prev);
+        advanceLibraryResearch(clone, 1);
+        writeLocalBackup(clone);
+        return clone;
+      });
+    }, 1000);
+    const save = setInterval(() => saveNow(), 8000);
+    return () => { clearInterval(id); clearInterval(save); };
+  }, [screen, !!state, saveNow, writeLocalBackup]);
+
   return (
     <GameCtx.Provider value={{
       state,
