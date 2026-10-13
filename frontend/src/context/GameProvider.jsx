@@ -17,6 +17,20 @@ function normalizeState(s) {
   delete s.food;
   delete s.farmers;
   s.mineGoldRatio = Math.max(0, Math.min(1, Number.isFinite(Number(s.mineGoldRatio)) ? Number(s.mineGoldRatio) : 0.5));
+  s.goldVaultPercent = Math.max(0, Math.min(100, Number(s.goldVaultPercent) || 0));
+  s.goldTreasuryPercent = 100 - s.goldVaultPercent;
+  s.vaultGold = Math.max(0, Number(s.vaultGold) || 0);
+  s.guildWorkers = Math.max(0, Math.floor(Number(s.guildWorkers) || 0));
+  if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
+  if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
+
+  s.goldVaultPercent = Math.max(0, Math.min(100, Number(s.goldVaultPercent) || 0));
+  s.goldTreasuryPercent = 100 - s.goldVaultPercent;
+  s.vaultGold = Math.max(0, Number(s.vaultGold) || 0);
+  s.guildWorkers = Math.max(0, Math.floor(Number(s.guildWorkers) || 0));
+  if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
+  if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
+
   if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
   if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
   // Discard legacy enrollments that point at active/bench heroes. Only heroes
@@ -30,7 +44,7 @@ function normalizeState(s) {
     quarry: { unlocked: true },
     tavern: { unlocked: true },
     shoppe: { unlocked: true },
-    vault: { unlocked: false },
+    vault: { unlocked: true },
     academy: { unlocked: true },
     guild: { unlocked: true },
     library: { unlocked: false },
@@ -43,7 +57,7 @@ function normalizeState(s) {
       level: Math.max(1, Number(prior.level) || 1),
       maxHp,
       hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
-      unlocked: (id === "academy" || id === "guild") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
+      unlocked: (id === "academy" || id === "guild" || id === "vault") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
       activity: prior.activity || "Idle",
       ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
       ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
