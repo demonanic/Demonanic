@@ -168,7 +168,8 @@ export class Engine {
 
   castMageSpell(index, spellId) {
     const h = this.heroes[index];
-    const spell = MAGE_SPELLS.find((item) => item.id === spellId);
+    const customSpell = (h?.ref?.equippedSpells || []).includes(spellId) ? (h.ref.spellbook || []).find((item) => item.id === spellId) : null;
+    const spell = customSpell ? { ...customSpell, researched: true, short: String(customSpell.name || "SPELL").toUpperCase(), color: ({ fire: "#FF6600", ice: "#00F3FF", poison: "#39FF14", electric: "#FFE600", mind: "#A855F7" })[customSpell.element] || "#E879F9", mana: Number(customSpell.manaCost || customSpell.baseMana) || 15, cooldown: 7, range: 340, power: Number(customSpell.strength || customSpell.basePower) || 0.8 } : MAGE_SPELLS.find((item) => item.id === spellId);
     if (!h || !h.alive || h.ref.cls !== "mage" || !spell) return false;
     const status = this.getHeroSpellStatus(index).find((item) => item.id === spellId);
     if (!status || !status.available) return false;
