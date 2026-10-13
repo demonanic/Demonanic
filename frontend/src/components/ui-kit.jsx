@@ -1,4 +1,4 @@
-import { Coins, Wheat, Mountain, Heart, Shield, Users, Hammer } from "lucide-react";
+import { Coins, Pickaxe, Mountain, Heart, Shield, Users, Hammer } from "lucide-react";
 import { productionRates } from "@/game/logic";
 
 export function NeonPanel({ children, className = "", ...p }) {
@@ -54,8 +54,8 @@ export function TopResourceHUD({ state, compact }) {
     <div className="flex flex-wrap items-center gap-2" data-testid="top-resource-hud">
       <ResourceChip testid="hud-gold" icon={<Coins size={16} />} value={state.gold} color="#FFE600"
         sub={compact ? null : `${state.workersGold}w · +${rates.gold.toFixed(1)}/m`} />
-      <ResourceChip testid="hud-food" icon={<Wheat size={16} />} value={state.food} color="#FF6600"
-        sub={compact ? null : `${state.farmers}f · +${rates.food.toFixed(1)}/m`} />
+      <ResourceChip testid="hud-metal" icon={<Pickaxe size={16} />} value={state.metal || 0} color="#FF6600"
+        sub={compact ? null : `${state.workersGold}w · +${rates.metal.toFixed(1)}/m`} />
       <ResourceChip testid="hud-stone" icon={<Mountain size={16} />} value={state.stone} color="#00F3FF"
         sub={compact ? null : `${state.workersStone}w · +${rates.stone.toFixed(1)}/m`} />
       <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg glass-card min-w-[110px]" data-testid="hud-morale">
