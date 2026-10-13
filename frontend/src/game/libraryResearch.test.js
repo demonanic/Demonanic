@@ -40,7 +40,7 @@ test("incompatible affinity cannot discover a spell and does not charge resource
 
 test("failed discovery consumes the attempt cost without adding a blueprint", () => {
   const state = libraryState();
-  const result = createSpellBlueprint(state, { mageId: state.heroes[0].id, mode: "custom", element: "fire", effect: "time", roll: () => 0.99 });
+  const result = createSpellBlueprint(state, { mageId: state.heroes[0].id, mode: "custom", element: "fire", effect: "intensity", roll: () => 0.99 });
   expect(result.ok).toBe(false);
   expect(result.reason).toBe("roll");
   expect(state.libraryBlueprints).toHaveLength(0);
@@ -74,7 +74,8 @@ test("completion can return the mage by replacing the lowest-level hero and send
   advanceLibraryResearch(state, 3600);
   state.heroes[0].level = 8;
   state.heroes[1].level = 2;
-  const displacedId = state.heroes[1].id;
+  state.heroes[2].level = 1;
+  const displacedId = state.heroes[2].id;
   expect(resolveLibraryCompletion(state, "return")).toBe(true);
   expect(state.heroes.some((hero) => hero.id === mage.id)).toBe(true);
   expect(state.bench.some((hero) => hero.id === displacedId)).toBe(true);
