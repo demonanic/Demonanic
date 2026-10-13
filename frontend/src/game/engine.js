@@ -1517,7 +1517,7 @@ export class Engine {
       castleEscaped: this.castleEscaped,
       castleEscapeLimit: Math.floor(this.wave.total / 2) + 1,
       castleHp: this.sim.castleHp, castleMaxHp: this.sim.castleMaxHp,
-      morale: this.sim.morale, gold: this.sim.gold, food: this.sim.food, stone: this.sim.stone,
+      morale: this.sim.morale, gold: this.sim.gold, metal: this.sim.metal, stone: this.sim.stone,
       heroes: this.heroes.map((h) => ({ name: h.ref.name, hp: h.ref.hp, maxHp: h.d.maxHp, alive: h.alive, shield: h.ref.shield || 0 })),
       heroAbilities: this.heroes.map((h) => this.getHeroAbilityStatus(h.i)),
       heroSpells: this.heroes.map((h) => this.getHeroSpellStatus(h.i)),
