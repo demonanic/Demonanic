@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Brain, FlaskConical, BookOpen, Sparkles, Clock3 } from "lucide-react";
 import { NeonButton, StatBar } from "@/components/ui-kit";
-import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell } from "@/game/libraryResearch";
+import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell, mageSpellbookCapacity, customSpellIntelligenceRequirement } from "@/game/libraryResearch";
 
 export default function LibraryResearch({ state, mutate }) {
   const [mode, setMode] = useState("custom");
@@ -17,6 +17,8 @@ export default function LibraryResearch({ state, mutate }) {
   const library = state.buildings?.library || { level: 1, hp: 1000, maxHp: 1000, unlocked: true };
   const blueprints = state.libraryBlueprints || [];
   const spells = state.librarySpells || [];
+  const occupiedSlots = mage ? (mage.spellbook || []).length + blueprints.filter((blueprint) => blueprint.mageId === mage.id).length : 0;
+  const spellCapacity = mageSpellbookCapacity(mage);
   const order = state.libraryResearch;
   const chance = librarySuccessChance(state, mage ? intelligence : 10);
   const ready = library.unlocked !== false && Number(library.hp) > 0;
@@ -28,6 +30,8 @@ export default function LibraryResearch({ state, mutate }) {
       const message = result.reason === "resources" ? "Need 80 Gold and 20 Stone to attempt discovery." :
         result.reason === "catalog" || result.reason === "incompatible" ? "That mage has no undiscovered spells matching their affinity and Intelligence." :
         result.reason === "mage" ? "Choose a mage before discovery." :
+        result.reason === "capacity" ? "This mage has reached their spellbook limit. Level up to unlock more capacity." :
+        result.reason === "intelligence" ? `Custom designs require Intelligence ${result.requiredIntelligence}. Train this mage first.` :
         result.reason === "library" ? "The Library must be repaired and unlocked." :
         `Design failed (${Math.round(result.chance)}% chance). Try higher Intelligence or Library level.`;
       toast.error(message);
@@ -60,7 +64,7 @@ export default function LibraryResearch({ state, mutate }) {
           </label>
           {mage && <div className="mt-2 font-mono-g text-[10px] text-slate-300">
             <div>PRIMARY AFFINITY: <span className="text-fuchsia-200">{mage.primaryAffinity?.toUpperCase() || "UNSET"}</span>{mage.secondaryAffinity ? " · SECONDARY: " + mage.secondaryAffinity.toUpperCase() : ""}</div>
-            <div>INTELLIGENCE {intelligence} · SPELL SUCCESS {Math.round(chance)}%</div>
+            <div>INTELLIGENCE {intelligence} · SPELL SUCCESS {Math.round(chance)}%</div><div>PERSONAL SPELLBOOK: {occupiedSlots}/{spellCapacity} slots</div>
             <div className="text-slate-500">A mage is assigned to the Library during research and returns to the roster when the spell is complete.</div>
           </div>}
         </div>
@@ -77,7 +81,7 @@ export default function LibraryResearch({ state, mutate }) {
         <div><Sparkles size={12} className="inline mr-1" />Chance uses the selected mage Intelligence and Library level.</div>
         <div>Elements: Fire · Ice · Poison · Electric · Mind</div><div>Effects: Area · Time · Intensity</div>
       </div>
-      <NeonButton color="magenta" className="w-full mt-2" disabled={!ready || !mage || (mode === "custom" && !affinities.includes(element)) || !!order || (state.gold || 0) < LIBRARY_RULES.discoveryGold || (state.stone || 0) < LIBRARY_RULES.discoveryStone} onClick={discover}><FlaskConical size={13} className="inline mr-1" /> {mode === "custom" ? "ROLL FOR CUSTOM BLUEPRINT" : "ROLL FOR RANDOM SPELL" } · 80G / 20S</NeonButton>
+      <NeonButton color="magenta" className="w-full mt-2" disabled={!ready || !mage || occupiedSlots >= spellCapacity || (mode === "custom" && (!affinities.includes(element) || intelligence < customSpellIntelligenceRequirement(mage))) || !!order || (state.gold || 0) < LIBRARY_RULES.discoveryGold || (state.stone || 0) < LIBRARY_RULES.discoveryStone} onClick={discover}><FlaskConical size={13} className="inline mr-1" /> {mode === "custom" ? "ROLL FOR CUSTOM BLUEPRINT" : "ROLL FOR RANDOM SPELL" } · 80G / 20S</NeonButton>
 
       {order && <div className="mt-3 rounded border border-fuchsia-400/30 bg-black/30 p-2" data-testid="library-active-research">
         <div className="font-display font-bold text-sm text-fuchsia-100"><Clock3 size={13} className="inline mr-1" /> RESEARCH IN PROGRESS</div>
