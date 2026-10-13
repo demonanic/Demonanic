@@ -12,7 +12,7 @@ import * as C from "@/game/config";
 import { gameApi } from "@/api";
 import {
   castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
-  buyBarricade, repairBarricade, buyFarmer, buyWorker, allocateSp, buyPerk, repairCastle,
+  buyBarricade, repairBarricade, buyWorker, allocateSp, buyPerk, repairCastle,
   swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
 
@@ -56,7 +56,7 @@ export default function Preparation() {
   const heal = (list, idx) => act(
     (s) => healHero(s, list === "squad" ? s.heroes[idx] : s.bench[idx]),
     "Hero fully healed",
-    "Not enough Food or hero is not wounded"
+    "Not enough Gold or hero is not wounded"
   );
 
   const revive = (list, idx) => act(
@@ -108,7 +108,7 @@ export default function Preparation() {
         <span>PROD ×<b className="text-cyan-300">{(rates.moraleMul * rates.castleEff).toFixed(2)}</b></span>
         {state.castleHp < state.castleMaxHp && (
           <NeonButton color="red" className="!py-1 !px-2 ml-auto" onClick={() => act(repairCastle, "Castle repaired")} data-testid="repair-castle">
-            Repair Castle ({C.repairFoodCost(state.castleMaxHp - state.castleHp)}f)
+            Repair Castle ({C.repairStoneCost(state.castleMaxHp - state.castleHp)}s)
           </NeonButton>
         )}
       </div>
@@ -160,7 +160,7 @@ export default function Preparation() {
                 <div className="mt-2 font-mono-g text-[11px] text-slate-300">
                   Morale <b className="text-green-400">{Math.round(state.morale)}/100</b>
                   <span className="text-slate-600 mx-2">·</span>
-                  Food <b className="text-yellow-300">{Math.floor(state.food)}</b>
+                  Gold <b className="text-yellow-300">{Math.floor(state.gold)}</b>
                   <span className="text-slate-600 mx-2">·</span>
                   Resting recovery is active
                 </div>
@@ -175,7 +175,7 @@ export default function Preparation() {
                     onHeal={() => heal("squad", i)}
                     onRevive={() => revive("squad", i)}
                     onAdRevive={() => adRevive("squad", i)}
-                    food={state.food}
+                    gold={state.gold}
                     testid={"hero-slot-" + i}
                   />
                 ))}
@@ -208,11 +208,11 @@ export default function Preparation() {
               <CastleBuildings state={state} mutate={mutate} />
             </TabsContent>
 
-            {/* Legacy resource fields remain in saved profiles until the audited Food migration. */}
+            {/* Worker assignments are managed from the Buildings tab. */}
             <TabsContent value="workforce">
               <div className="glass-card rounded-xl p-3" data-testid="legacy-workforce-notice">
                 <SectionTitle color="yellow">Workforce Migration</SectionTitle>
-                <p className="font-mono-g text-xs text-slate-400 mt-2">Worker hiring and building assignments are now managed from the Buildings tab. This compatibility section will be removed when the remaining Food dependencies are migrated safely.</p>
+                <p className="font-mono-g text-xs text-slate-400 mt-2">Worker hiring and building assignments are now managed from the Buildings tab. Assign Mine workers between Gold and Metal, and assign Quarry workers to Stone from the Buildings tab.</p>
               </div>
             </TabsContent>
           </Tabs>
@@ -240,12 +240,12 @@ export default function Preparation() {
   );
 }
 
-function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
+function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, gold, testid }) {
   const d = heroDerived(h);
   const cls = C.HERO_CLASSES[h.cls];
   const wounded = h.hp > 0 && h.hp < d.maxHp;
   const defeated = h.hp <= 0;
-  const healCost = Math.ceil(Math.max(0, d.maxHp - h.hp) / 10) * C.HERO_HEAL_FOOD_PER_10HP;
+  const healCost = Math.ceil(Math.max(0, d.maxHp - h.hp) / 10) * C.HERO_HEAL_GOLD_PER_10HP;
 
   return (
     <div data-testid={testid}
@@ -268,8 +268,8 @@ function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, food, testid }) {
 
       <div className="flex flex-col gap-1 shrink-0">
         {wounded && (
-          <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" disabled={food < healCost} onClick={onHeal} data-testid={testid + "-heal"}>
-            <Heart size={10} className="mr-1" /> Heal {healCost}f
+          <NeonButton color="green" className="!px-2 !py-1 !text-[9px]" disabled={gold < healCost} onClick={onHeal} data-testid={testid + "-heal"}>
+            <Heart size={10} className="mr-1" /> Heal {healCost}g
           </NeonButton>
         )}
         {defeated && (
