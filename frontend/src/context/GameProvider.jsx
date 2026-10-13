@@ -73,7 +73,8 @@ function normalizeState(s) {
     s.heroes.forEach((h) => {
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
       if (h) {
-        h.perks = normalizePerks(h.cls, h.perks);\n        ensureMageSpellData(h);
+        h.perks = normalizePerks(h.cls, h.perks);
+        ensureMageSpellData(h);
         if (!h.abilityCooldowns || typeof h.abilityCooldowns !== "object") h.abilityCooldowns = {};
         h.maxHp = heroDerived(h).maxHp;
         h.maxMana = Math.max(1, Number(h.maxMana) || (100 + (Number(h.stats?.intelligence) || 10) * 5));
