@@ -52,6 +52,10 @@ export function mageAffinities(hero) {
   return hero?.cls === "mage" ? [hero.primaryAffinity, ...(hero.secondaryAffinity ? [hero.secondaryAffinity] : [])] : [];
 }
 
+export function mageSpellbookCapacity(hero) { return 2 + Math.floor((Math.max(1, Number(hero?.level) || 1) - 1) / 3); }
+
+export function customSpellIntelligenceRequirement(hero) { return 10 + Math.floor(Math.max(1, Number(hero?.level) || 1) / 3); }
+
 export function mageIntelligence(hero) {
   const base = Number(hero?.stats?.intelligence) || 10;
   const gear = Number(hero?.equipment && Object.values(hero.equipment).reduce((sum, item) => sum + (Number(item?.stats?.intelligence) || 0), 0)) || 0;
@@ -118,11 +122,17 @@ export function createSpellBlueprint(state, { mageId, mode = "custom", element =
   const mage = allMages(state).find((hero) => hero.id === mageId);
   if (!mage) return { ok: false, reason: "mage" };
   ensureMageSpellData(mage);
+  state.libraryBlueprints = Array.isArray(state.libraryBlueprints) ? state.libraryBlueprints : [];
+  const occupiedSlots = mage.spellbook.length + state.libraryBlueprints.filter((item) => item.mageId === mage.id).length;
+  const spellCapacity = mageSpellbookCapacity(mage);
+  if (occupiedSlots >= spellCapacity) return { ok: false, reason: "capacity", capacity: spellCapacity };
+  if (mode === "custom" && mageIntelligence(mage) < customSpellIntelligenceRequirement(mage)) {
+    return { ok: false, reason: "intelligence", requiredIntelligence: customSpellIntelligenceRequirement(mage) };
+  }
   const costGold = LIBRARY_RULES.discoveryGold, costStone = LIBRARY_RULES.discoveryStone;
   if ((Number(state.gold) || 0) < costGold || (Number(state.stone) || 0) < costStone) return { ok: false, reason: "resources" };
   const catalog = availableCatalog(state, mage, mode, element, effect);
   if (!catalog.length) return { ok: false, reason: "incompatible" };
-  state.libraryBlueprints = Array.isArray(state.libraryBlueprints) ? state.libraryBlueprints : [];
   state.gold -= costGold;
   state.stone -= costStone;
   const chance = librarySuccessChance(state, mageIntelligence(mage));
@@ -138,7 +148,7 @@ export function createSpellBlueprint(state, { mageId, mode = "custom", element =
     // Custom designs inherit requirements from the selected mage and affinity.
     spell = { id: `custom_${Date.now().toString(36)}_${Math.floor(roll() * 0xffffff).toString(36)}`,
       name: spellName(element, effect), element, effect, basePower: 0.7, baseMana: 15,
-      requiredIntelligence: 10 + Math.max(0, Math.floor((Number(mage.level) || 1) / 3)),
+      requiredIntelligence: customSpellIntelligenceRequirement(mage),
       description: `Custom ${element} spell focused on ${effect}.` };
   }
   const blueprint = { ...spell, id: `blueprint_${Date.now().toString(36)}_${Math.floor(roll() * 0xffffff).toString(36)}`,
