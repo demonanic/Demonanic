@@ -4,7 +4,8 @@ function guildState() {
   const state = createNewState(["knight"]);
   state.gold = 10000;
   state.stone = 10000;
-  state.buildings = { guild: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };\n  state.guildWorkers = 2;
+  state.buildings = { guild: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };
+  state.guildWorkers = 2;
   state.towers = [createTower("archer", 10, 10), createTower("wizard", 20, 20)];
   return state;
 }
