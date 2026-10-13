@@ -84,6 +84,8 @@ function normalizeState(s) {
     });
   }
   if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h) ensureMageSpellData(h); });
+  const firstMage = [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage");
+  if (firstMage) (s.libraryBlueprints || []).forEach((blueprint) => { if (blueprint && !blueprint.mageId) { blueprint.mageId = firstMage.id; blueprint.mageName = firstMage.name; } });
   // Migrate older global Library orders to one stable mage without discarding progress.
   if (s.libraryResearch) {
     const blueprint = (s.libraryBlueprints || []).find((item) => item.id === s.libraryResearch.blueprintId);
