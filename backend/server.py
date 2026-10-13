@@ -132,6 +132,12 @@ async def get_state(current=Depends(get_current_user)):
 @api_router.put("/game/state")
 async def save_state(body: SaveStateInput, current=Depends(get_current_user)):
     state = body.state
+    # Apply the resource migration on saves too, so Food cannot be written back by old clients.
+    if "metal" not in state:
+        state["metal"] = max(0, int(float(state.get("food", 0) or 0) / 10))
+    state.pop("food", None)
+    state.pop("farmers", None)
+    state["mineGoldRatio"] = max(0.0, min(1.0, float(state.get("mineGoldRatio", 0.5) or 0.0)))
     state["lastSeen"] = datetime.now(timezone.utc).isoformat()
     await db.game_states.update_one(
         {"user_id": current["id"]},
