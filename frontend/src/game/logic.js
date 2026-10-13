@@ -2,6 +2,7 @@
 import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
 import { getPerk, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
+import { advanceLibraryResearch } from "./libraryResearch";
 
 let _heroSeq = 0;
 export function createHero(classKey) {
@@ -292,6 +293,7 @@ export function produce(state, dtSeconds) {
     state.stone = Math.min(cap.stone, Math.max(0, Number(state.stone) || 0) + C.workforceOutput(C.PRODUCTION.stonePerWorkerMin, state.workersStone) * mul * buildingProductionMultiplier(state, "quarry"));
   }
   advanceGuildManufacturing(state, dtSeconds);
+  advanceLibraryResearch(state, dtSeconds);
 }
 
 // ---- workforce ----
