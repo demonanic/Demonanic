@@ -132,6 +132,7 @@ export function GameProvider({ children, user }) {
   const saveTimer = useRef(null);
 
   stateRef.current = state;
+  const hasState = Boolean(state);
 
   const backupKey = user?.id ? `dm_state_backup_${user.id}` : null;
 
@@ -280,7 +281,7 @@ export function GameProvider({ children, user }) {
   }, [writeLocalBackup]);
 
   useEffect(() => {
-    if (!state || (screen !== "prep" && screen !== "home")) return;
+    if (!hasState || (screen !== "prep" && screen !== "home")) return;
 
     const id = setInterval(() => {
       setState((prev) => {
@@ -297,12 +298,12 @@ export function GameProvider({ children, user }) {
       clearInterval(id);
       clearInterval(save);
     };
-  }, [screen, !!state, saveNow, writeLocalBackup]);
+  }, [screen, hasState, saveNow, writeLocalBackup]);
 
   // Research continues while a wave is active. Persist locally each tick and
   // send the full state on the existing low-frequency save cadence.
   useEffect(() => {
-    if (!state || screen !== "battle") return;
+    if (!hasState || screen !== "battle") return;
     const id = setInterval(() => {
       setState((prev) => {
         if (!prev?.libraryResearch) return prev;
