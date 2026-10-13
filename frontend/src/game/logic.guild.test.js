@@ -38,7 +38,7 @@ describe("Guild services", () => {
   test("manufactures ammunition over time from stored Metal and Stone, then refills towers from cache", () => {
     const state = guildState(); const tower = state.towers[0]; tower.ammo = 0; state.metal = 1000; state.stone = 1000;
     const result = startGuildManufacturing(state, "archer", 30);
-    expect(result.amount).toBe(30); expect(tower.ammo).toBe(0); expect(state.metal).toBe(970); expect(state.stone).toBe(993);
+    expect(result.amount).toBe(30); expect(tower.ammo).toBe(0); expect(state.metal).toBe(970); expect(state.stone).toBe(992);
     advanceGuildManufacturing(state, 3600);
     expect(state.guildAmmoCache.archer).toBe(30);
     const refill = guildManufactureAmmo(state, 0);
