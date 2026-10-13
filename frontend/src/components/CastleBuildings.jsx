@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo, towerDerived } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo, towerDerived, guildStorageCapacity, guildAmmoCapacity, startGuildManufacturing, guildManufacturingRate, goldAllocation, setGoldAllocation } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -43,7 +43,7 @@ export default function CastleBuildings({ state, mutate }) {
   const current = buildingState(state, building.id);
   const status = condition(current.hp, current.maxHp);
   const workersAssigned = building.workers === "gold" ? (state.workersGold || 0) : building.workers === "stone" ? (state.workersStone || 0) : 0;
-  const availableWorkers = Math.max(0, (state.workers || 0) - (state.workersGold || 0) - (state.workersStone || 0));
+  const availableWorkers = Math.max(0, (state.workers || 0) - (state.workersGold || 0) - (state.workersStone || 0) - (state.guildWorkers || 0));
   const baseRate = building.workers === "gold" ? rates.gold + rates.metal : building.workers === "stone" ? rates.stone : 0;
   const output = baseRate;
   const missingHp = Math.max(0, current.maxHp - current.hp);
@@ -224,52 +224,48 @@ export default function CastleBuildings({ state, mutate }) {
           </>}
 
           {building.id === "guild" && <>
-            <div className="mt-3 rounded-lg border border-orange-400/25 bg-orange-400/5 p-3" data-testid="guild-defense-service">
-              <div className="font-display font-bold text-lg text-orange-200">DEFENSE WORKSHOP</div>
-              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Guild smiths repair damaged towers and barricades using Gold and Stone. Higher Guild levels manufacture larger ammunition batches.</p>
+            <div className="mt-3 rounded-xl border border-orange-400/25 bg-orange-400/5 p-3" data-testid="guild-ammunition-workshop">
+              <div className="font-display font-bold text-lg text-orange-200">GUILD STORAGE & WORKSHOP</div>
+              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Mine Metal and Quarry Stone automatically fill the Guild yard. Orders consume raw resources and take time based on CP, Guild level, and assigned workers.</p>
               {(() => {
-                const damagedTowers = (state.towers || []).filter((t) => t && t.hp < C.TOWERS[t.type]?.baseHp * Math.pow(1 + C.TOWER_UPGRADE.hpMult, Math.max(0, (t.level || 1) - 1)));
+                const cap = guildStorageCapacity(state), ammoCap = guildAmmoCapacity(state), cache = state.guildAmmoCache || {};
+                const cached = Object.values(cache).reduce((sum, n) => sum + Math.max(0, Number(n) || 0), 0);
+                const order = state.guildManufacturing, rate = guildManufacturingRate(state);
+                const damagedTowers = (state.towers || []).filter((t) => t && t.hp < towerDerived(t).maxHp);
                 const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp < b.maxHp);
-                const repairCosts = [...(state.towers || []).filter(Boolean).map((t) => ({ missing: Math.max(0, towerDerived(t).maxHp - (Number(t.hp) || 0)) })), ...damagedBarricades.map((b) => ({ missing: Math.max(0, b.maxHp - b.hp) }))];
-                const repairGold = repairCosts.reduce((sum, item) => sum + Math.ceil(item.missing * 0.2), 0);
-                const repairStone = repairCosts.reduce((sum, item) => sum + Math.ceil(item.missing * 0.1), 0);
                 return <>
                   <div className="grid grid-cols-2 gap-2 mt-3">
-                    <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED TOWERS</div><div className="font-display font-bold text-xl">{damagedTowers.length}</div></div>
-                    <div className="rounded-lg bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">DAMAGED BARRICADES</div><div className="font-display font-bold text-xl">{damagedBarricades.length}</div></div>
+                    <div className="rounded bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">METAL YARD</div><div className="font-display font-bold text-lg">{Math.floor(state.metal || 0)} / {cap.metal}</div></div>
+                    <div className="rounded bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">STONE YARD</div><div className="font-display font-bold text-lg">{Math.floor(state.stone || 0)} / {cap.stone}</div></div>
                   </div>
-                  <NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || current.unlocked === false || (!damagedTowers.length && !damagedBarricades.length) || state.gold < repairGold || state.stone < repairStone} onClick={() => mutate((s) => {
-                    const result = guildRepairDefenses(s);
-                    if (!result) toast.error("Insufficient Gold/Stone or no damaged defenses");
-                    else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades · ${result.goldCost}g / ${result.stoneCost}s`);
-                  })}>Repair All Defenses ({repairGold}g / {repairStone}s)</NeonButton>
+                  <div className="mt-2 rounded bg-black/30 p-2"><div className="font-mono-g text-[10px] text-orange-100">AMMO CACHE · {Math.floor(cached)} / {ammoCap}</div>{Object.entries(cache).map(([type, amount]) => Number(amount) > 0 && <div key={type} className="font-mono-g text-[10px] text-slate-300">{C.TOWERS[type]?.name || type}: {Math.floor(amount)}</div>)}</div>
+                  <div className="mt-3">
+                    <div className="font-mono-g text-[10px] text-orange-100">ASSIGNED WORKERS</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button type="button" disabled={(state.guildWorkers || 0) <= 0} onClick={() => mutate((s) => { s.guildWorkers = Math.max(0, (s.guildWorkers || 0) - 1); })} className="rounded border border-orange-400/30 px-3 py-2 disabled:opacity-30">−</button>
+                      <div className="flex-1 text-center font-display font-bold text-xl">{state.guildWorkers || 0}</div>
+                      <button type="button" disabled={availableWorkers <= 0} onClick={() => mutate((s) => { if ((s.workers || 0) - (s.workersGold || 0) - (s.workersStone || 0) - (s.guildWorkers || 0) <= 0) return; s.guildWorkers = (s.guildWorkers || 0) + 1; })} className="rounded border border-orange-400/30 px-3 py-2 disabled:opacity-30">+</button>
+                    </div>
+                    <p className="font-mono-g text-[10px] text-slate-400 mt-1">Manufacturing rate: {rate.toFixed(2)} ammo/min</p>
+                  </div>
+                  <div className="mt-3 border-t border-orange-400/20 pt-3">
+                    <div className="font-display font-bold text-sm text-orange-100">MANUFACTURING ORDER</div>
+                    {order ? <div className="mt-2 rounded bg-black/30 p-2"><div className="font-mono-g text-xs text-orange-100">{C.TOWERS[order.ammoType]?.name || order.ammoType}: {Math.floor(order.total - order.remaining)} / {order.total}</div><div className="font-mono-g text-[10px] text-slate-400">Remaining {Math.ceil(order.remaining)} · {rate > 0 ? Math.ceil(order.remaining / rate * 60) + " sec" : "Waiting for workers"}</div><div className="h-1.5 rounded bg-white/10 mt-2 overflow-hidden"><div className="h-full bg-orange-400" style={{ width: Math.max(0, Math.min(100, (1 - order.remaining / order.total) * 100)) + "%" }} /></div></div> : <>
+                      <div className="grid grid-cols-2 gap-2 mt-2"><select aria-label="Ammunition type" id="guild-ammo-type" className="min-w-0 rounded bg-black/50 border border-orange-400/30 p-2 text-xs text-white">{C.TOWER_ORDER.filter((type) => C.TOWER_RESOURCE[type]?.kind === "ammo").map((type) => <option key={type} value={type}>{C.TOWERS[type].name}</option>)}</select><input aria-label="Ammunition quantity" id="guild-ammo-quantity" type="number" min="1" max={ammoCap} defaultValue="30" className="min-w-0 rounded bg-black/50 border border-orange-400/30 p-2 text-xs text-white" /></div>
+                      <button type="button" className="neon-btn w-full mt-2 rounded border border-orange-400/40 p-2 font-mono-g text-xs disabled:opacity-35" disabled={current.hp <= 0 || (state.guildWorkers || 0) <= 0} onClick={() => { const type = document.getElementById("guild-ammo-type")?.value; const quantity = Number(document.getElementById("guild-ammo-quantity")?.value); mutate((s) => { const result = startGuildManufacturing(s, type, quantity); if (!result) toast.error("Check workers, yard reserves, cache space, and order status"); else toast.success(`Manufacturing started · ${result.amount} rounds · about ${Math.ceil(result.durationSeconds / 60)} min`); }); }}>START MANUFACTURING</button>
+                    </>}
+                  </div>
+                  <div className="mt-3 border-t border-orange-400/20 pt-3"><div className="font-display font-bold text-sm text-orange-100">DEFENSE REPAIRS</div><p className="font-mono-g text-[10px] text-slate-400">{damagedTowers.length} damaged towers · {damagedBarricades.length} damaged barricades</p><NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || (!damagedTowers.length && !damagedBarricades.length)} onClick={() => mutate((s) => { const result = guildRepairDefenses(s); if (!result) toast.error("Insufficient Treasury Gold/Stone or no damaged defenses"); else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades`); })}>Repair All Defenses</NeonButton></div>
+                  {(state.towers || []).map((tower, index) => { if (!tower || C.TOWER_RESOURCE[tower.type]?.kind !== "ammo") return null; const max = towerDerived(tower).maxAmmo, ammo = Number(tower.ammo) || 0, available = Number(cache[tower.type]) || 0; return <div key={tower.id || index} className="mt-2 rounded bg-black/30 p-2 flex items-center justify-between gap-2"><span className="font-mono-g text-[10px]">{C.TOWERS[tower.type]?.name}: {ammo}/{max} · Cache {Math.floor(available)}</span><button type="button" className="rounded border border-orange-400/40 px-2 py-1 font-mono-g text-[10px] disabled:opacity-30" disabled={available <= 0 || ammo >= max} onClick={() => mutate((s) => { const result = guildManufactureAmmo(s, index); if (!result) toast.error("No matching ammunition in cache"); else toast.success(`Refilled ${result.amount} rounds`); })}>REFILL</button></div>; })}
                 </>;
               })()}
             </div>
-            <div className="mt-3 rounded-lg border border-orange-400/25 bg-black/20 p-3" data-testid="guild-ammunition-workshop">
-              <div className="font-display font-bold text-lg text-orange-200">AMMUNITION MANUFACTURING</div>
-              <p className="font-mono-g text-[10px] text-slate-400 mt-1">Manufacture ammunition in batches for Archer, Catapult, and Ballista towers. Wizard Towers use Mana and cannot use this workshop.</p>
-              {(state.towers || []).map((tower, index) => {
-                if (!tower || !C.TOWER_RESOURCE[tower.type] || C.TOWER_RESOURCE[tower.type].kind !== "ammo") return null;
-                const resource = C.TOWER_RESOURCE[tower.type];
-                const maxAmmo = towerDerived(tower).maxAmmo;
-                const ammo = Math.max(0, Number(tower.ammo) || 0);
-                const missing = Math.max(0, maxAmmo - ammo);
-                const batch = Math.min(missing, Math.max(1, Math.ceil(maxAmmo * (0.25 + Math.min(0.25, (Math.max(1, current.level || 1) - 1) * 0.05)))));
-                const goldCost = Math.ceil(batch * resource.resupplyGold);
-                const stoneCost = Math.ceil(batch * resource.resupplyStone);
-                return <div key={tower.id || index} className="rounded-lg bg-black/30 p-2 mt-2" data-testid={`guild-ammo-${tower.id || index}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div><div className="font-mono-g text-xs text-orange-100">{C.TOWERS[tower.type]?.name || tower.type}</div><div className="font-mono-g text-[10px] text-slate-400">{resource.label} {ammo} / {maxAmmo}</div></div>
-                    <button type="button" disabled={current.hp <= 0 || current.unlocked === false || missing <= 0 || state.gold < goldCost || state.stone < stoneCost} onClick={() => mutate((s) => {
-                      const result = guildManufactureAmmo(s, index);
-                      if (!result) toast.error("Unable to manufacture ammunition");
-                      else toast.success(`Made ${result.amount} ammunition · ${result.goldCost}g / ${result.stoneCost}s`);
-                    })} className="neon-btn rounded border border-orange-400/40 px-2 py-2 font-mono-g text-[10px] disabled:opacity-35">MAKE {Math.min(batch, missing)} ({goldCost}g{stoneCost ? ` / ${stoneCost}s` : ""})</button>
-                  </div>
-                </div>;
-              })}
-              {!(state.towers || []).some((t) => t && C.TOWER_RESOURCE[t.type]?.kind === "ammo") && <p className="font-mono-g text-[10px] text-slate-500 mt-2">Build an Archer, Catapult, or Ballista tower to manufacture ammunition here.</p>}
+          </>}
+          {building.id === "vault" && <>
+            <div className="mt-3 rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-3" data-testid="gold-allocation">
+              <div className="font-display font-bold text-lg text-cyan-100">GOLD ALLOCATION</div><p className="font-mono-g text-[10px] text-slate-400 mt-1">Only newly generated Gold is split. Vault Gold is protected; spending uses Treasury Gold.</p>
+              <div className="grid grid-cols-2 gap-2 mt-2"><div className="rounded bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">TREASURY</div><div className="font-display font-bold text-lg">{Math.floor(state.gold || 0)}g</div><div className="font-mono-g text-[10px]">{goldAllocation(state).treasuryPercent}% of new Gold</div></div><div className="rounded bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">VAULT</div><div className="font-display font-bold text-lg">{Math.floor(state.vaultGold || 0)}g</div><div className="font-mono-g text-[10px]">{goldAllocation(state).vaultPercent}% of new Gold</div></div></div>
+              <label className="font-mono-g text-xs text-cyan-100 block mt-3">Vault share: {goldAllocation(state).vaultPercent}%</label><input type="range" min="0" max="100" step="5" value={goldAllocation(state).vaultPercent} onChange={(event) => mutate((s) => setGoldAllocation(s, event.target.value))} className="w-full mt-2" /><div className="flex justify-between font-mono-g text-[10px] text-slate-400"><span>0% Vault / 100% Treasury</span><span>100% Vault / 0% Treasury</span></div>
             </div>
           </>}
           {building.workers && <>
