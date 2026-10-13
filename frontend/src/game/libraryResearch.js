@@ -191,6 +191,14 @@ export function startSpellResearch(state, blueprintId, hours) {
   return { ok: true, durationHours, costGold, costStone, mageName: mage.name };
 }
 
+// Repair legacy saves where research was persisted before squad removal was enforced.
+export function ensureResearchMageBenched(state) {
+  const mageId = state?.libraryResearch?.mageId;
+  if (!mageId || !(state.heroes || []).some((hero) => hero?.id === mageId)) return false;
+  moveMageToLibrary(state, mageId);
+  return true;
+}
+
 export function advanceLibraryResearch(state, dtSeconds) {
   const order = state.libraryResearch;
   if (!order || !(Number(order.remainingSeconds) > 0) || !Number.isFinite(dtSeconds) || dtSeconds <= 0 || !libraryReady(state)) return false;
