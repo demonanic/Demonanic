@@ -11,6 +11,7 @@ import Battle from "@/screens/Battle";
 import Results from "@/screens/Results";
 import Profile from "@/screens/Profile";
 import Armory from "@/screens/Armory";
+import LibraryCompletionNotice from "@/components/LibraryCompletionNotice";
 
 function Splash({ label = "SUMMONING..." }) {
   return (
