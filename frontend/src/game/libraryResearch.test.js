@@ -94,6 +94,17 @@ test("send to roster leaves active lineup unchanged", () => {
   expect(state.bench.some((hero) => hero.id === mage.id)).toBe(true);
 });
 
+test("legacy active research moves its assigned mage out of the squad during save normalization", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  state.libraryResearch = { mageId: mage.id, blueprintId: "legacy-blueprint", remainingSeconds: 1800, durationSeconds: 3600 };
+  const changed = ensureResearchMageBenched(state);
+  expect(changed).toBe(true);
+  expect(state.heroes.some((hero) => hero.id === mage.id)).toBe(false);
+  expect(state.bench.some((hero) => hero.id === mage.id)).toBe(true);
+  expect(state.heroes.length).toBe(4);
+});
+
 test("secondary affinity unlocks at level ten and respects Intelligence requirements", () => {
   const state = libraryState();
   const mage = state.heroes[0];
