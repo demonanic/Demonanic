@@ -97,8 +97,11 @@ function allMages(state) {
 }
 
 function availableCatalog(state, mage, mode, element, effect) {
-  const learnedIds = new Set(allMages(state).flatMap((hero) => (hero.spellbook || []).map((spell) => spell.id)));
-  const pendingIds = new Set((state.libraryBlueprints || []).map((blueprint) => blueprint.catalogId));
+  // Discovery is personal: a spell known by another mage is not a global unlock.
+  const learnedIds = new Set((mage.spellbook || []).map((spell) => spell.id));
+  const pendingIds = new Set((state.libraryBlueprints || [])
+    .filter((blueprint) => blueprint.mageId === mage.id)
+    .map((blueprint) => blueprint.catalogId));
   return SPELL_DATABASE.filter((spell) => {
     if (!mageCanUseSpell(mage, spell) || learnedIds.has(spell.id) || pendingIds.has(spell.id)) return false;
     return mode === "random" || (spell.element === element && spell.effect === effect);
