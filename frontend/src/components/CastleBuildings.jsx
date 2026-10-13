@@ -6,6 +6,7 @@ import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recal
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
+import LibraryResearch from "@/components/LibraryResearch";
 
 const BUILDINGS = [
   { id: "mine", name: "Mine", icon: Coins, color: "#FFE600", desc: "Produces Gold and Metal from assigned Workers; choose the output ratio.", workers: "gold" },
@@ -14,12 +15,12 @@ const BUILDINGS = [
   { id: "shoppe", name: "Shoppe", icon: Coins, color: "#A855F7", desc: "Equipment and item transactions.", workers: null },
   { id: "academy", name: "Academy", icon: ShieldCheck, color: "#39FF14", desc: "Train heroes in permanent stat improvements.", workers: null },
   { id: "guild", name: "Guild", icon: Hammer, color: "#FF6600", desc: "Repair damaged defenses and manufacture ammunition for physical towers.", workers: null },
-  { id: "library", name: "Library", icon: ChevronUp, color: "#A855F7", desc: "Spell and perk research unlocks later.", workers: null, locked: true },
+  { id: "library", name: "Library", icon: Brain, color: "#A855F7", desc: "Discover and research custom or randomly generated spells.", workers: null },
   { id: "vault", name: "Vault", icon: ShieldCheck, color: "#00F3FF", desc: "Splits newly produced Gold between protected savings and the spendable Treasury.", workers: null },
 ];
 
 function initialBuilding(id) {
-  return { level: 1, hp: 1000, maxHp: 1000, unlocked: !["academy", "library", "vault"].includes(id), activity: "Idle" };
+  return { level: 1, hp: 1000, maxHp: 1000, unlocked: !["academy", "vault"].includes(id), activity: "Idle" };
 }
 
 function buildingState(state, id) {
@@ -261,6 +262,7 @@ export default function CastleBuildings({ state, mutate }) {
               })()}
             </div>
           </>}
+          {building.id === "library" && <LibraryResearch state={state} mutate={mutate} />}
           {building.id === "vault" && <>
             <div className="mt-3 rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-3" data-testid="gold-allocation">
               <div className="font-display font-bold text-lg text-cyan-100">GOLD ALLOCATION</div><p className="font-mono-g text-[10px] text-slate-400 mt-1">Only newly generated Gold is split. Vault Gold is protected; spending uses Treasury Gold.</p>
