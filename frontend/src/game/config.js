@@ -20,11 +20,11 @@ export const RECOVERY = {
 
 // Section B — starting economy & workforce
 export const STARTING = {
-  gold: 500, food: 300, stone: 150,
-  farmers: 2, workers: 2, workersGold: 1, workersStone: 1,
+  gold: 500, stone: 150, metal: 100,
+  workers: 2, workersGold: 1, workersStone: 1, mineGoldRatio: 0.5,
 };
 export const PRODUCTION = {
-  goldPerWorkerMin: 8, stonePerWorkerMin: 3, foodPerFarmerMin: 10,
+  goldPerWorkerMin: 8, stonePerWorkerMin: 3,
 };
 
 export function workforceOutput(baseRate, n) {
@@ -129,16 +129,16 @@ export function towerUpgradeCost(tower) {
 
 export const TOWERS = {
   archer:   { key: "archer",   name: "Archer Tower", icon: "bow",
-    construction: { gold: 100, stone: 20, food: 20 }, upkeep: { gold: 8, stone: 2 },
+    construction: { gold: 100, stone: 20 }, upkeep: { gold: 8, stone: 2 },
     role: "sustained_single_target", targetPriority: "nearest", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 625, range: 260, fireRate: 0.9, damage: 22, spyBonus: 5, color: "#00F3FF" },
   catapult: { key: "catapult", name: "Catapult", icon: "axe",
-    construction: { gold: 150, stone: 35, food: 30 }, upkeep: { gold: 12, stone: 3 },
+    construction: { gold: 150, stone: 35 }, upkeep: { gold: 12, stone: 3 },
     role: "group_control", targetPriority: "cluster", damageType: DAMAGE_TYPES.KNIGHT_MELEE, baseHp: 813, range: 320, fireRate: 2.2, damage: 70, splash: 55, spyBonus: 0, color: "#FF6600" },
   wizard:   { key: "wizard",   name: "Wizard Tower", icon: "sun",
-    construction: { gold: 175, stone: 30, food: 35 }, upkeep: { gold: 14, stone: 3 },
+    construction: { gold: 175, stone: 30 }, upkeep: { gold: 14, stone: 3 },
     role: "magic", targetPriority: "vulnerable", damageType: DAMAGE_TYPES.ARCANE, baseHp: 719, range: 240, fireRate: 1.4, damage: 40, magic: true, spyBonus: 10, color: "#A855F7" },
   ballista: { key: "ballista", name: "Ballista / Tower 4", icon: "gear",
-    construction: { gold: 225, stone: 50, food: 40 }, upkeep: { gold: 18, stone: 5 },
+    construction: { gold: 225, stone: 50 }, upkeep: { gold: 18, stone: 5 },
     role: "elite_boss_hunter", targetPriority: "elite_boss", damageType: DAMAGE_TYPES.ARCHER_RANGED, baseHp: 875, range: 380, fireRate: 1.7, damage: 95, spyBonus: 0, color: "#FF0055" },
 };
 export const TOWER_ORDER = ["archer", "catapult", "wizard", "ballista"];
@@ -186,10 +186,10 @@ export const TOWER_UPGRADE_CHOICES = {
   ability: { key: "ability", label: "Ability Unlock", desc: "Unlock/boost tower ability." },
 };
 
-// Repair: 1 Food per 10 missing HP
-export const REPAIR_FOOD_PER_10HP = 1;
-export function repairFoodCost(missingHp) { return Math.ceil(missingHp / 10); }
-export const HERO_HEAL_FOOD_PER_10HP = 1;
+// Repairs use Stone; hero healing uses Gold.
+export const REPAIR_STONE_PER_10HP = 1;
+export function repairStoneCost(missingHp) { return Math.ceil(missingHp / 10); }
+export const HERO_HEAL_GOLD_PER_10HP = 1;
 
 // Section F — tower slot progression (CP thresholds)
 export const SLOT_THRESHOLDS = [0, 8, 15, 24, 36]; // slot 1..5
@@ -203,7 +203,7 @@ export function slotCapacity(cp) {
 export const BARRICADE = {
   positions: 5, goldToHp: 2, minGold: 25, maxGold: 500, maxHp: 1000,
   collisionDamage: 8,
-  repairFoodPer10Hp: 1,
+  repairStonePer10Hp: 1,
 };
 
 // Section H — hero progression
@@ -264,7 +264,7 @@ export const MORALE = {
   castleLossPerPct: -0.5,
 };
 // Tavern morale service. Costs keep morale recovery useful without allowing free spam.
-export const TAVERN_FEAST = { gold: 80, food: 40, morale: 8 };
+export const TAVERN_FEAST = { gold: 80, stone: 20, morale: 8 };
 
 export function healRateMultiplier(moraleFrac) {
   return Math.min(1.25, 0.5 + 0.75 * moraleFrac);
