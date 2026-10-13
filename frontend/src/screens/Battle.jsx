@@ -21,6 +21,7 @@ export default function Battle() {
   const slowTimer = useRef();
   const endedRef = useRef(false);
   const waveNum = useRef(state?.wave || 1);
+  const battleHeroIds = useRef([]);
 
   const [phase, setPhase] = useState("scout");
   const [count, setCount] = useState(TIME.scoutCountdown);
@@ -92,18 +93,23 @@ export default function Battle() {
     }
     const gainsHeroes = { ...res.xpGains.heroes };
     const gainsTowers = { ...res.xpGains.towers };
-    const preLevels = state.heroes.map((h) => h.level);
+    const preLevels = new Map((state.heroes || []).map((h) => [h.id, h.level]));
     mutate((s) => {
       s.gold = sim.gold; s.metal = sim.metal; s.stone = sim.stone;
       s.morale = sim.morale; s.castleHp = sim.castleHp; s.kills = sim.kills;
       s.vault = sim.vault || s.vault || [];
       s.buildings = structuredClone(sim.buildings || s.buildings || {});
       s.shoppe = sim.shoppe || s.shoppe;
-      s.heroes.forEach((h, i) => {
-        h.hp = sim.heroes[i].hp;
-        h.manual = !!sim.heroes[i].manual;
-        h.attackConfig = sim.heroes[i].attackConfig;
-      });
+      // The completion prompt may change the saved lineup during combat. Merge
+      // runtime results by stable hero ID so the current wave cannot corrupt swaps.
+      const simHeroesById = new Map((sim.heroes || []).map((hero) => [hero.id, hero]));
+      for (const h of [...(s.heroes || []), ...(s.bench || [])]) {
+        const runtime = simHeroesById.get(h.id);
+        if (!runtime) continue;
+        h.hp = runtime.hp;
+        h.manual = !!runtime.manual;
+        h.attackConfig = runtime.attackConfig;
+      }
       s.towers.forEach((t, i) => {
         if (!t || !sim.towers[i]) return;
         t.hp = sim.towers[i].hp;
@@ -112,7 +118,11 @@ export default function Battle() {
         t.maxAmmo = sim.towers[i].maxAmmo;
         t.maxMana = sim.towers[i].maxMana;
       });
-      for (const i in gainsHeroes) addHeroXp(s.heroes[i], gainsHeroes[i]);
+      for (const i in gainsHeroes) {
+        const heroId = battleHeroIds.current[Number(i)];
+        const hero = [...(s.heroes || []), ...(s.bench || [])].find((item) => item.id === heroId);
+        if (hero) addHeroXp(hero, gainsHeroes[i]);
+      }
       for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
       s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
       s.bests.totalKills = Math.max(s.bests.totalKills || 0, s.kills.total);
@@ -127,7 +137,10 @@ export default function Battle() {
       goldAfter: Math.round(sim.gold), metalAfter: Math.round(sim.metal || 0), stoneAfter: Math.round(sim.stone),
       morale: Math.round(sim.morale), castleHp: Math.round(sim.castleHp),
       gearDrops: Math.max(0, (sim.vault || []).length - (state.vault || []).length),
-      leveledUp: state.heroes.filter((h, i) => C.heroLevelForXp((h.xp || 0) + (gainsHeroes[i] || 0)) > preLevels[i]).length,
+      leveledUp: battleHeroIds.current.filter((id, i) => {
+        const hero = state.heroes.find((item) => item.id === id);
+        return hero && C.heroLevelForXp((hero.xp || 0) + (gainsHeroes[i] || 0)) > (preLevels.get(id) || hero.level);
+      }).length,
     });
     setScreen("results");
   };
