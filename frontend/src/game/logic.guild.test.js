@@ -4,14 +4,13 @@ function guildState() {
   const state = createNewState(["knight"]);
   state.gold = 10000;
   state.stone = 10000;
-  state.food = 10000;
   state.buildings = { guild: { unlocked: true, level: 1, hp: 1000, maxHp: 1000, activity: "Idle" } };
   state.towers = [createTower("archer", 10, 10), createTower("wizard", 20, 20)];
   return state;
 }
 
 describe("Guild services", () => {
-  test("repairs damaged towers and barricades for Food", () => {
+  test("repairs damaged towers and barricades for Gold and Stone", () => {
     const state = guildState();
     state.towers[0].hp = 100;
     state.barricades[0] = { hp: 50, maxHp: 100 };
