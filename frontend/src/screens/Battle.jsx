@@ -39,6 +39,7 @@ export default function Battle() {
 
   useEffect(() => {
     const sim = structuredClone(state);
+    battleHeroIds.current = (sim.heroes || []).map((hero) => hero.id);
     chargeUpkeep(sim);
     simRef.current = sim;
     waveNum.current = state.wave;
