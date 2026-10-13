@@ -149,11 +149,19 @@ export class Engine {
     if (!h || h.ref.cls !== "mage") return [];
     const level = Math.max(1, Number(h.ref.level) || 1);
     const intelligence = Math.max(0, Number(h.d.intelligence) || 0);
-    return MAGE_SPELLS.map((spell) => {
-      const cost = Math.max(8, Math.round(spell.mana * (1 - Math.min(0.25, Math.max(0, level - 1) * 0.01))));
+    const equippedIds = Array.isArray(h.ref.equippedSpells) ? h.ref.equippedSpells : [];
+    const learned = (h.ref.spellbook || []).filter((spell) => equippedIds.includes(spell.id)).map((spell) => ({
+      ...spell, researched: true, short: String(spell.name || "SPELL").toUpperCase(),
+      color: ({ fire: "#FF6600", ice: "#00F3FF", poison: "#39FF14", electric: "#FFE600", mind: "#A855F7" })[spell.element] || "#E879F9",
+      mana: Number(spell.manaCost || spell.baseMana) || 15,
+      cooldown: 7, range: 340, power: Number(spell.strength || spell.basePower) || 0.8,
+    }));
+    const spells = learned.length ? learned : MAGE_SPELLS;
+    return spells.map((spell) => {
+      const cost = Math.max(8, Math.round((spell.mana || spell.manaCost || spell.baseMana || 15) * (1 - Math.min(0.25, Math.max(0, level - 1) * 0.01))));
       const cooldown = Math.max(0, h.spellCooldowns[spell.id] || 0);
       return { ...spell, cost, cooldown, mana: Math.round(h.mana), maxMana: h.maxMana,
-        level, damage: Math.round((h.d.attack || 0) * spell.power * (1 + Math.max(0, level - 1) * 0.06 + intelligence * 0.012)),
+        level, damage: Math.round((h.d.attack || 0) * (spell.power || spell.strength || spell.basePower || 1) * (1 + Math.max(0, level - 1) * 0.06 + intelligence * 0.012)),
         available: h.alive && cooldown <= 0 && h.mana >= cost };
     });
   }
@@ -167,7 +175,29 @@ export class Engine {
     const target = this._nearestEnemy(h.x, h.y, spell.range);
     if (spell.id !== "arcane_ward" && !target) return false;
     let used = false;
-    if (spell.id === "fireball") {
+    if (spell.researched) {
+      const elementType = ({ fire: C.DAMAGE_TYPES.FIRE, ice: C.DAMAGE_TYPES.FROST, electric: C.DAMAGE_TYPES.LIGHTNING, poison: C.DAMAGE_TYPES.POISON })[spell.element];
+      const victims = spell.effect === "area"
+        ? this.active.filter((enemy) => enemy.hp > 0 && target && Math.hypot(enemy.x - target.x, enemy.y - target.y) <= 95)
+        : [target];
+      for (const enemy of victims) {
+        const scale = spell.effect === "area" ? 0.72 : spell.effect === "time" ? 0.82 : 1;
+        const affinity = elementType ? C.affinityMultiplier(enemy, elementType) : 1;
+        const damage = Math.max(0, status.damage * scale * affinity);
+        if (damage > 0) {
+          enemy.hp = Math.max(0, enemy.hp - damage);
+          enemy.dmgBy["H" + h.i] = (enemy.dmgBy["H" + h.i] || 0) + damage;
+          if (spell.effect === "time") {
+            enemy.slowUntil = Math.max(enemy.slowUntil || 0, this.time + 2.5);
+            enemy.slowMultiplier = spell.element === "ice" ? 0.45 : 0.75;
+          }
+          this._float(enemy.x, enemy.y - 5, spell.name.toUpperCase() + " " + Math.round(damage), spell.color);
+          this.effects.push({ kind: "hit", x: enemy.x, y: enemy.y, r: spell.effect === "area" ? 20 : 14, life: 0.45, color: spell.color, crit: false });
+          if (enemy.hp <= 0) this._killEnemy(enemy, "H" + h.i);
+          used = true;
+        }
+      }
+    } else if (spell.id === "fireball") {
       const damage = status.damage * C.affinityMultiplier(target, C.DAMAGE_TYPES.FIRE);
       if (damage > 0) {
         target.hp = Math.max(0, target.hp - damage);
