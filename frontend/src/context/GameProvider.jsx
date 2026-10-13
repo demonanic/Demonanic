@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "@/api";
 import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
+import { advanceLibraryResearch } from "@/game/libraryResearch";
 import { emptyEquipmentState } from "@/game/equipment";
 import { normalizePerks } from "@/game/perks";
 import { heroDerived } from "@/game/logic";
@@ -31,6 +32,10 @@ function normalizeState(s) {
   if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
   if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
 
+  if (!Array.isArray(s.libraryBlueprints)) s.libraryBlueprints = [];
+  if (!Array.isArray(s.librarySpells)) s.librarySpells = [];
+  if (!s.libraryResearch || !(Number(s.libraryResearch.remainingSeconds) > 0)) s.libraryResearch = null;
+
   if (!Array.isArray(s.academyHeroes)) s.academyHeroes = [];
   if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
   // Discard legacy enrollments that point at active/bench heroes. Only heroes
@@ -47,7 +52,7 @@ function normalizeState(s) {
     vault: { unlocked: true },
     academy: { unlocked: true },
     guild: { unlocked: true },
-    library: { unlocked: false },
+    library: { unlocked: true },
   };
   Object.entries(buildingDefaults).forEach(([id, defaults]) => {
     const prior = s.buildings[id] && typeof s.buildings[id] === "object" ? s.buildings[id] : {};
@@ -57,7 +62,7 @@ function normalizeState(s) {
       level: Math.max(1, Number(prior.level) || 1),
       maxHp,
       hp: Math.max(0, Math.min(maxHp, Number.isFinite(Number(prior.hp)) ? Number(prior.hp) : maxHp)),
-      unlocked: (id === "academy" || id === "guild" || id === "vault") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
+      unlocked: (id === "academy" || id === "guild" || id === "vault" || id === "library") ? true : (prior.unlocked === undefined ? defaults.unlocked : !!prior.unlocked),
       activity: prior.activity || "Idle",
       ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
       ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
@@ -140,7 +145,10 @@ export function GameProvider({ children, user }) {
         const finalState = normalizeState(data.state);
         // Backend offline accrual already handles resources. Advance only the
         // saved Guild order here to avoid double-crediting resource production.
-        if (reportedOfflineMinutes > 0) advanceGuildManufacturing(finalState, reportedOfflineMinutes * 60);
+        if (reportedOfflineMinutes > 0) {
+          advanceGuildManufacturing(finalState, reportedOfflineMinutes * 60);
+          advanceLibraryResearch(finalState, reportedOfflineMinutes * 60);
+        }
         writeLocalBackup(finalState);
         setState(finalState);
         setScreen(finalState.needsSquad ? "squad" : "home");
