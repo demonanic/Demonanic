@@ -6,6 +6,7 @@ import * as C from "./config";
 import { heroDerived, towerDerived, makeSingleEnemy } from "./logic";
 import { rollEquipmentDrop } from "./equipment";
 import { unlockedAbilities, getAbility, MAGE_SPELLS } from "./perks";
+import { logicalTowerPosition } from "./towerPlacement";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -111,7 +112,8 @@ export class Engine {
       if (r.kind === "ammo" && t.maxAmmo == null) t.maxAmmo = d.maxAmmo;
       if (r.kind === "mana" && t.mana == null) t.mana = d.maxMana;
       if (r.kind === "mana" && t.maxMana == null) t.maxMana = d.maxMana;
-      acc.push({ slot: idx, ref: t, x: t.x, y: t.y, d, cd: 0 });
+      const position = logicalTowerPosition(t);
+      acc.push({ slot: idx, ref: t, x: position.x, y: position.y, d, cd: 0 });
       return acc;
     }, []);
 

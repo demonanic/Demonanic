@@ -4,6 +4,7 @@ import { NeonButton, StatBar } from "@/components/ui-kit";
 import { slotCap, towerDerived, canAfford } from "@/game/logic";
 import { Wrench, Trash2, X } from "lucide-react";
 import * as C from "@/game/config";
+import { assignTowerPlacementSlots, commitTowerPlacement, logicalPositionPercent, logicalTowerPosition, nearestAvailablePlacement, placementForSlot } from "@/game/towerPlacement";
 
 const { W, H, WALL_Y, GATE_Y, HERO_Y } = LAYOUT;
 const pctX = (x) => `${(x / W) * 100}%`;
@@ -20,30 +21,10 @@ export default function PrepField({ state, handlers }) {
   const n = state.heroes.length || 1;
   const atCap = state.towers.length >= cap;
 
-  // Assign each existing tower to one unique visual slot, including legacy
-  // saves whose coordinates predate slot-based placement. Keep the saved
-  // coordinates untouched: this mapping affects preparation-screen display only.
-  const towerSlotAssignments = (() => {
-    const pairs = state.towers.flatMap((tower, towerIndex) =>
-      PLACEMENT_SLOTS.map((slot, slotIndex) => ({
-        towerIndex, slotIndex,
-        distance: Math.hypot(tower.x - slot.x, tower.y - slot.y),
-      }))
-    ).sort((a, b) => a.distance - b.distance);
-    const assignedTowers = new Set();
-    const assignedSlots = new Set();
-    const result = Array(state.towers.length).fill(null);
-    for (const pair of pairs) {
-      if (assignedTowers.has(pair.towerIndex) || assignedSlots.has(pair.slotIndex)) continue;
-      assignedTowers.add(pair.towerIndex);
-      assignedSlots.add(pair.slotIndex);
-      result[pair.towerIndex] = PLACEMENT_SLOTS[pair.slotIndex];
-    }
-    return result;
-  })();
-  const isSlotOccupied = (slot) => towerSlotAssignments.some((assigned) =>
-    assigned && assigned.x === slot.x && assigned.y === slot.y
-  );
+  // Explicit slot IDs stay stable; legacy saves without one are assigned only
+  // for occupancy checks. Their saved coordinates remain the rendered position.
+  const towerSlotAssignments = assignTowerPlacementSlots(state.towers, PLACEMENT_SLOTS);
+  const isSlotOccupied = (index) => towerSlotAssignments.includes(index);
 
   // Keep the preview visible until the state actually contains the newly built
   // tower. handlers.build queues a React state mutation, so its return value
@@ -54,7 +35,8 @@ export default function PrepField({ state, handlers }) {
       !awaitingPlacement.existingIds.has(tower.id) &&
       tower.type === awaitingPlacement.type &&
       tower.x === awaitingPlacement.x &&
-      tower.y === awaitingPlacement.y
+      tower.y === awaitingPlacement.y &&
+      tower.placementSlot === awaitingPlacement.slotIndex
     );
     if (committed) {
       setPendingPosition(null);
@@ -68,21 +50,16 @@ export default function PrepField({ state, handlers }) {
     // Placement uses the exact logical positions consumed by the battle engine.
     // Snap to the nearest unoccupied slot instead of saving arbitrary touch
     // coordinates that can be difficult to judge against the live canvas.
-    const r = fieldRef.current.getBoundingClientRect();
+    const field = fieldRef.current;
+    const r = field.getBoundingClientRect();
+    const width = field.clientWidth || r.width - field.clientLeft * 2;
+    const height = field.clientHeight || r.height - field.clientTop * 2;
     const point = {
-      x: ((e.clientX - r.left) / r.width) * W,
-      y: ((e.clientY - r.top) / r.height) * H,
+      x: ((e.clientX - r.left - field.clientLeft) / width) * W,
+      y: ((e.clientY - r.top - field.clientTop) / height) * H,
     };
-    const available = PLACEMENT_SLOTS
-      .map((slot, index) => ({ ...slot, index }))
-      .filter((slot) => !isSlotOccupied(slot) || (
-        pendingPosition && pendingPosition.x === slot.x && pendingPosition.y === slot.y
-      ));
-    if (!available.length) return null;
-    return available.reduce((best, slot) => {
-      const distance = (slot.x - point.x) ** 2 + (slot.y - point.y) ** 2;
-      return !best || distance < best.distance ? { x: slot.x, y: slot.y, distance } : best;
-    }, null);
+    const nearest = nearestAvailablePlacement(point, PLACEMENT_SLOTS, towerSlotAssignments);
+    return nearest && { x: nearest.x, y: nearest.y, slotIndex: nearest.slotIndex };
   };
 
   const placeAt = (e) => {
@@ -94,7 +71,7 @@ export default function PrepField({ state, handlers }) {
     const point = toLogical(e);
     if (!point) return;
     setAwaitingPlacement(null);
-    setPendingPosition({ type: placing, x: point.x, y: point.y });
+    setPendingPosition({ type: placing, x: point.x, y: point.y, slotIndex: point.slotIndex });
   };
 
   const onTowerClick = (idx, e) => {
@@ -157,8 +134,8 @@ export default function PrepField({ state, handlers }) {
 
         {/* Exact tower positions used by the live battle engine. Occupied sites are marked. */}
         {PLACEMENT_SLOTS.map((slot, index) => {
-          const occupied = isSlotOccupied(slot);
-          const previewed = pendingPosition?.x === slot.x && pendingPosition?.y === slot.y;
+          const occupied = isSlotOccupied(index);
+          const previewed = pendingPosition?.slotIndex === index;
           return (
             <button key={index} type="button" data-testid={`tower-slot-${index}`}
               aria-label={occupied ? `Tower slot ${index + 1}, occupied` : `Place tower at slot ${index + 1}`}
@@ -168,7 +145,7 @@ export default function PrepField({ state, handlers }) {
                 e.preventDefault();
                 e.stopPropagation();
                 setAwaitingPlacement(null);
-                setPendingPosition({ type: placing, x: slot.x, y: slot.y });
+                setPendingPosition(placementForSlot(placing, index, PLACEMENT_SLOTS));
               }}
               className="absolute z-30 rounded-full flex items-center justify-center font-mono-g text-[8px] font-bold disabled:cursor-not-allowed"
               style={{
@@ -187,12 +164,13 @@ export default function PrepField({ state, handlers }) {
         {/* placed towers */}
         {state.towers.map((tw, idx) => {
           const t = C.TOWERS[tw.type];
-          // Use the same unique slot assignment as the occupied markers.
-          const pos = towerSlotAssignments[idx] || tw;
+          // Saved logical coordinates are authoritative, matching engine.towers.
+          const pos = logicalTowerPosition(tw);
+          const posStyle = logicalPositionPercent(pos, W, H);
           return (
             <button key={tw.id} data-testid={`field-tower-${idx}`} onClick={(e) => onTowerClick(idx, e)}
               className="absolute rounded flex items-center justify-center bracket"
-              style={{ position: "absolute", left: pctX(pos.x), top: pctY(pos.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: t.color,
+              style={{ position: "absolute", ...posStyle, transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: t.color,
                 pointerEvents: placing ? "none" : "auto", cursor: "pointer",
                 outline: sel?.kind === "tower" && sel.idx === idx ? "2px solid #00F3FF" : "none" }}>
               <div className="w-3.5 h-3.5 rounded" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
@@ -208,7 +186,7 @@ export default function PrepField({ state, handlers }) {
         {/* uncommitted placement preview: resources are untouched until confirmation */}
         {pendingPosition && placing && (
           <div data-testid="tower-placement-preview" className="absolute rounded flex items-center justify-center border-2 border-dashed animate-pulse"
-            style={{ left: pctX(pendingPosition.x), top: pctY(pendingPosition.y), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
+            style={{ ...logicalPositionPercent(pendingPosition, W, H), transform: "translate(-50%, -50%)", width: "10%", height: "5%", borderColor: C.TOWERS[pendingPosition.type].color, background: C.TOWERS[pendingPosition.type].color + "22", boxShadow: "0 0 12px " + C.TOWERS[pendingPosition.type].color + "66", pointerEvents: "none" }}>
             <div className="w-3.5 h-3.5 rounded" style={{ background: C.TOWERS[pendingPosition.type].color, boxShadow: "0 0 8px " + C.TOWERS[pendingPosition.type].color }} />
           </div>
         )}
@@ -231,12 +209,13 @@ export default function PrepField({ state, handlers }) {
             if (awaitingPlacement) return;
             const pending = pendingPosition;
             const existingIds = new Set(state.towers.map((tower) => tower.id));
-            const placed = handlers.build(pending.type, pending.x, pending.y);
+            const placed = commitTowerPlacement(pending, handlers.build);
             if (placed !== false) {
               setAwaitingPlacement({
                 type: pending.type,
                 x: pending.x,
                 y: pending.y,
+                slotIndex: pending.slotIndex,
                 existingIds,
               });
             }

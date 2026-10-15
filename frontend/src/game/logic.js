@@ -72,12 +72,12 @@ export function heroDerived(hero) {
 }
 
 let _towerSeq = 0;
-export function createTower(type, x, y) {
+export function createTower(type, x, y, placementSlot = null) {
   const t = C.TOWERS[type];
   const r = C.TOWER_RESOURCE[type];
   return {
     id: `tw-${Date.now().toString(36)}-${_towerSeq++}`,
-    type, x, y, level: 1, xp: 0, hp: t.baseHp, maxHp: t.baseHp,
+    type, x, y, ...(Number.isInteger(placementSlot) ? { placementSlot } : {}), level: 1, xp: 0, hp: t.baseHp, maxHp: t.baseHp,
     ammo: r.kind === "ammo" ? r.max : 0,
     maxAmmo: r.kind === "ammo" ? r.max : 0,
     mana: r.kind === "mana" ? r.max : 0,
@@ -307,13 +307,17 @@ export function buyWorker(state, allocateTo) {
   return true;
 }
 
-// ---- towers (free placement anywhere on the field, up to slot capacity) ----
-export function buildTower(state, type, x, y) {
+// ---- tower placement and capacity ----
+export function buildTower(state, type, x, y, placementSlot = null) {
   const cost = C.TOWERS[type].construction;
   if (!canAfford(state, cost)) return false;
   if (state.towers.length >= slotCap(state)) return false;
+  if (placementSlot !== null && (
+    !Number.isInteger(placementSlot) || placementSlot < 0 || placementSlot >= C.BARRICADE.positions ||
+    state.towers.some((tower) => tower?.placementSlot === placementSlot)
+  )) return false;
   spend(state, cost);
-  state.towers.push(createTower(type, x, y));
+  state.towers.push(createTower(type, x, y, placementSlot));
   return true;
 }
 export function repositionTower(state, index, x, y) {

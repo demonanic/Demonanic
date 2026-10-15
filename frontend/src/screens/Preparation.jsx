@@ -30,13 +30,13 @@ export default function Preparation() {
   const act = (fn, okMsg, failMsg) => mutate((s) => { if (!fn(s)) { toast.error(failMsg || "Cannot afford / invalid"); } else if (okMsg) toast.success(okMsg); });
 
   const handlers = {
-    build: (type, x, y) => {
+    build: (type, x, y, placementSlot) => {
       if (!C.TOWERS[type] || state.towers.length >= cap || !canAfford(state, C.TOWERS[type].construction)) {
         toast.error("Tower placement failed — check resources and available slots");
         return false;
       }
       mutate((s) => {
-        if (buildTower(s, type, x, y)) toast.success(`${C.TOWERS[type].name} placed`);
+        if (buildTower(s, type, x, y, placementSlot)) toast.success(`${C.TOWERS[type].name} placed`);
         else toast.error("Tower placement failed — check resources and available slots");
       });
       return true;
