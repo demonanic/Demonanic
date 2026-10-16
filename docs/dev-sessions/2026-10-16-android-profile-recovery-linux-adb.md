@@ -54,7 +54,7 @@ No app launch was performed: normal startup can call state loading and may creat
 
 - Local branch and commit remain `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; existing application changes remain untouched.
 - ADB and Android package diagnostics were read-only. No account, profile, app data, or production database was changed.
-- Documentation updates: `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this session report. Docs-only publication to `docs/development-reports-2026-10-15` will be verified by GitHub readback before session end.
+- Documentation updates: `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this session report. Published only these four Markdown files to `docs/development-reports-2026-10-15` in docs-only commit [`82c45bb`](https://github.com/demonanic/Demonanic/commit/82c45bb449613deb7415c0f8a192010bc2f0cf0b). GitHub readback succeeded for all four paths. This report receives a docs-only follow-up to record the readback.
 - No gameplay push, merge, or deployment occurred.
 
 ## Remaining information required
