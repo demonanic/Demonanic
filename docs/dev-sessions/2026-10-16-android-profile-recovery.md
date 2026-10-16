@@ -71,10 +71,10 @@ Change first-run behavior so an empty state lookup never triggers an uncondition
 
 ## Changed files and publication
 
-Documentation updated: `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report. No application files changed. These documents are intended for publication only on `docs/development-reports-2026-10-15`; the gameplay branch and its worktree remain untouched.
+Documentation updated: `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report. No application files changed. These documents were published to `docs/development-reports-2026-10-15` using the connected GitHub integration. Publication commit: [`5a8f80c`](https://github.com/demonanic/Demonanic/commit/5a8f80c00aab72b2036b3bdddbac45c17b86d184). GitHub readback succeeded for each document path. The gameplay branch and its worktree remain untouched.
 
 - Local code commit: none.
-- Documentation publication: pending GitHub update and readback for this session.
+- Documentation publication: docs-only commit `5a8f80c00aab72b2036b3bdddbac45c17b86d184`; GitHub readback succeeded.
 - Push of gameplay changes: none.
 - Merge: none.
 - Deployment/production change: none.
