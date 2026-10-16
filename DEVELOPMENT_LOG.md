@@ -60,3 +60,13 @@
 - Read the installed APK into temporary storage and attempted safe backend-origin extraction; no origin could be safely extracted. Ubuntu ADB mDNS subcommands returned `unknown host service`; not needed for the already-active transport.
 - User ID, current backend host, comparison against intended setup, and Mongo record existence remain unknown. No authorized read-only Mongo path/credentials were available. Do not launch the app because startup could create/save a new profile.
 - No source/gameplay change, app test/build, database request, merge, deployment, or production mutation. `git diff --check` passed. Published only the four Markdown reports to `docs/development-reports-2026-10-15` in commit `82c45bb449613deb7415c0f8a192010bc2f0cf0b`; GitHub readback succeeded for all four paths.
+
+## 2026-10-16 — Saved profile startup guard
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Pre-existing tower-placement, menu, test, and report changes were preserved.
+- Confirmed from source that backend `GET /game/state` returns `{state: null}` only when no document exists; auth rejection, HTTP errors, and network failures reject the Axios request. A successful but malformed body or a stored document without a usable state was previously at risk of being treated as a playable blank state.
+- Added strict response/state checks and an explicit missing-profile prompt. A detected local backup can be chosen for device-only play, with periodic/manual cloud saves disabled. A fresh game requires explicit player action and authenticated user/token checks.
+- Added authenticated `POST /game/state` insert-only creation; the existing unique `user_id` index makes concurrent creation fail with 409 rather than overwrite a profile. Existing normal saves still use the existing PUT path after a server profile loads.
+- Added nine focused provider tests. Focused suite passed 9/9; full frontend suite passed 9 suites/51 tests; production build passed with Node's `fs.F_OK` deprecation warning; Python syntax compilation and `git diff --check` passed.
+- Backend runtime tests could not run because FastAPI/Motor/PyMongo are absent in the environment. No app launch, API call, DB read/write, merge, deployment, or production change occurred. Device account/backend and stored profile remain unverified.
+- Detailed report: `docs/dev-sessions/2026-10-16-android-profile-recovery-guard.md`. Documentation-only publication to the dedicated report branch is being completed; no gameplay files will be published.

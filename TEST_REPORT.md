@@ -1,6 +1,6 @@
 # Test Report
 
-Updated: 2026-10-15
+Updated: 2026-10-16
 
 ## Tower placement and main menu development session
 
@@ -82,3 +82,15 @@ No device log collection or app/API calls followed the failure. `git diff --chec
 | `git diff --check` | 0 | No whitespace errors. |
 
 No app was launched and no API endpoint was called. User ID, backend host, expected identity comparison, and Mongo record existence remain unverified. No tests or build were run because application source did not change. Details: `docs/dev-sessions/2026-10-16-android-profile-recovery-linux-adb.md`.
+
+## 2026-10-16 Saved profile recovery guard
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/context/GameProvider.test.jsx` (from `frontend/`) | 0 | 1 suite passed; 9 tests passed. Covers saved server state, explicit missing state, malformed/failed/unauthorized requests, unauthenticated provider, device-only local backup continuation, and explicit new-game creation. |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 9 suites passed; 51 tests passed. |
+| `npm run build` (from `frontend/`) | 0 | Production build compiled successfully. Node emitted the `fs.F_OK` deprecation warning. |
+| `python -m py_compile backend/server.py` | 0 | Backend source syntax compiled. Runtime/backend endpoint tests were unavailable because FastAPI/Motor/PyMongo are not installed in this environment. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+No Android app was launched and no API or database endpoint was called. Device identity, backend hostname, and existing Mongo profile presence remain unknown. No backend runtime integration test or production DB read occurred.
