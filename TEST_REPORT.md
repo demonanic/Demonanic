@@ -19,6 +19,11 @@ The placement tests cover shared saved coordinates, selected slot propagation, s
 
 No application tests or build were run during the documentation-only reporting turn. The results above are preserved from the preceding work session and are not represented as newly run in this turn.
 
+## Documentation publication session
+
+- No application tests or build were run; this session only published and read back Markdown reports through the connected GitHub repository.
+- GitHub confirmed the publication commit changes only `ROADMAP.md`, `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, and `docs/dev-sessions/2026-10-15-tower-placement-main-menu.md`.
+
 ## Limitations
 
 - Android device/emulator layout and touch behavior have not been visually verified.

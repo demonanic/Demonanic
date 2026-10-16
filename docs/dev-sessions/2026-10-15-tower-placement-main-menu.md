@@ -67,4 +67,8 @@ Reporting files created during the documentation-only turn:
 - The placement fix was committed locally on the current feature branch as `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`.
 - The main-menu and test changes remain in the worktree.
 - The documentation-only reporting turn made no commit.
-- Nothing was pushed. No merge occurred. No deployment occurred. `main` was not modified.
+- No merge or deployment occurred. `main` was not modified.
+
+## Subsequent documentation publication
+
+After this development session, the reports were published for ChatGPT review on the public branch [`docs/development-reports-2026-10-15`](https://github.com/demonanic/Demonanic/tree/docs/development-reports-2026-10-15), based directly on the remote `main` tip. The documentation-only commit is [`1d0fd1cb4a18b3426766629681169d1d7124f0b5`](https://github.com/demonanic/Demonanic/commit/1d0fd1cb4a18b3426766629681169d1d7124f0b5); GitHub readback confirmed that it changes only the four report documents. No gameplay files were pushed, and no merge or deployment occurred.

@@ -17,3 +17,10 @@
 - Worktree was preserved. This reporting turn created/updated only repository documentation; it did not change application code or rerun application tests/builds.
 - No prior `ROADMAP.md`, `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, or `docs/dev-sessions` history existed. The roadmap and reports were created using the verified work and command results from the immediately preceding development session.
 - No commit, push, merge, or deployment occurred in this reporting turn.
+
+## 2026-10-15 — Publish development reports for ChatGPT review
+
+- Verified the connected public repository `demonanic/Demonanic` and confirmed the linked GitHub access has push permission.
+- Published only `ROADMAP.md`, `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, and `docs/dev-sessions/2026-10-15-tower-placement-main-menu.md` on `docs/development-reports-2026-10-15`, created from the remote `main` tip. The publication commit is `1d0fd1cb4a18b3426766629681169d1d7124f0b5`.
+- GitHub readback succeeded for all four documents. The commit diff contains only those four Markdown paths; no gameplay files were published.
+- No tests/build were run in this publication-only session. No merge, deployment, or production change occurred.
