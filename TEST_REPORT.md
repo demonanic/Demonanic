@@ -30,3 +30,16 @@ No application tests or build were run during the documentation-only reporting t
 - Android device/emulator layout and touch behavior have not been visually verified.
 - Visual-reference files were not available in the repository or message context.
 - Food is not tracked by current game state and is rendered as `N/A`.
+
+## 2026-10-16 Android saved profile recovery investigation
+
+This was a source and environment investigation only. No backend endpoints or database were contacted, and no Android app data was read or changed.
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/game/logic.economy.test.js` (from `frontend/`) | 0 | 1 suite passed; 3 tests passed. This is a local gameplay logic suite and does not cover authentication or profile recovery. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+No profile recovery, auth, Android, or backend integration test was run. The backend test suite registers users and writes game state, so it was not run against the configured/preview service. No production build was run because source code was not changed. `adb devices -l` returned no connected device. Source inspection found no dedicated AuthContext or GameProvider profile recovery tests.
+
+The startup hazard is confirmed in source: after authenticated `GET /game/state` returns `{state: null}`, `GameProvider.loadGame` checks a same-user local backup and, if absent, creates a fresh state and immediately saves it. Whether this caused the player's incident is unconfirmed without device logs, the installed APK's build configuration, and a safe server-side check of the player's exact account identity and profile existence.

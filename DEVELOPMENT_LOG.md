@@ -25,3 +25,13 @@
 - GitHub readback succeeded for all four documents. The commit diff contains only those four Markdown paths; no gameplay files were published.
 - No tests/build were run in this publication-only session. No merge, deployment, or production change occurred.
 - A follow-up docs-only commit `377a7a03ef6e01da749e9128989156a23f3ffed4` added this publication session report and clarified the report branch's current contents. GitHub readback confirms five Markdown documents and no application files at the branch tip.
+
+## 2026-10-16 — Android saved profile recovery investigation
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Existing uncommitted tower test, Home menu, and Home test work was preserved.
+- Traced Capacitor config, auth boot, JWT identity, API URL/token handling, `GameProvider.loadGame`, MongoDB state lookup/upsert, and Android application ID/data-backup configuration. The repository uses its own JWT auth and MongoDB, not Supabase.
+- Confirmed source hazard: a successful state lookup returning `null` and no same-user local backup causes immediate new-state creation and a backend upsert. Missing token/401 alone routes to login; network/API errors do not auto-create a profile in this code. Which condition happened on the player's device remains unproven.
+- Android localStorage is app-origin scoped; the bundled Capacitor app has no configured `server.url`, so its WebView storage is distinct from browser-origin storage. Stable package ID is `com.demonanic.game`, and Android manifest enables backup. These facts alone do not establish how the specific APK was installed or whether data was retained.
+- No connected Android device or useful app logs were available. No backend/database call was made. Existing progress likely remains recoverable if it is still stored under the original backend user ID; it was not checked.
+- Ran a local, non-networked economy suite (1 suite/3 tests passed) and `git diff --check` (passed). These do not test profile recovery. Backend integration tests were intentionally not run because they register accounts and write state.
+- Updated roadmap, test report, and detailed report. Documentation publication to the authorized docs-only GitHub branch is pending verification/readback. No code changes, local commit, merge, or deployment occurred; no gameplay push occurred.
