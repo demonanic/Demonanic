@@ -2,7 +2,7 @@
 
 Updated: 2026-10-15
 
-Development reports are published for review on [`docs/development-reports-2026-10-15`](https://github.com/demonanic/Demonanic/tree/docs/development-reports-2026-10-15). Publication commit: [`1d0fd1c`](https://github.com/demonanic/Demonanic/commit/1d0fd1cb4a18b3426766629681169d1d7124f0b5). This branch is documentation-only and was created from `main`.
+Development reports are published for review on [`docs/development-reports-2026-10-15`](https://github.com/demonanic/Demonanic/tree/docs/development-reports-2026-10-15). Current branch tip: [`377a7a0`](https://github.com/demonanic/Demonanic/commit/377a7a03ef6e01da749e9128989156a23f3ffed4). This branch is documentation-only and was created from `main`.
 
 ## Current priorities
 

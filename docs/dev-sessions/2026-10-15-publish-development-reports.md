@@ -53,3 +53,7 @@ GitHub commit readback showed exactly those four paths added. GitHub file readba
 - A remote documentation-only branch and commit were created as explicitly authorized. No gameplay changes were pushed.
 - No merge occurred. No deployment or production change occurred. `main` was not modified.
 - The published branch is based on `main`, so its diff against `main` consists only of the four reports; it intentionally does not include the local feature/gameplay changes discussed by the reports.
+
+## Follow-up report update
+
+To record this publication session itself, the five report documents were updated in documentation-only commit [`377a7a03ef6e01da749e9128989156a23f3ffed4`](https://github.com/demonanic/Demonanic/commit/377a7a03ef6e01da749e9128989156a23f3ffed4). GitHub readback at that branch tip confirmed all five Markdown documents are accessible. The branch remains based on `main` and contains no gameplay changes.
