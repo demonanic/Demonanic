@@ -35,3 +35,12 @@
 - No connected Android device or useful app logs were available. No backend/database call was made. Existing progress likely remains recoverable if it is still stored under the original backend user ID; it was not checked.
 - Ran a local, non-networked economy suite (1 suite/3 tests passed) and `git diff --check` (passed). These do not test profile recovery. Backend integration tests were intentionally not run because they register accounts and write state.
 - Updated roadmap, test report, and detailed report. Published only those four Markdown files to `docs/development-reports-2026-10-15` through the connected GitHub integration. Publication commit: `5a8f80c00aab72b2036b3bdddbac45c17b86d184`; GitHub readback succeeded for all four paths. No code changes, local commit, merge, or deployment occurred; no gameplay push occurred.
+
+## 2026-10-16 — Android profile recovery diagnostics
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; existing tower-placement and Home changes were preserved.
+- Confirmed no Android device is connected (`adb devices -l`); no runtime auth, profile-load, or save request logs could be collected. The expected account ID and backend host were not supplied or otherwise available.
+- Inspected source logging safely. The client logs backend URL and API method/URL/status, auth token presence, `/me` outcome, and game load/save markers. It also logs the full login/register success response (which includes a JWT) and full errors/response data. Therefore raw logcat must not be shared; runtime collection is blocked until a safe redaction/filtering path can be used.
+- No Mongo shell or database env configuration was available; no existing read-only profile diagnostic route/script was found. The state GET performs offline accrual and writes `lastSeen`, so it was not used. No database query or mutation occurred.
+- No tests/build were run. `git diff --check` passed (exit 0). Updated the roadmap, test report, and detailed diagnostics report.
+- No application changes or local commit. Documentation-only publication to the authorized report branch was completed and read back through GitHub. No gameplay push, merge, deployment, or production change occurred.

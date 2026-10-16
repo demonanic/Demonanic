@@ -43,3 +43,18 @@ This was a source and environment investigation only. No backend endpoints or da
 No profile recovery, auth, Android, or backend integration test was run. The backend test suite registers users and writes game state, so it was not run against the configured/preview service. No production build was run because source code was not changed. `adb devices -l` returned no connected device. Source inspection found no dedicated AuthContext or GameProvider profile recovery tests.
 
 The startup hazard is confirmed in source: after authenticated `GET /game/state` returns `{state: null}`, `GameProvider.loadGame` checks a same-user local backup and, if absent, creates a fresh state and immediately saves it. Whether this caused the player's incident is unconfirmed without device logs, the installed APK's build configuration, and a safe server-side check of the player's exact account identity and profile existence.
+
+## 2026-10-16 Android profile recovery diagnostics
+
+No application tests or build were run; this stage was diagnosis-only and made no application changes. The prior session's test results above are not new results from this stage.
+
+| Command / check | Result |
+| --- | --- |
+| `git status --short --branch`, `git branch --show-current`, `git rev-parse HEAD` | Branch `feature/castle-management-first-pass`, HEAD `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; pre-existing working changes preserved. |
+| `adb devices -l` | No connected Android device. No startup logcat was available. |
+| `command -v mongosh`, `command -v mongo` | Neither Mongo shell was available. |
+| Shell presence check for `MONGO_URL`, `DB_NAME`, `REACT_APP_BACKEND_URL` | All unset in this environment; values were not printed. No repository `.env*` file was found in the bounded scan (file contents were not read). |
+| Source scan for Mongo diagnostics and game state routes | No existing read-only profile diagnostic route/script found. `GET /api/game/state` is not read-only: it accrues offline resources and updates `lastSeen`. |
+| `git diff --check` | Exit 0; no whitespace errors. |
+
+No Android runtime request status, user ID, API hostname, or state-present/null result could be collected. There was no expected account ID or backend hostname available for comparison. No database query was attempted. Existing client logging was inspected statically: do not share raw logcat because login/register success logs serialize the auth response including its JWT, and auth/API error logs can contain error/response data. See `docs/dev-sessions/2026-10-16-android-profile-recovery-diagnostics.md` for safe diagnostic fields and exact blockers.
