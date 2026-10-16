@@ -57,4 +57,28 @@ No application tests or build were run; this stage was diagnosis-only and made n
 | Source scan for Mongo diagnostics and game state routes | No existing read-only profile diagnostic route/script found. `GET /api/game/state` is not read-only: it accrues offline resources and updates `lastSeen`. |
 | `git diff --check` | Exit 0; no whitespace errors. |
 
-No Android runtime request status, user ID, API hostname, or state-present/null result could be collected. There was no expected account ID or backend hostname available for comparison. No database query was attempted. Existing client logging was inspected statically: do not share raw logcat because login/register success logs serialize the auth response including its JWT, and auth/API error logs can contain error/response data. See `docs/dev-sessions/2026-10-16-android-profile-recovery-diagnostics.md` for safe diagnostic fields and exact blockers.
+The prior diagnostic stage did not collect runtime request status, user ID, API hostname, or state-present/null result. See the next session report below for the subsequent safe ADB connection and log inspection.
+
+## 2026-10-16 ADB connection attempt
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `adb connect 192.168.1.235:40495` | 1 | Failed before device connection: `/data/data/com.termux/files/usr/bin/adb` could not load symbol `_ZNSt6__ndk113__hash_memoryEPKvm`. |
+| Check common Ubuntu Android SDK ADB paths | 0 (no candidates found) | No executable at `/usr/bin/adb`, `/usr/local/bin/adb`, `/usr/lib/android-sdk/platform-tools/adb`, `/opt/android-sdk/platform-tools/adb`, or `/root/Android/Sdk/platform-tools/adb`. |
+
+No device log collection or app/API calls followed the failure. `git diff --check` was rerun after documentation edits and passed (exit 0). No tests/build were run because application code did not change.
+
+## 2026-10-16 Linux ADB diagnostics continuation
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `apt-get install -y adb` | 0 | Installed Ubuntu Noble `adb` package `1:34.0.4-1build3` and eight required dependencies from configured Ubuntu ports repositories. |
+| `/usr/bin/adb version` | 0 | ADB 1.0.41, version 34.0.4-debian; Linux ARM64. |
+| `/usr/bin/adb devices -l` (serial redacted) | 0 | One TCP/IP device in `device` state; its active endpoint matched the previously supplied endpoint. No stale port was attempted. |
+| `/usr/bin/adb -s <active-device> shell pm path com.demonanic.game` | 0 | Demonanic package is installed. Only the package path was read. |
+| `/usr/bin/adb logcat -d -v brief` through redacting filter | 0 | 237,537 lines scanned; 2 contained `Demonanic`, but none contained auth, game, API, or relevant console markers. Filter printed no raw logs, IDs, URLs, or secrets. |
+| Static installed-APK backend-origin extraction | 0 | APK was read from the installed package into temporary storage; configured origin was not safely extracted. No URL was printed. |
+| `/usr/bin/adb mdns services`, `/usr/bin/adb mdns check` | 1 each | ADB host service returned `unknown host service`; mDNS discovery was unavailable. Existing TCP/IP transport was already active, so pairing/reconnect was not attempted. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+No app was launched and no API endpoint was called. User ID, backend host, expected identity comparison, and Mongo record existence remain unverified. No tests or build were run because application source did not change. Details: `docs/dev-sessions/2026-10-16-android-profile-recovery-linux-adb.md`.

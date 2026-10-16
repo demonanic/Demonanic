@@ -44,3 +44,19 @@
 - No Mongo shell or database env configuration was available; no existing read-only profile diagnostic route/script was found. The state GET performs offline accrual and writes `lastSeen`, so it was not used. No database query or mutation occurred.
 - No tests/build were run. `git diff --check` passed (exit 0). Updated the roadmap, test report, and detailed diagnostics report.
 - No application changes or local commit. Documentation-only publication to the authorized report branch was completed and read back through GitHub. No gameplay push, merge, deployment, or production change occurred.
+
+## 2026-10-16 — Android ADB connection attempt
+
+- Starting checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; preserved all existing tower-placement, menu, test, and documentation changes.
+- Attempted the user-provided `adb connect 192.168.1.235:40495`. It exited 1 because PATH resolves to `/data/data/com.termux/files/usr/bin/adb`, which Ubuntu cannot execute due to unresolved Android NDK symbol `_ZNSt6__ndk113__hash_memoryEPKvm`. No compatible SDK ADB was found in the standard checked paths.
+- Device connection, logcat, runtime auth/profile requests, and app storage therefore remain uninspected. No game API or database was accessed. The earlier `adb devices -l` had no connected device before this attempt.
+- Updated reports; no application code, tests, build, local commit, merge, deployment, or production data changed. `git diff --check` passed. Documentation-only publication to the authorized report branch is being completed and verified.
+
+## 2026-10-16 — Ubuntu ADB profile diagnostics
+
+- Read the preceding ADB failure report first and preserved the current branch and all existing changes. Installed Ubuntu Noble's repository `adb` package (`1:34.0.4-1build3`) after escalation approval; did not reuse the incompatible Termux binary.
+- Ubuntu ADB found one active TCP/IP device in `device` state. Its live endpoint matched the previously supplied endpoint; this was verified from the active transport, not assumed. A read-only package-path query confirmed `com.demonanic.game` is installed. No pair/reconnect, app launch, or API request was performed.
+- Collected logcat through an in-process redacting filter. Of 237,537 lines, two contained the product name, but none had auth, game, API, or relevant console markers. No raw logs, IDs, URLs, or secrets were emitted.
+- Read the installed APK into temporary storage and attempted safe backend-origin extraction; no origin could be safely extracted. Ubuntu ADB mDNS subcommands returned `unknown host service`; not needed for the already-active transport.
+- User ID, current backend host, comparison against intended setup, and Mongo record existence remain unknown. No authorized read-only Mongo path/credentials were available. Do not launch the app because startup could create/save a new profile.
+- No source/gameplay change, app test/build, database request, merge, deployment, or production mutation. `git diff --check` passed. Documentation-only publication to the report branch is in progress.
