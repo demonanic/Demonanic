@@ -72,7 +72,7 @@ An authorized database operator could perform a no-update existence check agains
 
 - Documentation updated: `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, `ROADMAP.md`, and this report.
 - No app/gameplay code changed; no profiles/accounts/data were read or written.
-- Docs-only publication to `docs/development-reports-2026-10-15` is requested and will be verified by GitHub readback before the session ends.
+- The four Markdown reports were published to `docs/development-reports-2026-10-15` in docs-only commit [`67fdf06`](https://github.com/demonanic/Demonanic/commit/67fdf06e4071b3f4334c002e80dc2a6e44e2b41a). GitHub readback succeeded for all four paths. This report is amended in a subsequent docs-only publication so the final branch version records that verification.
 - No gameplay push, merge, deployment, or production change occurred.
 
 ## Information still needed
