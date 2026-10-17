@@ -52,5 +52,5 @@ Backend runtime/route tests were not run: FastAPI, Motor, and PyMongo are not in
 ## End state
 
 - Branch and commit remain `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`.
-- Changes are uncommitted. No gameplay changes were pushed. Documentation-only reporting publication is being completed on `docs/development-reports-2026-10-15`.
+- Application/backend changes are uncommitted. The four reporting files were published to [`docs/development-reports-2026-10-15`](https://github.com/demonanic/Demonanic/tree/docs/development-reports-2026-10-15) in docs-only commit [`01494a2`](https://github.com/demonanic/Demonanic/commit/01494a29e2b31b9d1133646f951dd8b9d7bafad4); GitHub readback succeeded for every path. No gameplay changes were pushed.
 - No merge, deployment, or production data change occurred.
