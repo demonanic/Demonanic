@@ -221,3 +221,20 @@ The user reports installing the corrected APK and observing the following on the
 **Result:** successful manual Android persistence smoke test for retry-loading this existing profile and persistence of this tower deletion across an app restart. The result was reported by the user; it was not independently reproduced by this agent. It does not establish that every save path works, that explicit new-profile creation works against the backend, or that duplicate/concurrent creation is safe at runtime.
 
 No additional commands, automated tests, or builds were run in this documentation-only reporting turn. Backend runtime tests remain unavailable: the preceding session could not run `pytest` because the module and backend runtime dependencies were absent, and no authorized disposable backend test account/database was available. No production data was queried or changed.
+
+
+
+## 2026-10-17 Tactical menu and combat usability
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/components/TacticalMenu.test.jsx src/components/PrepField.test.jsx src/game/towerPlacement.test.js src/context/GameProvider.test.jsx` (from `frontend/`) | 0 | 4 suites, 20 tests passed. Covers compact hero selection and spell casting, collapsed command controls, slot/cost confirmation, tower logical placement, and recovery guard behavior. UI tests use mocked components/state; they are not device tests. |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 12 suites, 64 tests passed. Existing provider tests emit expected status-only failure logs for mocked network/auth failures. |
+| `npm run test:android-config` (from `frontend/`) | 0 | 4/4 Android backend configuration tests passed. |
+| `REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android` (from `frontend/`) | 0 | Guarded production frontend build succeeded; Node emitted `[DEP0176] fs.F_OK is deprecated`. |
+| `npx --no-install cap sync android` (from `frontend/`) | 0 | Capacitor sync succeeded. |
+| `./gradlew assembleDebug` (from `frontend/android/`) | 0 | Android debug APK assembled successfully (93 actionable tasks). Existing warnings: experimental `android.aapt2FromMavenOverride` and `flatDir` metadata limitations. |
+| Static APK bundle marker check | 0 | One JS bundle; expected backend host, recovery prompt, tactical command label, mage spell panel, and slot-specific tower confirmation present. APK was not installed or launched. |
+| `git diff --check` | 0 | Passed after the code and documentation edits. |
+
+The user previously reported installing the corrected build, loading Keep Command after retry, and confirming a tower deletion persisted after restart. That manual result is separately documented above and was not repeated with this newly assembled APK. The build and automated checks do not verify authenticated new-profile creation, all cloud-save paths, or concurrent duplicate creation against the real backend.
