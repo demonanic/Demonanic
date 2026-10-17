@@ -65,4 +65,8 @@ Actual authenticated creation and cloud saving remain unverified. The minimum ru
 - `frontend/src/context/GameProvider.test.jsx`: assert a post-creation explicit save uses the cloud save API after successful creation.
 - `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this dated report: record actual checks, APK details, and backend-runtime limitation.
 
-No files were deleted. Existing tower-placement, main-menu, recovery, backend, workflow, and other tests remain present and uncommitted. No application code was published. Documentation-only publication and GitHub readback are recorded after publication below.
+No files were deleted. Existing tower-placement, main-menu, recovery, backend, workflow, and other tests remain present and uncommitted. No application code was published.
+
+## Documentation publication
+
+Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` in documentation-only commit [`26cdeb6effef15ce786aa01254b71c46deb9dff5`](https://github.com/demonanic/Demonanic/commit/26cdeb6effef15ce786aa01254b71c46deb9dff5). GitHub readback succeeded for all four paths, and the commit's changed-path list contains only those Markdown files. No merge or deployment occurred.
