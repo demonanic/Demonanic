@@ -37,5 +37,5 @@ No game code, profile, app data, backend/production data, or APK was modified by
 
 - `git status --short --branch`, `git rev-parse HEAD`, `git branch --show-current`, `git diff --stat`, and `git diff --check` were used to inspect the repository before editing; the initial whitespace check passed.
 - No application test or build was run because this session only documents the user's manual test.
-- Published only the three reporting files and this report to `docs/development-reports-2026-10-15`; GitHub readback and the docs-only changed-path list are recorded in the final session response.
+- Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` in documentation-only commit `97cc84c36a205408b6bbe889baddb288b73b0517`. GitHub readback verified all four paths; the commit changed only those Markdown files. Direct commit link: https://github.com/demonanic/Demonanic/commit/97cc84c36a205408b6bbe889baddb288b73b0517.
 - No application changes were committed or pushed. No merge or deployment occurred, and production data was not changed.
