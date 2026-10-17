@@ -65,5 +65,5 @@ An initial asset scan used the repository root instead of `frontend/build` and f
 ## End state
 
 - Existing feature-branch recovery, tower-placement, menu, and test changes remain local and uncommitted. The build validator and Android workflow change are also local and uncommitted.
-- Documentation-only publication to `docs/development-reports-2026-10-15` will be recorded after GitHub readback.
+- Published `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, the updated APK/ADB report, and this session report to `docs/development-reports-2026-10-15` in documentation-only commit [`de1c32251b5cca3c371bc666a5640b89163d2a4d`](https://github.com/demonanic/Demonanic/commit/de1c32251b5cca3c371bc666a5640b89163d2a4d). GitHub readback succeeded for all five paths; the commit contains no source files.
 - The original save remains unverified. No profile/database/app data changed; no API route was called. No merge, deployment, or gameplay-code publication occurred.
