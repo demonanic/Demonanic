@@ -187,3 +187,24 @@ An initial generated-bundle scan looked at the repository root and found zero bu
 | Source review of `GameProvider.loadGame()`, auth identity lookup, backend state routes | 0 | Auth resolves normalized username to `users.id`; `game_states.user_id` is the profile key. State GET accrues offline resources and updates `lastSeen`; PUT upserts. Neither endpoint was called. |
 
 No database query, frontend full suite/build, or backend runtime test was run in this session. Existing test/build results from the preceding build-configuration session are recorded above and were not rerun. The profile's existence and validity remain unverified because the exact original username/account identity, independently confirmed target database, and authorized read-only DB access were unavailable. No credentials, user ID, game-state content, or raw device logs were collected.
+
+## 2026-10-17 Profile creation and save readiness
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 10 suites and 61 tests passed. Includes saved profile, null/malformed/error loads, local-only fallback, explicit new-profile creation, post-create save, and rapid-confirm coalescing. Client/API calls are mocked. |
+| `npm run test:android-config` (from `frontend/`) | 0 | 4 Node config tests passed. |
+| `env -u REACT_APP_BACKEND_URL npm run build:android` | 1 (expected) | Clear required-variable error; CRA was not started. |
+| `REACT_APP_BACKEND_URL='not a URL' npm run build:android` | 1 (expected) | Clear invalid HTTPS URL error; CRA was not started. |
+| `REACT_APP_BACKEND_URL='http://demonanic.onrender.com' npm run build:android` | 1 (expected) | Clear HTTPS requirement error; CRA was not started. |
+| `REACT_APP_BACKEND_URL='https://wrong.example.invalid' npm run build:android` | 1 (expected) | Clear expected-backend-host error; CRA was not started. |
+| `REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android` (from `frontend/`) | 0 | Optimized production frontend build succeeded. Final build had the existing Node `[DEP0176] fs.F_OK` deprecation warning and no ESLint warning. An earlier build emitted an unnecessary `user.username` hook dependency warning after log redaction; the dependency was removed and the build rerun. |
+| `npx --no-install cap sync android` | 0 | Capacitor copied the production frontend assets and updated Android plugins/config. |
+| `./gradlew assembleDebug` (from `frontend/android/`) | 0 | Android debug APK built successfully; 93 tasks. Gradle warned about experimental `android.aapt2FromMavenOverride` and `flatDir`. |
+| APK `zipfile` scan of `assets/public/static/js/*.js` | 0 | One JS bundle; expected hostname and recovery/new-game controls present; `undefined/api` and old auto-create marker absent. APK: `frontend/android/app/build/outputs/apk/debug/app-debug.apk`, 6,747,835 bytes. An initial scan used the wrong archive path and found zero bundles (exit 1); corrected path scan passed. |
+| `python -m py_compile backend/server.py backend/auth.py backend/tests/test_profile_creation_safety.py` | 0 | Python syntax compilation passed. |
+| `python -m pytest backend/tests/test_profile_creation_safety.py -q` | 1 | Blocked: `pytest` is not installed. No real FastAPI/Mongo runtime test ran. |
+| `git diff --check` | 0 | Passed after source and documentation edits. |
+| `command -v adb`, `adb version`, `adb get-state` | 0 | `/usr/bin/adb`, version 34.0.4; a device is connected. No install or launch. |
+
+No authenticated profile creation/save test was run against the intended backend. The backend duplicate/concurrency tests use a fake unique collection and were not executed because pytest is missing. Do not treat mocked frontend tests, static APK checks, or Python syntax checks as evidence that production cloud creation or saving works. Minimum runtime verification requires explicit authorization to use an existing disposable test account on the intended backend (or isolated equivalent), then authenticated POST creation (201), duplicate POST rejection (409, existing record unchanged), PUT save, and a read-only DB confirmation of that test record. No account was created and production data was not changed.
