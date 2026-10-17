@@ -62,4 +62,8 @@ No application or backend source was changed. All existing tower-placement, main
 
 Ask the player to give their exact original login username privately to the trusted service/database operator. The operator should confirm the correct production cluster, use a read-only database identity to resolve the ID internally, and return only the requested booleans. Until then, keep the old installed APK unlaunched and do not install the new APK or use any game-state endpoint for diagnosis.
 
-Documentation-only GitHub publication and readback details will be appended after publication.
+## Documentation publication
+
+Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` in documentation-only commit [`7c0d4f5bd03a6f4e1c89bd5215d6142214408f5c`](https://github.com/demonanic/Demonanic/commit/7c0d4f5bd03a6f4e1c89bd5215d6142214408f5c). GitHub readback succeeded for all four paths. The commit's changed-path list contains only those four Markdown files; no gameplay or backend source was published.
+
+No merge or deployment occurred. No application-code changes were published.
