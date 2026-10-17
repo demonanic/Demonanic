@@ -1,6 +1,6 @@
 # Test Report
 
-Updated: 2026-10-16
+Updated: 2026-10-17
 
 ## Tower placement and main menu development session
 
@@ -94,3 +94,30 @@ No app was launched and no API endpoint was called. User ID, backend host, expec
 | `git diff --check` | 0 | No whitespace errors. |
 
 No Android app was launched and no API or database endpoint was called. Device identity, backend hostname, and existing Mongo profile presence remain unknown. No backend runtime integration test or production DB read occurred.
+
+## 2026-10-17 Safe profile diagnostics and final verification
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` (from `frontend/`) | 0 | 2 suites passed; 19 tests passed. |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 10 suites passed; 61 tests passed. |
+| `npm run build` (from `frontend/`) | 0 | Production frontend build compiled successfully. Node emitted the `fs.F_OK` deprecation warning. |
+| Build-bundle check for `undefined/api` | 0 | One JS bundle scanned; no undefined API path literal after validation change. |
+| `python -m py_compile backend/server.py backend/tests/test_profile_creation_safety.py` | 0 | Python syntax compilation passed. |
+| `python -m pytest tests/test_profile_creation_safety.py -q` (from `backend/`) | 1 | Blocked: this Python environment has no `pytest` module. `/usr/bin/python3 -m pytest ...` was also unavailable. Backend dependencies `fastapi`, `motor`, and `pymongo` are absent. |
+| `git diff --check` | 0 | No whitespace errors. |
+| `/usr/bin/adb devices -l` | 0 | No devices attached; no app launch or device verification was performed. |
+
+Backend duplicate/concurrent creation tests were added with a fake unique collection but could not be executed here. No read-only diagnostic endpoint/script was added: no authorized read-only Mongo connection or canonical backend host for a device diagnostic is available. Corresponding diagnostic authorization/no-mutation tests are blocked for the same reason; no record existence was checked.
+
+### Final verification rerun — 2026-10-17
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` (from `frontend/`) | 0 | 2 suites passed; 19 tests passed. |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 10 suites passed; 61 tests passed. |
+| `npm run build` (from `frontend/`) | 0 | Production build compiled successfully. Node emitted `[DEP0176] fs.F_OK is deprecated`. |
+| `python -m pytest tests/test_profile_creation_safety.py -q` (from `backend/`) | 1 | Could not run: `pytest` module is not installed. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+Backend Python syntax compilation and ADB checks are documented in the detailed 2026-10-17 session report; neither backend tests nor Android-device verification occurred in this environment. Frontend tests are mock/unit tests and do not establish that a production record exists.

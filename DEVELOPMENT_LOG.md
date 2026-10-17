@@ -70,3 +70,20 @@
 - Added nine focused provider tests. Focused suite passed 9/9; full frontend suite passed 9 suites/51 tests; production build passed with Node's `fs.F_OK` deprecation warning; Python syntax compilation and `git diff --check` passed.
 - Backend runtime tests could not run because FastAPI/Motor/PyMongo are absent in the environment. No app launch, API call, DB read/write, merge, deployment, or production change occurred. Device account/backend and stored profile remain unverified.
 - Detailed report: `docs/dev-sessions/2026-10-16-android-profile-recovery-guard.md`. Published only the four reporting files to `docs/development-reports-2026-10-15` in commit `01494a29e2b31b9d1133646f951dd8b9d7bafad4`; GitHub readback succeeded for all four paths, and the commit contains no application files.
+
+## 2026-10-17 — Safe diagnostics and profile recovery verification
+
+- Starting and ending checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved existing tower-placement, main-menu, recovery, and documentation changes.
+- Reviewed the complete current diff and profile/auth/backend flows. ADB binary exists, but `adb devices -l` now reports no attached device. No app was launched.
+- Found the current shell has no `REACT_APP_BACKEND_URL`; a pre-guard local bundle contained `undefined/api`. Checked-in build workflows configure `demonanic.onrender.com`, but the installed APK's host remains unverified. Added URL validation: missing/invalid/credential-bearing backend URLs fail closed, and logs show only a hostname.
+- Reviewed profile safeguards: explicit null only opens a user choice; malformed state, 401, network, and server errors do not create a profile; local fallback has server writes disabled; frontend rapid clicks are coalesced; backend insert-only POST plus the existing unique index prevents duplicate inserts from replacing a state. Added mocked backend duplicate/concurrency tests; actual Mongo concurrency remains unverified.
+- No authenticated read-only diagnostic was added because no read-only DB credentials/operator path, expected user identity, device connection, or configured public API host is available. The existing GET endpoint mutates accrual/lastSeen. No production record was queried.
+- Focused frontend tests passed (2 suites/19 tests); all frontend tests passed (10 suites/61 tests); production build passed with the `fs.F_OK` deprecation warning; Python syntax compilation and `git diff --check` passed. Backend pytest could not run (`No module named pytest`); backend runtime dependencies are absent.
+- No database/API request, Android launch, app-data change, account creation, commit, merge, deployment, or production mutation occurred. The detailed report records exact commands, blockers, and the minimal authorized operator check needed.
+
+## 2026-10-17 — Final verification rerun and report publication
+
+- Rechecked branch and HEAD before continuing: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; all existing changes remained present.
+- Reran focused recovery/config tests (2 suites, 19 tests) and the full frontend suite (10 suites, 61 tests); both passed. `npm run build` completed successfully with the existing Node `fs.F_OK` deprecation warning. Backend pytest remains unavailable (`pytest` module missing). `git diff --check` passed.
+- Documentation-only reports are being published to `docs/development-reports-2026-10-15`; the GitHub commit and readback result will be recorded after verification.
+- No app launch, database query or mutation, branch change, gameplay push, merge, or deployment occurred. Application changes remain uncommitted on the feature branch.
