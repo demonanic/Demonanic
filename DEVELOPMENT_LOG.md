@@ -85,5 +85,5 @@
 
 - Rechecked branch and HEAD before continuing: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; all existing changes remained present.
 - Reran focused recovery/config tests (2 suites, 19 tests) and the full frontend suite (10 suites, 61 tests); both passed. `npm run build` completed successfully with the existing Node `fs.F_OK` deprecation warning. Backend pytest remains unavailable (`pytest` module missing). `git diff --check` passed.
-- Documentation-only reports are being published to `docs/development-reports-2026-10-15`; the GitHub commit and readback result will be recorded after verification.
+- Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this dated session report to `docs/development-reports-2026-10-15` in docs-only commit `47c7c7e79a8cf5293028dcda079fd8964f232f15`. GitHub readback succeeded for all four paths; the commit diff lists only those Markdown files.
 - No app launch, database query or mutation, branch change, gameplay push, merge, or deployment occurred. Application changes remain uncommitted on the feature branch.
