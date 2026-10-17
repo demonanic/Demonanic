@@ -60,4 +60,4 @@ All other prior worktree modifications and untracked files remain preserved. Not
 
 ## Documentation publication
 
-Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` through the connected GitHub integration. The GitHub branch readback, commit hash, and changed-path list are recorded after publication in this report. No application code was published. No merge or deployment occurred.
+Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` through the connected GitHub integration in documentation-only commit `a382d4dd8c7bc8309d2742438b6b705c8aa9d683`. The commit changed exactly those four paths and GitHub readback succeeded. No application code was published. No merge or deployment occurred.
