@@ -174,3 +174,16 @@ An initial generated-bundle scan looked at the repository root and found zero bu
 | `git diff --check` | 0 | Passed after source and documentation changes. |
 
 An initial generated-bundle scan looked at the repository root and found zero bundles; the corrected scan of `frontend/build/static/js` found the bundle and verified the markers above. The assembled APK is a local artifact only.
+
+## 2026-10-17 Read-only original-profile verification attempt
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `npm run test:android-config` (from `frontend/`) | 0 | 4 Node tests passed, including expected-host and missing/invalid-config behavior. |
+| `git diff --check` | 0 | Passed; no whitespace errors. |
+| `adb get-state` and `adb devices -l` | 0 | ADB reports a connected device; endpoint omitted from report. No app launch or storage/log read. |
+| Presence checks for `MONGO_URL`, `DB_NAME`, `READ_ONLY_MONGO_URL`, `EXPECTED_USER_ID`, `REACT_APP_BACKEND_URL` | 0 | All unset; values were not printed. |
+| `command -v mongosh` / `command -v mongo` availability checks | 0 | Both Mongo shells unavailable. |
+| Source review of `GameProvider.loadGame()`, auth identity lookup, backend state routes | 0 | Auth resolves normalized username to `users.id`; `game_states.user_id` is the profile key. State GET accrues offline resources and updates `lastSeen`; PUT upserts. Neither endpoint was called. |
+
+No database query, frontend full suite/build, or backend runtime test was run in this session. Existing test/build results from the preceding build-configuration session are recorded above and were not rerun. The profile's existence and validity remain unverified because the exact original username/account identity, independently confirmed target database, and authorized read-only DB access were unavailable. No credentials, user ID, game-state content, or raw device logs were collected.
