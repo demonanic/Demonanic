@@ -97,3 +97,12 @@
 - Focused frontend tests passed (2 suites/19 tests), full frontend tests passed (10 suites/61 tests), frontend production build passed with `[DEP0176] fs.F_OK is deprecated`, Python syntax compilation passed, and `git diff --check` passed. Backend pytest remains blocked because pytest is absent.
 - No app launch, data change, profile write, merge, deployment, or gameplay publication occurred. Details and exact evidence are in `docs/dev-sessions/2026-10-17-profile-recovery-apk-adb-followup.md`.
 - Published `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and both 2026-10-17 recovery reports as documentation-only commit `20781b738dc7757188cbee8f9c4378514f885d48` on `docs/development-reports-2026-10-15`. GitHub readback verified the five Markdown paths; no application/backend source was included.
+
+## 2026-10-17 — Android build configuration guard
+
+- Starting/ending application branch and HEAD: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved all pre-existing work.
+- Traced React build-time environment handling: CRA substitutes `REACT_APP_BACKEND_URL` during bundling; Capacitor sync and Gradle embed the already-built assets and do not inject this setting. Both checked-in workflows set `https://demonanic.onrender.com`. The old APK instead contains `void 0` and `undefined/api`, so its frontend bundle was built without the value or stale output was embedded. The exact historical build invocation is not recorded.
+- Added `build:android` preflight validation requiring the expected HTTPS backend origin and changed the Android build workflow to run the four configuration tests and then use that guarded build command. Tests cover expected host acceptance, missing-config failure, invalid/unrelated/insecure URLs, and no localhost fallback.
+- Config tests passed 4/4; focused frontend tests passed 2 suites/19 tests; full frontend tests passed 10 suites/61 tests. Missing-config Android build failed clearly as intended. Configured frontend and Android debug APK builds passed; bundle scan found the expected backend host and recovery UI markers. APK was not installed/launched.
+- Python syntax compilation and `git diff --check` passed. Backend pytest was blocked (`pytest` missing); no real database test ran. No account/profile/backend request or database query occurred. ADB remains connected over TCP.
+- Only focused Android build config source/workflow changes were made; existing recovery, tower-placement, and menu changes remain local. Documentation publication will contain reports only.

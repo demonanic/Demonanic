@@ -27,7 +27,7 @@ This confirms the installed APK has no configured API hostname in its bundled cl
 
 Both checked-in build workflows (`.github/workflows/demonanic-pages.yml` and `.github/workflows/castle-management-build.yml`) set `REACT_APP_BACKEND_URL` to the expected hostname `demonanic.onrender.com`. The frontend package scripts are `start`, `build`, and `test`; CRA consumes `REACT_APP_*` values at build time. The current shell's `REACT_APP_BACKEND_URL` is unset, but that alone did not establish APK configuration; the APK inspection did. No `.env` files were found outside dependencies. Git history contains the backend-URL workflow change at `bf086c3` and later Android build workflow commits, but the installed APK could not be associated with a particular workflow artifact/commit.
 
-Current source uses `resolveApiBaseUrl`: absent or invalid configuration returns `null`, and the Axios interceptor rejects before sending a request. Current build workflows supply the backend URL. No APK was rebuilt or installed.
+At this investigation stage, current source used `resolveApiBaseUrl`: absent or invalid configuration returned `null`, and the Axios interceptor rejected before sending a request. Current build workflows supplied the backend URL. No APK had yet been rebuilt or installed. A later session added an Android build preflight, built and inspected a guarded debug APK, and did not install it; see `docs/dev-sessions/2026-10-17-profile-recovery-android-build-config.md`.
 
 ## ADB state
 
@@ -40,6 +40,8 @@ Commands run: `/usr/bin/adb version`, `/usr/bin/adb server-status`, `/usr/bin/ad
 - Only package path and APK bytes were read. No app launch, logcat collection, auth/session read, game endpoint request, or data access occurred.
 
 If disconnected later, enable Wireless debugging on the trusted phone while it is on a trusted Wi-Fi network. Use only the current IP and pairing port displayed in Android's Pair device with pairing code screen with `/usr/bin/adb pair <phone-shown-ip>:<pairing-port>`; enter the temporary code only at the prompt and keep it out of shell history/reports. Then use the current debug IP/port shown on the Wireless debugging screen with `/usr/bin/adb connect <phone-shown-ip>:<debug-port>`. Ports may change; do not reuse the old endpoint. No PC is required when the Ubuntu/Termux ADB client can reach the phone over that trusted network.
+
+Later the same day, an Android build guard was added and a guarded debug APK was built without installation. See `docs/dev-sessions/2026-10-17-profile-recovery-android-build-config.md`. This supersedes the point-in-time statement above that no APK had been rebuilt; the previously installed APK was not modified or launched.
 
 ## Recovery guard review
 
@@ -62,7 +64,7 @@ Auth code review also reconfirmed that successful login currently logs the raw r
 | `git branch --show-current`, `git rev-parse HEAD`, `git status --short --branch`, full targeted `git diff`, `git diff --check` | 0 | Correct feature branch/HEAD; pre-existing changes preserved; whitespace check passed. |
 | `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` (frontend) | 0 | 2 suites, 19 tests passed. Mocked frontend tests. |
 | `CI=true npm test -- --watchAll=false --runInBand` (frontend) | 0 | 10 suites, 61 tests passed. Mocked/unit frontend tests; not production integration. |
-| `npm run build` (frontend) | 0 | Compiled successfully; Node emitted `[DEP0176] fs.F_OK is deprecated`. No APK generated. |
+| `npm run build` (frontend, at this investigation stage) | 0 | Compiled successfully; Node emitted `[DEP0176] fs.F_OK is deprecated`. The later debug APK build is recorded in `docs/dev-sessions/2026-10-17-profile-recovery-android-build-config.md`. |
 | `python -m py_compile backend/server.py backend/tests/test_profile_creation_safety.py` | 0 | Python syntax compilation passed. |
 | `python -m pytest tests/test_profile_creation_safety.py -q` (backend) | 1 | Blocked: `pytest` is not installed. No FastAPI/Motor/PyMongo runtime or real DB tests ran. |
 | `/usr/bin/adb get-state`, `/usr/bin/adb devices -l`, read-only `pm path` and APK pull | 0 | Device connected; package installed; APK inspected without launch. |

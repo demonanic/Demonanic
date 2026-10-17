@@ -136,3 +136,41 @@ Backend Python syntax compilation and ADB checks are documented in the detailed 
 | `git diff --check` | 0 | Passed. |
 
 No profile/database endpoint was called. Original user identity and Mongo record presence remain unverified. The APK evidence identifies a configuration/code defect but is not evidence that the original save is absent or present.
+
+## 2026-10-17 Android build configuration guard
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `npm run test:android-config` (from `frontend/`) | 0 | 4 Node tests passed: expected host accepted; missing config produces nonzero CLI failure; malformed/insecure/localhost/unrelated/credential-bearing/path URLs rejected; no fallback host. |
+| `env -u REACT_APP_BACKEND_URL npm run build:android` (from `frontend/`) | 1 (expected) | Stopped before CRACO with `Android production build blocked: REACT_APP_BACKEND_URL is required for Android production builds.` |
+| `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` | 0 | 2 suites/19 tests passed. |
+| `CI=true npm test -- --watchAll=false --runInBand` | 0 | 10 suites/61 tests passed. |
+| `REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android` | 0 | Frontend production assets built; expected backend host validation passed. Node emitted `[DEP0176] fs.F_OK is deprecated`. |
+| `npx --no-install cap sync android` | 0 | Capacitor copied guarded assets into the Android project. |
+| `./gradlew assembleDebug` (from `frontend/android/`) | 0 | Debug APK assembled successfully (93 actionable tasks). Warnings: experimental AAPT2 override and `flatDir` metadata limitations. APK not installed/launched. |
+| APK bundled-JS marker scan | 0 | One bundle; expected host and recovery markers present; `undefined/api` and the old auto-create marker absent. |
+| `python -m py_compile backend/server.py backend/tests/test_profile_creation_safety.py` | 0 | Syntax compilation passed. |
+| `python -m pytest backend/tests/test_profile_creation_safety.py -q` | 1 | Blocked: `pytest` module is not installed. No real Mongo/backend tests. |
+| `/usr/bin/adb get-state`, `/usr/bin/adb devices -l` | 0 | Device connected over TCP; no install or launch. |
+| `git diff --check` | 0 | Passed after source and documentation changes. |
+
+An initial generated-bundle scan looked at the repository root and found zero bundles; the corrected scan of `frontend/build/static/js` found one bundle and verified the markers above. The assembled APK remains local only.
+
+## 2026-10-17 Android build configuration guard
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `npm run test:android-config` (from `frontend/`) | 0 | 4 Node tests passed: expected host accepted; missing config produces nonzero CLI failure; malformed/insecure/localhost/unrelated/credential-bearing/path URLs rejected; no fallback host. |
+| `env -u REACT_APP_BACKEND_URL npm run build:android` (from `frontend/`) | 1 (expected) | Stopped before CRACO with `Android production build blocked: REACT_APP_BACKEND_URL is required for Android production builds.` |
+| `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` | 0 | 2 suites/19 tests passed. |
+| `CI=true npm test -- --watchAll=false --runInBand` | 0 | 10 suites/61 tests passed. |
+| `REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android` | 0 | Frontend production assets built; expected backend host validation passed. Node emitted `[DEP0176] fs.F_OK is deprecated`. |
+| `npx --no-install cap sync android` | 0 | Capacitor copied guarded assets into the Android project. |
+| `./gradlew assembleDebug` (from `frontend/android/`) | 0 | Debug APK assembled successfully (93 actionable tasks). Warnings: experimental AAPT2 override and `flatDir` metadata limitations. APK not installed/launched. |
+| APK bundled-JS marker scan | 0 | One bundle; expected host present, `undefined/api` absent, and recovery prompt/device-save/new-game markers present. |
+| `python -m py_compile backend/server.py backend/tests/test_profile_creation_safety.py` | 0 | Syntax compilation passed. |
+| `python -m pytest backend/tests/test_profile_creation_safety.py -q` | 1 | Blocked: `pytest` module is not installed. No real Mongo/backend tests. |
+| `/usr/bin/adb get-state`, `/usr/bin/adb devices -l` | 0 | Device connected over TCP; no install or launch. |
+| `git diff --check` | 0 | Passed after source and documentation changes. |
+
+An initial generated-bundle scan looked at the repository root and found zero bundles; the corrected scan of `frontend/build/static/js` found the bundle and verified the markers above. The assembled APK is a local artifact only.
