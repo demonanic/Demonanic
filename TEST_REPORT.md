@@ -208,3 +208,16 @@ No database query, frontend full suite/build, or backend runtime test was run in
 | `command -v adb`, `adb version`, `adb get-state` | 0 | `/usr/bin/adb`, version 34.0.4; a device is connected. No install or launch. |
 
 No authenticated profile creation/save test was run against the intended backend. The backend duplicate/concurrency tests use a fake unique collection and were not executed because pytest is missing. Do not treat mocked frontend tests, static APK checks, or Python syntax checks as evidence that production cloud creation or saving works. Minimum runtime verification requires explicit authorization to use an existing disposable test account on the intended backend (or isolated equivalent), then authenticated POST creation (201), duplicate POST rejection (409, existing record unchanged), PUT save, and a read-only DB confirmation of that test record. No account was created and production data was not changed.
+
+
+## 2026-10-17 Manual Android persistence smoke test (user-reported)
+
+The user reports installing the corrected APK and observing the following on their Android phone:
+
+1. Startup displayed **SAVED PROFILE NOT VERIFIED**, with a device-save option and **RETRY LOAD**.
+2. After selecting **RETRY LOAD**, the existing **Keep Command** profile loaded, including its existing resources and a completed Thought Lance research notification.
+3. The user deleted a tower, exited the game, reopened it, and confirmed that the tower remained deleted.
+
+**Result:** successful manual Android persistence smoke test for retry-loading this existing profile and persistence of this tower deletion across an app restart. The result was reported by the user; it was not independently reproduced by this agent. It does not establish that every save path works, that explicit new-profile creation works against the backend, or that duplicate/concurrent creation is safe at runtime.
+
+No additional commands, automated tests, or builds were run in this documentation-only reporting turn. Backend runtime tests remain unavailable: the preceding session could not run `pytest` because the module and backend runtime dependencies were absent, and no authorized disposable backend test account/database was available. No production data was queried or changed.
