@@ -71,6 +71,6 @@ Auth code review also reconfirmed that successful login currently logs the raw r
 ## Final state and next safe step
 
 - Current branch/HEAD remain unchanged; all existing application changes are local and uncommitted.
-- The four current report files are being published as documentation-only changes to `docs/development-reports-2026-10-15` and will be verified by GitHub readback.
+- Published `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and both 2026-10-17 recovery reports to `docs/development-reports-2026-10-15` in documentation-only commit [`20781b738dc7757188cbee8f9c4378514f885d48`](https://github.com/demonanic/Demonanic/commit/20781b738dc7757188cbee8f9c4378514f885d48). GitHub readback verified all five paths; no application/backend source was included.
 - No profile/account/database/app data was changed. No game endpoint was called. No merge, deployment, or gameplay-code publication occurred.
 - The single most useful next step is an authorized operator's read-only lookup of the expected account's `users` and `game_states` records, returning only existence and valid-shape booleans. Do not launch the stale installed APK.
