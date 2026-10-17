@@ -87,3 +87,12 @@
 - Reran focused recovery/config tests (2 suites, 19 tests) and the full frontend suite (10 suites, 61 tests); both passed. `npm run build` completed successfully with the existing Node `fs.F_OK` deprecation warning. Backend pytest remains unavailable (`pytest` module missing). `git diff --check` passed.
 - Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this dated session report to `docs/development-reports-2026-10-15` in docs-only commit `47c7c7e79a8cf5293028dcda079fd8964f232f15`. GitHub readback succeeded for all four paths; the commit diff lists only those Markdown files.
 - No app launch, database query or mutation, branch change, gameplay push, merge, or deployment occurred. Application changes remain uncommitted on the feature branch.
+
+## 2026-10-17 — Installed APK and ADB follow-up
+
+- Starting checkout remained `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Reviewed all existing diffs and preserved them.
+- Ubuntu `/usr/bin/adb` was responding and listed the device in `device` state over a TCP transport. Read-only `pm path`/`adb pull` inspected the installed base APK without launching Demonanic.
+- The APK's single bundled JS contains `void 0` as backend config and the paired `undefined/api` string; `demonanic.onrender.com` is absent. It also has the old `NEW PROFILE CREATED` marker, no explicit missing-profile prompt, and the old `BACKEND_URL` log marker. The installed APK is therefore misconfigured and predates the local guard. This establishes the installed client's configuration/code condition, not whether a cloud record exists or whether a request reached a server.
+- Both checked-in build workflows set the backend host to `demonanic.onrender.com`; the current shell has no `REACT_APP_BACKEND_URL`. No `.env` files were found outside dependencies. No account ID or read-only Mongo access is available; no database/profile route was called.
+- Focused frontend tests passed (2 suites/19 tests), full frontend tests passed (10 suites/61 tests), frontend production build passed with `[DEP0176] fs.F_OK is deprecated`, Python syntax compilation passed, and `git diff --check` passed. Backend pytest remains blocked because pytest is absent.
+- No app launch, data change, profile write, merge, deployment, or gameplay publication occurred. Details and exact evidence are in `docs/dev-sessions/2026-10-17-profile-recovery-apk-adb-followup.md`.

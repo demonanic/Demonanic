@@ -121,3 +121,18 @@ Backend duplicate/concurrent creation tests were added with a fake unique collec
 | `git diff --check` | 0 | No whitespace errors. |
 
 Backend Python syntax compilation and ADB checks are documented in the detailed 2026-10-17 session report; neither backend tests nor Android-device verification occurred in this environment. Frontend tests are mock/unit tests and do not establish that a production record exists.
+
+## 2026-10-17 Installed APK and ADB follow-up
+
+| Command / check | Exit | Result |
+| --- | ---: | --- |
+| `CI=true npm test -- --watchAll=false --runInBand src/apiConfig.test.js src/context/GameProvider.test.jsx` (from `frontend/`) | 0 | 2 suites, 19 tests passed; mocked client tests. |
+| `CI=true npm test -- --watchAll=false --runInBand` (from `frontend/`) | 0 | 10 suites, 61 tests passed; includes existing tower/menu tests. |
+| `npm run build` (from `frontend/`) | 0 | Compiled successfully; Node emitted `[DEP0176] fs.F_OK is deprecated`. |
+| `python -m py_compile backend/server.py backend/tests/test_profile_creation_safety.py` | 0 | Python syntax compilation passed; no server/database execution. |
+| `python -m pytest tests/test_profile_creation_safety.py -q` (from `backend/`) | 1 | Blocked: `pytest` module is not installed. No real-backend test ran. |
+| `/usr/bin/adb get-state` and `/usr/bin/adb devices -l` | 0 | Device connected over TCP transport; Demonanic was not launched. |
+| Read-only package path/pull and APK bundle marker scan | 0 | Installed APK lacks expected backend hostname, contains `undefined/api`, and contains old auto-create marker without current recovery prompt. No secrets or profile data were printed. |
+| `git diff --check` | 0 | Passed. |
+
+No profile/database endpoint was called. Original user identity and Mongo record presence remain unverified. The APK evidence identifies a configuration/code defect but is not evidence that the original save is absent or present.
