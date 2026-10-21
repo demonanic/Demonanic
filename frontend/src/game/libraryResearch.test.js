@@ -2,7 +2,7 @@ import { createNewState } from "./logic";
 import {
   SPELL_DATABASE, createSpellBlueprint, startSpellResearch, advanceLibraryResearch,
   librarySuccessChance, ensureMageSpellData, mageCanUseSpell, unlockMageSecondaryAffinity,
-  resolveLibraryCompletion, ensureResearchMageBenched, randomDiscoveryPool,
+  resolveLibraryCompletion, ensureResearchMageBenched, randomDiscoveryPool, randomDiscoveryAlternatives,
 } from "./libraryResearch";
 
 function libraryState() {
@@ -156,6 +156,23 @@ test("random discovery reports a genuinely exhausted affinity pool without charg
   expect(createSpellBlueprint(state, { mageId: mage.id, mode: "random", roll }))
     .toEqual({ ok: false, reason: "incompatible" });
   expect(roll).not.toHaveBeenCalled();
+  expect([state.gold, state.stone]).toEqual(before);
+});
+
+test("empty random pool explains Intelligence and affinity routes without changing eligibility", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  mage.primaryAffinity = "ice";
+  mage.secondaryAffinity = null;
+  mage.stats.intelligence = 13;
+  mage.spellbook = [SPELL_DATABASE.find((spell) => spell.id === "glacier_bind")];
+  const alternatives = randomDiscoveryAlternatives(state, mage);
+  expect(alternatives.eligible).toEqual([]);
+  expect(alternatives.intelligenceLocked.map((spell) => spell.id)).toEqual(["shard_burst", "rime_lance"]);
+  expect(alternatives.affinityLocked.length).toBeGreaterThan(0);
+  const before = [state.gold, state.stone];
+  expect(createSpellBlueprint(state, { mageId: mage.id, mode: "random", roll: () => 0 }))
+    .toEqual({ ok: false, reason: "incompatible" });
   expect([state.gold, state.stone]).toEqual(before);
 });
 
