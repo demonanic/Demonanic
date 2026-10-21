@@ -144,3 +144,10 @@ Each branch should have a small, readable sequence of foundation → specializat
 - Respec is blocked during battle, has a clear confirmation and cooldown, cannot charge twice, preserves unrelated progression, and rolls back on save failure.
 - Mobile UI remains readable and navigable on a phone viewport.
 - Run focused perk tests and the full frontend test suite, then build/install Android and request on-device verification. Do not merge to `main` or deploy without approval.
+
+
+### Profile error recovery — return-to-login navigation
+
+- Commit: `8cfd905ded919b3a30559729f80d862bb2e57881` on `review/mobile-working-copy`.
+- Added a **RETURN TO LOGIN** action to both profile-prompt and load-error screens. It uses the existing logout handler to clear the rejected session and return to the normal login UI; it does not create or overwrite a game profile.
+- This is a navigation recovery fix only. It does not fix the underlying 401 or establish whether a backend profile exists. Pull the branch and run the frontend tests before building/installing. Then verify login and explicit new-profile creation.
