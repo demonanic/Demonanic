@@ -968,7 +968,10 @@ export class Engine {
             h.x += ((ally.x - h.x) / Math.max(1, dist)) * Math.min(spd, dist);
             h.y += ((ally.y - h.y) / Math.max(1, dist)) * Math.min(spd, dist);
           }
-        } else {
+        } else if (!h.manual) {
+          // AUTO support mages regroup at home between support actions.
+          // A player-controlled mage must hold its commanded position instead
+          // of being pulled home by its support configuration.
           this._returnHome(h, dt);
         }
         continue;
