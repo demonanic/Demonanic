@@ -1,6 +1,6 @@
 # Demonanic Development Roadmap
 
-Updated: 2026-10-17
+Updated: 2026-10-21
 
 Development reports are published for review on [`docs/development-reports-2026-10-15`](https://github.com/demonanic/Demonanic/tree/docs/development-reports-2026-10-15). This branch is documentation-only and was created from `main`.
 
@@ -12,6 +12,7 @@ Development reports are published for review on [`docs/development-reports-2026-
 | Main menu redesign | Implemented and running in corrected Android build | Home screen uses compact resource/status panels, stronger skull branding, and larger navigation touch targets. Existing navigation is preserved; menu operation is user-confirmed on the corrected Android build. |
 | Tactical menu and combat usability | First-pass improvement implemented; device review pending | The tactical HUD now uses a horizontal, larger-target hero picker, directly accessible mage spells, and collapsed secondary commands. Tower confirmation names its selected slot and cost. Focused tests and Android debug build passed; test the layout and touch flow on-device next. |
 | Food resource display | Unavailable in current game state | Food is migrated out of legacy saves and is not part of the current economy/profile state. Menu shows `N/A`; do not create resource state without a separate gameplay decision. |
+| Spell Research random-pool guidance | Implemented on `review/mobile-working-copy`; automated/device verification pending | Empty random pools now identify eligible Intelligence-gated spells and other affinities, explain the level-10 secondary-affinity route, and clarify that failed eligibility does not consume resources. Regression coverage added to `libraryResearch.test.js`; run the focused test and Android smoke test before calling it verified. |
 | Android profile creation and save safety | Recovery UI and one manual Android persistence smoke test verified; complete backend creation/save coverage remains unverified | The user reports the corrected APK showed the recovery screen, loaded the existing profile after **RETRY LOAD**, and retained a tower deletion after an app restart. This supports the observed retry-load and that deletion persistence path only. It does not verify every save path, new-profile creation, duplicate/concurrent creation, or backend runtime behavior. |
 
 Latest tactical usability verification (2026-10-17): focused tactical/preparation/tower-placement/profile-guard tests passed (4 suites/20 tests); the full frontend suite passed (12 suites/64 tests); Android URL validator tests passed (4/4). Guarded production frontend build, Capacitor sync, and Android `assembleDebug` succeeded. Static APK inspection found the expected backend hostname, recovery prompt, tactical command label, mage spell panel, and slot confirmation. This APK was not installed or launched in this session. Separately, the user reports having installed the preceding corrected APK, successfully loaded Keep Command after retry, and confirmed a tower deletion persisted after restart (see the manual smoke-test report). No real-backend new-profile or concurrent-creation test has run.
