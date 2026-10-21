@@ -62,18 +62,26 @@ Audit started: 2026-10-21 on `review/mobile-working-copy`. No perk-system code c
 
 ## Expanded perk tree — implementation specification draft
 
-### Runtime audit findings
+### Runtime audit findings — source-level pass
 
-The existing perk catalogue contains several effects that are currently declared and aggregated but have no clear combat-engine consumer in the audited engine file:
-- `reactiveSpeedPct` (Ghoststep)
-- `reactionBonus` (Guardian Instinct is surfaced as a derived field, but no matching engine consumer was found in the audited source)
-- `aoe` (Firestorm foundation)
-- `burn` (Burning Sigil)
-- `lifebloom`
-- `reactiveSupport`
-- `markedDamagePct`
+Reviewed `frontend/src/game/perks.js`, `frontend/src/game/logic.js`, `frontend/src/game/engine.js`, and `frontend/src/game/engine.perk-characterization.test.js` on `review/mobile-working-copy`. This was a source audit only; tests were inspected, not executed in this pass.
 
-These are **effect integration gaps to verify and resolve**, not permission to silently change their intended behavior. Before expanding the tree, either implement each effect with tests or explicitly mark it as a future effect and avoid adding more nodes that depend on it. Existing effects already consumed in combat include cleave/multi-target hits, HP-threshold damage bonuses, defense/dodge, healing/barrier/cooldown multipliers, crit healing, attack speed, range, movement speed, and damage reduction.
+**Confirmed runtime paths**
+- Archer Execution is applied below 25% target HP in the engine. Existing characterization tests cover its interaction with Focus Fire.
+- Cleave and Multishot use the engine's secondary-target path. Preserve the existing distinction between normal-hit Cleave, Multishot's basic projectile policy, and native multi-target abilities.
+- Mage Overload's ability-damage multiplier is applied during combat resolution to active abilities and researched combat spells. Existing tests explicitly guard against double scaling and against changing Library discovery chances/costs.
+- Guardian Instinct's `reactionBonus` is copied into derived data, but this audit found no corresponding engine consumer.
+- Reactive Barrier's `reactiveSupport` flag currently does not change target priority: the existing characterization test asserts that support targeting is the same with and without the perk. Treat this as a known inert perk, not as an intentional behavior guarantee.
+
+**Effects requiring focused verification**
+- `reactiveSpeedPct` (Ghoststep): no consumer found in the audited engine source.
+- `aoe` (Firestorm root): no consumer found; the actual Firestorm active ability has its own native area logic.
+- `burn` (Burning Sigil): no consumer found for applying damage over time.
+- `lifebloom`: no consumer found for granting a shield after healing a low-HP ally.
+- `markedDamagePct`: no consumer found for the Archer's marked-target damage bonus.
+- `reactionBonus` and `reactiveSupport`: as noted above, data is derived but has no demonstrated effect in combat.
+
+This pass did not change gameplay code and does not yet classify these effects as safe to remove. Next code work should add narrow regression tests and implement the intended effect only where the combat model has a clear, non-duplicating hook; otherwise explicitly defer it and update the player-facing description. Do not add new nodes that depend on an inert effect.
 
 ### Branch layout proposal
 
