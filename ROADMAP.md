@@ -83,6 +83,20 @@ Reviewed `frontend/src/game/perks.js`, `frontend/src/game/logic.js`, `frontend/s
 
 This pass did not change gameplay code and does not yet classify these effects as safe to remove. Next code work should add narrow regression tests and implement the intended effect only where the combat model has a clear, non-duplicating hook; otherwise explicitly defer it and update the player-facing description. Do not add new nodes that depend on an inert effect.
 
+### Initial perk expansion — data and test coverage added
+
+Committed on `review/mobile-working-copy`:
+- `46662bd2f8c6f0a797fead73b1bb2e8a39c7d584` adds twelve new child nodes (three per class) using existing, already-supported stat/combat effects.
+- `4609ac463db29c14cfed80f3e898314ccc9fafa7` adds a focused characterization test for the new IDs, parent links, and aggregated effect values.
+
+Initial nodes are:
+- **Knight:** Vanguard Drive, Warden Plate, Champion's Vigor.
+- **Rouge:** Assassin's Opening, Shadow Stride, Saboteur's Rhythm.
+- **Mage:** Elemental Focus, Arcanist's Haste, Occult Reservoir.
+- **Archer:** Marksman's Precision, Ranger's Stride, Artillerist's Force.
+
+This is the first gameplay-data expansion, not the finished branch UX. The new nodes use known effect keys rather than depending on the inert effects listed in the audit. Branch labels/selection, balance simulation, mobile layout, and ability additions remain future work. The test was added but has **not yet been executed** in this source-edit session; run focused tests and the full frontend suite before building or treating the batch as verified.
+
 ### Branch layout proposal
 
 The first release should expand the four existing class trees without replacing their roots or changing legacy IDs. These are themed branches within each permanent class, not class-change systems:
