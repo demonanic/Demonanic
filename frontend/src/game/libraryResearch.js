@@ -117,6 +117,24 @@ export function randomDiscoveryPool(state, mage) {
     mageCanUseSpell(mage, spell) && !learnedIds.has(spell.id) && !pendingIds.has(spell.id));
 }
 
+// Explain why a mage's random pool is empty and show the nearest valid routes forward.
+export function randomDiscoveryAlternatives(state, mage) {
+  if (!mage || mage.cls !== "mage") return { eligible: [], intelligenceLocked: [], affinityLocked: [] };
+  ensureMageSpellData(mage);
+  const learnedIds = new Set((mage.spellbook || []).map((spell) => spell.id));
+  const pendingIds = new Set((state.libraryBlueprints || [])
+    .filter((blueprint) => blueprint.mageId === mage.id)
+    .map((blueprint) => blueprint.catalogId || blueprint.spellId));
+  const unseen = SPELL_DATABASE.filter((spell) => !learnedIds.has(spell.id) && !pendingIds.has(spell.id));
+  const affinities = mageAffinities(mage);
+  const intelligence = mageIntelligence(mage);
+  return {
+    eligible: unseen.filter((spell) => mageCanUseSpell(mage, spell)),
+    intelligenceLocked: unseen.filter((spell) => affinities.includes(spell.element) && intelligence < spellIntelligenceRequirement(spell)),
+    affinityLocked: unseen.filter((spell) => !affinities.includes(spell.element)),
+  };
+}
+
 function availableCatalog(state, mage, mode, element, effect) {
   const pool = randomDiscoveryPool(state, mage);
   return mode === "random"
