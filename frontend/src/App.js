@@ -26,6 +26,7 @@ function Splash({ label = "SUMMONING..." }) {
 }
 
 function GameRouter() {
+  const { logout } = useAuth();
   const { loading, loadError, retryLoad, screen, profilePrompt, continueWithLocalBackup, startNewGame } = useGame();
   if (loading) return <Splash label="SUMMONING..." />;
   if (loadError) {
@@ -39,6 +40,13 @@ function GameRouter() {
           data-testid="retry-game-load"
         >
           RETRY LOAD
+        </button>
+        <button
+          className="neon-btn glass-card rounded-lg px-5 py-3 mt-3 font-mono-g text-xs text-fuchsia-300"
+          onClick={logout}
+          data-testid="return-to-login"
+        >
+          RETURN TO LOGIN
         </button>
       </div>
     );
@@ -70,8 +78,11 @@ function GameRouter() {
             START NEW GAME
           </button>
         )}
-        <button className="neon-btn glass-card rounded-lg px-5 py-3 font-mono-g text-xs text-cyan-300" onClick={retryLoad} data-testid="retry-game-load">
+        <button className="neon-btn glass-card rounded-lg px-5 py-3 mb-3 font-mono-g text-xs text-cyan-300" onClick={retryLoad} data-testid="retry-game-load">
           RETRY LOAD
+        </button>
+        <button className="neon-btn glass-card rounded-lg px-5 py-3 font-mono-g text-xs text-fuchsia-300" onClick={logout} data-testid="return-to-login">
+          RETURN TO LOGIN
         </button>
       </div>
     );
