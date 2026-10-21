@@ -2,7 +2,7 @@ import * as C from "./config";
 import { Engine } from "./engine";
 import { allocateSp, createHero, createNewState } from "./logic";
 import { createSpellBlueprint, librarySuccessChance } from "./libraryResearch";
-import { getPerkTree } from "./perks";
+import { getPerkTree, perkEffects } from "./perks";
 
 function makeEngine(classes, perks = {}) {
   const sim = createNewState(classes);
@@ -520,6 +520,35 @@ describe("approved combat perk behavior", () => {
       expect(weakestAlly.ref.hp).toBeGreaterThan(weakestHpBefore);
     },
   );
+
+  test("first expansion batch adds purchasable class nodes with valid parent links and live effects", () => {
+    const additions = [
+      ["knight", "knight_vanguard_drive", "knight_cleave", "attackRatePct", 0.08],
+      ["knight", "knight_warden_plate", "knight_bulwark", "damageReductionPct", 0.04],
+      ["knight", "knight_champion_vigor", "knight_iron_wall", "maxHpPct", 0.08],
+      ["rouge", "rouge_assassin_opening", "rouge_backstab", "highHpDamagePct", 0.10],
+      ["rouge", "rouge_shadow_stride", "rouge_evasion", "moveSpeedPct", 0.10],
+      ["rouge", "rouge_saboteur_combo", "rouge_flurry", "abilityDamagePct", 0.10],
+      ["mage", "mage_elemental_focus", "mage_firestorm", "abilityDamagePct", 0.10],
+      ["mage", "mage_arcanist_haste", "mage_surge", "cooldownPct", 0.05],
+      ["mage", "mage_occult_reservoir", "mage_mend", "healPct", 0.10],
+      ["archer", "archer_marksman_precision", "archer_eagle_eye", "critChancePct", 0.03],
+      ["archer", "archer_ranger_stride", "archer_rapid_draw", "moveSpeedPct", 0.10],
+      ["archer", "archer_artillerist_force", "archer_multishot", "abilityDamagePct", 0.10],
+    ];
+
+    for (const [cls, id, parent, effectKey, expected] of additions) {
+      const tree = getPerkTree(cls);
+      const node = [...tree.roots, ...tree.children].find((perk) => perk.id === id);
+      expect(node).toBeTruthy();
+      expect(node.parent).toBe(parent);
+      expect([...tree.roots, ...tree.children].some((perk) => perk.id === parent)).toBe(true);
+      const hero = createHero(cls);
+      hero.perks = [parent, id];
+      const effects = perkEffects(hero);
+      expect(effects[effectKey]).toBeGreaterThanOrEqual(expected);
+    }
+  });
 
   test("update prioritizes a valid reactive ally and falls back after the threat expires", () => {
     const { engine } = makeEngine(["mage", "knight", "archer"]);
