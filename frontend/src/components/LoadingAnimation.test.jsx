@@ -18,15 +18,15 @@ describe("LoadingAnimation", () => {
     container.remove();
   });
 
-  test("hides the baked-in summoning number while preserving the animation and label", () => {
+  test("renders the summoning animation without an overlay mask", () => {
     act(() => root.render(<LoadingAnimation type="summoning" label="SUMMONING..." imageClassName="w-80 h-80" />));
 
     expect(container.querySelector("img").getAttribute("src")).toBe("/loading/summoning.gif");
-    expect(container.querySelector('[data-testid="summoning-number-mask"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="summoning-number-mask"]')).toBeNull();
     expect(container.textContent).toContain("SUMMONING...");
   });
 
-  test("does not apply the summoning-number mask to other shared loading animations", () => {
+  test("renders the entering animation without a summoning mask", () => {
     act(() => root.render(<LoadingAnimation type="entering" label="ENTERING THE KEEP..." />));
 
     expect(container.querySelector("img").getAttribute("src")).toBe("/loading/entering-the-keep.gif");
