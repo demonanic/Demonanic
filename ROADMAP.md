@@ -33,3 +33,29 @@ The original profile is now confirmed to have loaded on the user's phone after r
 - Historical 2026-10-16 investigation: app data was not inspected or cleared, and backend progress was not queried. See `docs/dev-sessions/2026-10-16-android-profile-recovery.md` for findings, hypotheses, and safe recovery steps.
 - Historical 2026-10-16 diagnostics: runtime logs and Mongo record verification were unavailable at that time. Raw logcat must not be shared; see `docs/dev-sessions/2026-10-16-android-profile-recovery-diagnostics.md` for safe fields and evidence limits.
 - The Termux ADB binary was not reused. Ubuntu's repository `adb` package now sees an active TCP/IP device and confirms the Demonanic package is installed, but the log buffer has no auth/profile/API markers and backend identity remains unverified. Do not launch the app until profile-creation behavior is guarded; details are in `docs/dev-sessions/2026-10-16-android-profile-recovery-linux-adb.md`.
+
+## Expanded ability and perk trees — Phase 1 audit
+
+Audit started: 2026-10-21 on `review/mobile-working-copy`. No perk-system code changed during this audit.
+
+- Progression: `addHeroXp` grants one AP and one SP per hero level. SP allocation currently supports Attack, Defense, Agility, and Intelligence.
+- Perk data: `frontend/src/game/perks.js` defines class-specific roots, parent-gated children, composite abilities, legacy ID mapping, and aggregated effects. Preserve existing perk IDs, especially the historical `rouge_*` prefix.
+- Runtime integration: `heroDerived` aggregates perk effects, and `frontend/src/game/engine.js` consumes derived stats and unlocked abilities. Any new effect needs explicit runtime behavior and regression coverage.
+- UI: `frontend/src/components/PerkTree.jsx` currently renders one class tree and composite abilities in a horizontally wide layout. Mobile usability must be reviewed when adding branch selection and more nodes.
+- Progression transaction: `commitHeroProgressionDraft` validates staged AP/SP spending before mutating the hero. Current undo is for uncommitted choices only; persistent respecialization does not yet exist.
+- Save compatibility: learned perks are stored as hero perk IDs; future branch/loadout metadata must normalize safely for legacy heroes and must not erase spells, equipment, stats, or existing perks on load.
+
+### Agreed design constraints
+
+- Open hybrid builds: preserve the hero's permanent base class and class-specific AP perk ownership, while designing an explicit cross-discipline training/unlock path for selected abilities. Do not silently allow purchasing every other class's exclusive AP tree.
+- Respecialization: available outside active combat only; use a resource cost plus cooldown as the initial design, with values tuned against the economy simulation. Reset only the chosen AP/perk build scope; preserve SP allocations, researched spells, equipment, inventory, and unrelated profile state.
+- Atomicity: validate the entire respec before charging or changing the hero. A failed save must not report success or leave a partial reset.
+- Verification: add unit and UI regression tests, run the full frontend suite, build Android, and request user device verification. Do not merge to `main` or deploy without explicit approval.
+
+### Next steps
+
+1. Finish mapping all existing perk effects to their runtime consumers and identify undocumented or inert effects.
+2. Produce a node-by-node branch specification with unlock requirements, costs, effect descriptions, and test cases before adding nodes.
+3. Implement the branch data model and hybrid unlock path while retaining legacy IDs.
+4. Implement respecialization with cost/cooldown, safe persistence, and failure handling.
+5. Balance-test, run regression suites, build Android, and verify on-device.
