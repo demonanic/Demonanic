@@ -77,11 +77,11 @@ export default function PerkTree({ hero, editable = false, onPerk, removablePerk
         </div>
 
         <div className="flex-1 overflow-auto p-3">
-          <div className="min-w-[720px]">
-            <div className="grid grid-cols-3 gap-4">
+          <div className="w-full min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {tree.roots.map((root) => (
                 <div key={root.id} className="space-y-2">
-                  <div className="font-mono-g text-[8px] uppercase tracking-[.2em] text-slate-500 text-center">FOUNDATION</div>
+                  <div className="font-mono-g text-[8px] uppercase tracking-[.2em] text-slate-500 text-center">{root.name.toUpperCase()} · FOUNDATION</div>
                   {node(root)}
                   <div className="pl-3 border-l border-white/10 space-y-2">
                     {tree.children.filter((p) => p.parent === root.id).map(node)}
@@ -95,7 +95,7 @@ export default function PerkTree({ hero, editable = false, onPerk, removablePerk
             <div className="font-mono-g text-[9px] text-fuchsia-300 uppercase tracking-[.2em] mb-2 flex items-center gap-1">
               <Zap size={11} /> COMPOSITE BATTLEFIELD ABILITIES
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tree.abilities.map((a) => {
                 const unlocked = abilities.some((x) => x.id === a.id);
                 return (
