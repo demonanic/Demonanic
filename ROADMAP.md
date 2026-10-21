@@ -97,6 +97,15 @@ Initial nodes are:
 
 This is the first gameplay-data expansion, not the finished branch UX. The new nodes use known effect keys rather than depending on the inert effects listed in the audit. Branch labels/selection, balance simulation, mobile layout, and ability additions remain future work. The test was added but has **not yet been executed** in this source-edit session; run focused tests and the full frontend suite before building or treating the batch as verified.
 
+### Mobile perk-tree layout — first UI pass
+
+Committed on `review/mobile-working-copy` as `5788bc5db545d23fcd6448d34e27d4989e801c61`.
+
+- Removed the forced 720px minimum width that made the entire tree wider than a phone viewport.
+- Root branches and ability cards now stack on narrow screens and return to multi-column layouts at the small-screen breakpoint.
+- Each foundation column is labeled with its root perk name so branches are easier to distinguish.
+- This is a source change only. Component tests, the frontend suite, production build, and Android touch/scroll behavior have not yet been verified. Confirm that nested perk descriptions remain readable and that selecting/undoing nodes still works on-device before calling the UI pass complete.
+
 ### Branch layout proposal
 
 The first release should expand the four existing class trees without replacing their roots or changing legacy IDs. These are themed branches within each permanent class, not class-change systems:
