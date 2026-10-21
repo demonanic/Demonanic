@@ -9,10 +9,11 @@ import DebugPanel from "@/components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
 import * as C from "@/game/config";
+import { isRewardedAdConfirmed } from "@/game/rewards";
 import { gameApi } from "@/api";
 import {
   castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
-  buyBarricade, repairBarricade, buyWorker, allocateSp, buyPerk, repairCastle,
+  buyBarricade, repairBarricade, buyWorker, commitHeroProgressionDraft, repairCastle,
   swapHero, heroDerived, productionRates, healHero, reviveHero,
 } from "@/game/logic";
 
@@ -35,11 +36,12 @@ export default function Preparation() {
         toast.error("Tower placement failed — check resources and available slots");
         return false;
       }
-      mutate((s) => {
-        if (buildTower(s, type, x, y, placementSlot)) toast.success(`${C.TOWERS[type].name} placed`);
+      return new Promise((resolve) => mutate((s) => {
+        const built = buildTower(s, type, x, y, placementSlot);
+        if (built) toast.success(`${C.TOWERS[type].name} placed`);
         else toast.error("Tower placement failed — check resources and available slots");
-      });
-      return true;
+        resolve(built);
+      }));
     },
     reposition: (index, x, y) => mutate((s) => repositionTower(s, index, x, y)),
     dismantle: (index) => act((s) => dismantleTower(s, index), "Dismantled (30% refund)"),
@@ -68,7 +70,7 @@ export default function Preparation() {
   const adRevive = async (list, idx) => {
     try {
       const { data } = await gameApi.reward("revive_hero", "mock_admob", { wave: state.wave, prep: true });
-      if (!data?.granted) throw new Error("Reward not granted");
+      if (!isRewardedAdConfirmed(data)) throw new Error("Rewarded ad completion was not verified");
       mutate((s) => {
         const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
         if (!h || h.hp > 0) {
@@ -128,7 +130,7 @@ export default function Preparation() {
         )}
 
         <SectionTitle color="cyan">Battlefield · Place Defenses</SectionTitle>
-        <p className="font-mono-g text-[10px] text-slate-500 mb-2">Tap strategic locations to build/upgrade towers and reinforce barricade lanes by hand.</p>
+        <p className="font-mono-g text-[10px] text-slate-500 mb-2">Tap strategic locations to build or manage towers. Barricade orders are controlled by the Guild.</p>
         <div className="glass-card rounded-xl p-2.5 mb-3 border border-yellow-400/15 flex items-center gap-2">
           <Backpack size={15} className="text-yellow-300 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -220,9 +222,26 @@ export default function Preparation() {
       </div>
 
       {hero && (
-        <HeroCard hero={hero} editable
-          onAlloc={(st) => mutate((s) => allocateSp(openHero.list === "squad" ? s.heroes[openHero.idx] : s.bench[openHero.idx], st))}
-          onPerk={(p) => mutate((s) => { if (!buyPerk(openHero.list === "squad" ? s.heroes[openHero.idx] : s.bench[openHero.idx], p)) toast.error("Not enough AP"); })}
+        <HeroCard key={hero.id} hero={hero} editable draftProgression
+          onCommitProgression={({ originalHero, draftHero }) => {
+            const roster = openHero.list === "squad" ? state.heroes : state.bench;
+            const current = roster.find((item) => item.id === originalHero.id);
+            const preview = current && structuredClone(current);
+            if (!preview || !commitHeroProgressionDraft(preview, originalHero, draftHero)) {
+              toast.error("Allocations changed or are no longer valid");
+              return false;
+            }
+            mutate((s) => {
+              const currentRoster = openHero.list === "squad" ? s.heroes : s.bench;
+              const target = currentRoster.find((item) => item.id === originalHero.id);
+              if (!target || !commitHeroProgressionDraft(target, originalHero, draftHero)) {
+                toast.error("Allocations changed or are no longer valid");
+                return;
+              }
+              toast.success("Hero allocations confirmed");
+            });
+            return true;
+          }}
           onConfig={(cfg) => mutate((s) => { const t = openHero.list === "squad" ? s.heroes[openHero.idx] : s.bench[openHero.idx]; t.attackConfig = cfg; })}
           onClose={() => setOpenHero(null)} />
       )}

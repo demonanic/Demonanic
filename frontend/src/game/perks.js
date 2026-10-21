@@ -19,14 +19,14 @@ const TREE = {
     ],
     children: [
       { id: "knight_guardian", parent: "knight_bulwark", name: "Guardian Instinct", cost: 1, category: "ENEMY", desc: "Responds longer when an ally or castle is threatened.", effect: { reactionBonus: 2 } },
-      { id: "knight_shield_mastery", parent: "knight_bulwark", name: "Shield Mastery", cost: 2, category: "ITEM", desc: "Shield-based abilities deal +20% damage.", effect: { abilityDamagePct: 0.20 } },
+      { id: "knight_shield_mastery", parent: "knight_bulwark", name: "Shield Mastery", cost: 2, category: "ITEM", desc: "Shield-based abilities deal +20% damage.", effect: { shieldAbilityDamagePct: 0.20 } },
       { id: "knight_executioner", parent: "knight_cleave", name: "Executioner", cost: 2, category: "ENEMY", desc: "+25% damage against enemies below 35% HP.", effect: { lowHpDamagePct: 0.25 } },
       { id: "knight_counterweight", parent: "knight_cleave", name: "Counterweight", cost: 1, category: "STAT", desc: "+8% melee attack speed.", effect: { attackRatePct: 0.08 } },
       { id: "knight_fortress", parent: "knight_iron_wall", name: "Fortress", cost: 2, category: "STAT", desc: "Reduces incoming damage by 8%.", effect: { damageReductionPct: 0.08 } },
       { id: "knight_last_stand", parent: "knight_iron_wall", name: "Last Stand", cost: 1, category: "ENEMY", desc: "Below 35% HP, gain +20% defense.", effect: { lowHpDefense: 0.20 } },
     ],
     abilities: [
-      { id: "knight_shield_bash", name: "Shield Bash", desc: "Stuns the nearest enemy and deals heavy melee damage.", requires: ["knight_bulwark", "knight_cleave"], cooldown: 10, color: "#00F3FF", effect: "shield_bash" },
+      { id: "knight_shield_bash", name: "Shield Bash", desc: "Stuns the nearest enemy and deals heavy melee damage.", requires: [], cooldown: 10, color: "#00F3FF", effect: "shield_bash" },
       { id: "knight_fortress_pulse", name: "Fortress Pulse", desc: "Temporarily shields nearby allies and reinforces the Knight.", requires: ["knight_bulwark", "knight_iron_wall"], cooldown: 14, color: "#00F3FF", effect: "fortress_pulse" },
     ],
   },
@@ -45,8 +45,8 @@ const TREE = {
       { id: "rouge_escape", parent: "rouge_evasion", name: "Escape Artist", cost: 1, category: "ENEMY", desc: "When below 35% HP, dodge chance gains +10%.", effect: { lowHpDodgePct: 0.10 } },
     ],
     abilities: [
-      { id: "rouge_speed_rush", name: "Speed Rush", desc: "Surge forward, gaining speed and attack tempo for 5 seconds.", requires: ["rouge_flurry", "rouge_evasion"], cooldown: 10, color: "#FF007F", effect: "speed_rush" },
-      { id: "rouge_backstab_ability", name: "Backstab", desc: "Strike a vulnerable enemy for massive bonus damage.", requires: ["rouge_backstab", "rouge_ambush"], cooldown: 8, color: "#FF007F", effect: "backstab" },
+      { id: "rouge_speed_rush", name: "Speed Rush", desc: "Increase movement speed by 50% for 5 seconds.", requires: ["rouge_flurry", "rouge_evasion"], cooldown: 10, color: "#FF007F", effect: "speed_rush" },
+      { id: "rouge_backstab_ability", name: "Backstab", desc: "Strike a vulnerable enemy for massive bonus damage.", requires: [], cooldown: 8, color: "#FF007F", effect: "backstab" },
       { id: "rouge_life_steal", name: "Life Steal", desc: "Strike the nearest enemy and recover part of the damage dealt.", requires: ["rouge_backstab", "rouge_shadowblade"], cooldown: 14, color: "#FF007F", effect: "life_steal" },
     ],
   },
@@ -66,7 +66,7 @@ const TREE = {
     ],
     abilities: [
       { id: "mage_firestorm_ability", name: "Firestorm", desc: "Blast a target area for arcane damage.", requires: ["mage_firestorm", "mage_overload"], cooldown: 12, color: "#A855F7", effect: "firestorm" },
-      { id: "mage_mend_ability", name: "Mend", desc: "Restore HP to the most wounded ally.", requires: ["mage_mend", "mage_lifebloom"], cooldown: 10, color: "#A855F7", effect: "mend" },
+      { id: "mage_mend_ability", name: "Mend", desc: "Restore HP to the most wounded ally.", requires: [], cooldown: 10, color: "#A855F7", effect: "mend" },
       { id: "mage_barrier_ability", name: "Barrier", desc: "Surround nearby allies with temporary shields.", requires: ["mage_barrier", "mage_aegis"], cooldown: 14, color: "#A855F7", effect: "barrier" },
     ],
   },
@@ -81,12 +81,12 @@ const TREE = {
       { id: "archer_hawkeye", parent: "archer_eagle_eye", name: "Hawkeye", cost: 1, category: "STAT", desc: "+5% critical chance.", effect: { critChancePct: 0.05 } },
       { id: "archer_multishot", parent: "archer_rapid_draw", name: "Multishot", cost: 2, category: "ITEM", desc: "Abilities can hit additional targets.", effect: { multiTarget: 2 } },
       { id: "archer_quickstep", parent: "archer_rapid_draw", name: "Quickstep", cost: 1, category: "STAT", desc: "+15% movement speed.", effect: { moveSpeedPct: 0.15 } },
-      { id: "archer_execution", parent: "archer_focus_fire", name: "Execution", cost: 2, category: "ENEMY", desc: "+25% damage against enemies below 25% HP.", effect: { lowHpDamagePct: 0.25 } },
+      { id: "archer_execution", parent: "archer_focus_fire", name: "Execution", cost: 2, category: "ENEMY", desc: "+25% damage against enemies below 25% HP.", effect: { executionDamagePct: 0.25 } },
       { id: "archer_marked_target", parent: "archer_focus_fire", name: "Marked Target", cost: 1, category: "ENEMY", desc: "Selected targets take +10% damage from the Archer.", effect: { markedDamagePct: 0.10 } },
     ],
     abilities: [
       { id: "archer_piercing_shot", name: "Piercing Shot", desc: "Fire a high-damage shot through a short enemy line.", requires: ["archer_eagle_eye", "archer_multishot"], cooldown: 10, color: "#39FF14", effect: "piercing_shot" },
-      { id: "archer_focus_volley", name: "Focus Volley", desc: "Rapidly strike the strongest visible target.", requires: ["archer_rapid_draw", "archer_focus_fire"], cooldown: 9, color: "#39FF14", effect: "focus_volley" },
+      { id: "archer_focus_volley", name: "Focus Volley", desc: "Rapidly strike the strongest visible target.", requires: [], cooldown: 9, color: "#39FF14", effect: "focus_volley" },
     ],
   },
 };
@@ -155,19 +155,27 @@ export function getAbility(hero, id) {
 
 export function perkEffects(hero) {
   const effects = {
-    defense: 0, maxHpPct: 0, attackRatePct: 0, abilityDamagePct: 0,
-    lowHpDamagePct: 0, highHpDamagePct: 0, critChancePct: 0, dodgePct: 0,
+    defense: 0, maxHpPct: 0, attackRatePct: 0, abilityDamagePct: 0, shieldAbilityDamagePct: 0,
+    lowHpDamagePct: 0, executionDamagePct: 0, highHpDamagePct: 0, critChancePct: 0, dodgePct: 0,
     range: 0, moveSpeedPct: 0, damageReductionPct: 0, lowHpDefense: 0,
     critHealPct: 0, healPct: 0, barrierPct: 0, cooldownPct: 0,
-    reactiveSpeedPct: 0, reactionBonus: 0, multiTarget: 0,
+    reactiveSpeedPct: 0, reactionBonus: 0, multiTarget: 0, cleave: 0,
+    lowHpDodgePct: 0,
     aoe: false, burn: false, lifebloom: false, reactiveSupport: false,
     markedDamagePct: 0,
   };
   for (const p of allPerks(hero?.cls)) {
     if (!normalizePerks(hero?.cls, hero?.perks).includes(p.id)) continue;
     for (const [key, value] of Object.entries(p.effect || {})) {
-      if (typeof value === "boolean") effects[key] = effects[key] || value;
-      else effects[key] += Number(value) || 0;
+      if (typeof effects[key] === "boolean" && typeof value === "boolean") {
+        effects[key] ||= value;
+      } else if (
+        typeof effects[key] === "number"
+        && typeof value === "number"
+        && Number.isFinite(value)
+      ) {
+        effects[key] += value;
+      }
     }
   }
   return effects;

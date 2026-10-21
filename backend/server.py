@@ -1,7 +1,8 @@
-from fastapi import FastAPI, APIRouter, Depends, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import DuplicateKeyError
 import os
 import logging
 from pathlib import Path
@@ -121,12 +122,39 @@ async def get_state(current=Depends(get_current_user)):
     if not doc:
         return {"state": None}
     state = doc.get("state", {})
+    if not isinstance(state, dict) or not isinstance(state.get("wave"), (int, float)):
+        raise HTTPException(status_code=500, detail="Saved profile state is invalid")
     state = apply_offline_accrual(state)
     state["lastSeen"] = datetime.now(timezone.utc).isoformat()
     await db.game_states.update_one(
         {"user_id": current["id"]}, {"$set": {"state": state}}
     )
     return {"state": state}
+
+
+@api_router.post("/game/state", status_code=201)
+async def create_state(body: SaveStateInput, current=Depends(get_current_user)):
+    """Create a first profile only when this account has no saved state."""
+    state = dict(body.state)
+    if "metal" not in state:
+        state["metal"] = max(0, int(float(state.get("food", 0) or 0) / 10))
+    state.pop("food", None)
+    state.pop("farmers", None)
+    state["mineGoldRatio"] = max(0.0, min(1.0, float(state.get("mineGoldRatio", 0.5) or 0.0)))
+    now = datetime.now(timezone.utc).isoformat()
+    state["lastSeen"] = now
+    try:
+        # Startup creates a unique user_id index. insert_one plus that index
+        # makes first-profile creation atomic and prevents replacing a save
+        # created after the client's preceding GET.
+        await db.game_states.insert_one({
+            "user_id": current["id"],
+            "state": state,
+            "updated_at": now,
+        })
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="A saved profile already exists")
+    return {"ok": True}
 
 
 @api_router.put("/game/state")

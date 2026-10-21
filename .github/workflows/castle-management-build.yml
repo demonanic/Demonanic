@@ -38,13 +38,17 @@ jobs:
         working-directory: frontend
         run: npm test -- --watchAll=false --runInBand
 
+      - name: Run Android backend configuration tests
+        working-directory: frontend
+        run: npm run test:android-config
+
       - name: Build frontend
         working-directory: frontend
         env:
           REACT_APP_SUPABASE_URL: https://spujitkyideoalrdjlbq.supabase.co
           REACT_APP_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.REACT_APP_SUPABASE_PUBLISHABLE_KEY }}
           REACT_APP_BACKEND_URL: https://demonanic.onrender.com
-        run: npm run build
+        run: npm run build:android
 
       - name: Sync Capacitor Android
         working-directory: frontend

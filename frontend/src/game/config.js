@@ -206,6 +206,15 @@ export const BARRICADE = {
   collisionDamage: 8,
   repairStonePer10Hp: 1,
 };
+export const GUILD_BLOCKADE = {
+  requiredGuildLevel: 2,
+  upgradeGold: 500,
+  upgradeStone: 250,
+  activationGold: 100,
+  activationStone: 50,
+  durationMs: 8000,
+  cooldownMs: 60000,
+};
 
 // Section H — hero progression
 export const HERO_XP = [0,150,360,650,1030,1500,2070,2760,3550,4450,5450,6600,7900,9350,10950,12700,14600,16700,19050,21600];

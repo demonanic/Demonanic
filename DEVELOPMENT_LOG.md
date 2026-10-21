@@ -1,0 +1,157 @@
+# Development Log
+
+## 2026-10-15 — Tower placement verification and main menu redesign
+
+- Starting checkout for the development work: `feature/castle-management-first-pass` at `db5bc6763811f2f428215546e3d325b3fec087e4`, clean.
+- The existing tower-placement implementation was absent from this branch. The already-reviewed commit `0b094d92e57c929a0e6e0f8cd66c87c172506389` from `fix/tower-placement-position` was cherry-picked locally, producing `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad` on the feature branch. `main` was not changed.
+- Placement fix preserves explicit slot IDs through confirmation/build, validates occupied IDs, and shares saved logical tower coordinates between preparation and battle. Legacy towers retain their coordinates and receive occupancy-only assignments.
+- Redesigned `frontend/src/screens/Home.jsx` with compact resource and status panels, a custom skull crest, and larger menu touch targets. Existing navigation, logout, tactical HUD preference, offline-gain toast, and vault/Shoppe counts remain connected.
+- Food is displayed as `N/A` because the current economy removes it; no resource/profile state was added.
+- Added/extended focused tests in `frontend/src/screens/Home.test.js` and `frontend/src/game/towerPlacement.test.js`.
+- Verification results are recorded in `TEST_REPORT.md` and the detailed session report at `docs/dev-sessions/2026-10-15-tower-placement-main-menu.md`.
+- No push, merge, or deployment occurred. The menu and test changes remain uncommitted.
+
+## 2026-10-15 — Mandatory development reporting
+
+- Starting and ending checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`.
+- Worktree was preserved. This reporting turn created/updated only repository documentation; it did not change application code or rerun application tests/builds.
+- No prior `ROADMAP.md`, `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, or `docs/dev-sessions` history existed. The roadmap and reports were created using the verified work and command results from the immediately preceding development session.
+- No commit, push, merge, or deployment occurred in this reporting turn.
+
+## 2026-10-15 — Publish development reports for ChatGPT review
+
+- Verified the connected public repository `demonanic/Demonanic` and confirmed the linked GitHub access has push permission.
+- Published only `ROADMAP.md`, `DEVELOPMENT_LOG.md`, `TEST_REPORT.md`, and `docs/dev-sessions/2026-10-15-tower-placement-main-menu.md` on `docs/development-reports-2026-10-15`, created from the remote `main` tip. The publication commit is `1d0fd1cb4a18b3426766629681169d1d7124f0b5`.
+- GitHub readback succeeded for all four documents. The commit diff contains only those four Markdown paths; no gameplay files were published.
+- No tests/build were run in this publication-only session. No merge, deployment, or production change occurred.
+- A follow-up docs-only commit `377a7a03ef6e01da749e9128989156a23f3ffed4` added this publication session report and clarified the report branch's current contents. GitHub readback confirms five Markdown documents and no application files at the branch tip.
+
+## 2026-10-16 — Android saved profile recovery investigation
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Existing uncommitted tower test, Home menu, and Home test work was preserved.
+- Traced Capacitor config, auth boot, JWT identity, API URL/token handling, `GameProvider.loadGame`, MongoDB state lookup/upsert, and Android application ID/data-backup configuration. The repository uses its own JWT auth and MongoDB, not Supabase.
+- Confirmed source hazard: a successful state lookup returning `null` and no same-user local backup causes immediate new-state creation and a backend upsert. Missing token/401 alone routes to login; network/API errors do not auto-create a profile in this code. Which condition happened on the player's device remains unproven.
+- Android localStorage is app-origin scoped; the bundled Capacitor app has no configured `server.url`, so its WebView storage is distinct from browser-origin storage. Stable package ID is `com.demonanic.game`, and Android manifest enables backup. These facts alone do not establish how the specific APK was installed or whether data was retained.
+- No connected Android device or useful app logs were available. No backend/database call was made. Existing progress likely remains recoverable if it is still stored under the original backend user ID; it was not checked.
+- Ran a local, non-networked economy suite (1 suite/3 tests passed) and `git diff --check` (passed). These do not test profile recovery. Backend integration tests were intentionally not run because they register accounts and write state.
+- Updated roadmap, test report, and detailed report. Published only those four Markdown files to `docs/development-reports-2026-10-15` through the connected GitHub integration. Publication commit: `5a8f80c00aab72b2036b3bdddbac45c17b86d184`; GitHub readback succeeded for all four paths. No code changes, local commit, merge, or deployment occurred; no gameplay push occurred.
+
+## 2026-10-16 — Android profile recovery diagnostics
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; existing tower-placement and Home changes were preserved.
+- Confirmed no Android device is connected (`adb devices -l`); no runtime auth, profile-load, or save request logs could be collected. The expected account ID and backend host were not supplied or otherwise available.
+- Inspected source logging safely. The client logs backend URL and API method/URL/status, auth token presence, `/me` outcome, and game load/save markers. It also logs the full login/register success response (which includes a JWT) and full errors/response data. Therefore raw logcat must not be shared; runtime collection is blocked until a safe redaction/filtering path can be used.
+- No Mongo shell or database env configuration was available; no existing read-only profile diagnostic route/script was found. The state GET performs offline accrual and writes `lastSeen`, so it was not used. No database query or mutation occurred.
+- No tests/build were run. `git diff --check` passed (exit 0). Updated the roadmap, test report, and detailed diagnostics report.
+- No application changes or local commit. Documentation-only publication to the authorized report branch was completed and read back through GitHub. No gameplay push, merge, deployment, or production change occurred.
+
+## 2026-10-16 — Android ADB connection attempt
+
+- Starting checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; preserved all existing tower-placement, menu, test, and documentation changes.
+- Attempted the user-provided `adb connect 192.168.1.235:40495`. It exited 1 because PATH resolves to `/data/data/com.termux/files/usr/bin/adb`, which Ubuntu cannot execute due to unresolved Android NDK symbol `_ZNSt6__ndk113__hash_memoryEPKvm`. No compatible SDK ADB was found in the standard checked paths.
+- Device connection, logcat, runtime auth/profile requests, and app storage therefore remain uninspected. No game API or database was accessed. The earlier `adb devices -l` had no connected device before this attempt.
+- Updated reports; no application code, tests, build, local commit, merge, deployment, or production data changed. `git diff --check` passed. Documentation-only publication to the authorized report branch is being completed and verified.
+
+## 2026-10-16 — Ubuntu ADB profile diagnostics
+
+- Read the preceding ADB failure report first and preserved the current branch and all existing changes. Installed Ubuntu Noble's repository `adb` package (`1:34.0.4-1build3`) after escalation approval; did not reuse the incompatible Termux binary.
+- Ubuntu ADB found one active TCP/IP device in `device` state. Its live endpoint matched the previously supplied endpoint; this was verified from the active transport, not assumed. A read-only package-path query confirmed `com.demonanic.game` is installed. No pair/reconnect, app launch, or API request was performed.
+- Collected logcat through an in-process redacting filter. Of 237,537 lines, two contained the product name, but none had auth, game, API, or relevant console markers. No raw logs, IDs, URLs, or secrets were emitted.
+- Read the installed APK into temporary storage and attempted safe backend-origin extraction; no origin could be safely extracted. Ubuntu ADB mDNS subcommands returned `unknown host service`; not needed for the already-active transport.
+- User ID, current backend host, comparison against intended setup, and Mongo record existence remain unknown. No authorized read-only Mongo path/credentials were available. Do not launch the app because startup could create/save a new profile.
+- No source/gameplay change, app test/build, database request, merge, deployment, or production mutation. `git diff --check` passed. Published only the four Markdown reports to `docs/development-reports-2026-10-15` in commit `82c45bb449613deb7415c0f8a192010bc2f0cf0b`; GitHub readback succeeded for all four paths.
+
+## 2026-10-16 — Saved profile startup guard
+
+- Starting and ending local checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Pre-existing tower-placement, menu, test, and report changes were preserved.
+- Confirmed from source that backend `GET /game/state` returns `{state: null}` only when no document exists; auth rejection, HTTP errors, and network failures reject the Axios request. A successful but malformed body or a stored document without a usable state was previously at risk of being treated as a playable blank state.
+- Added strict response/state checks and an explicit missing-profile prompt. A detected local backup can be chosen for device-only play, with periodic/manual cloud saves disabled. A fresh game requires explicit player action and authenticated user/token checks.
+- Added authenticated `POST /game/state` insert-only creation; the existing unique `user_id` index makes concurrent creation fail with 409 rather than overwrite a profile. Existing normal saves still use the existing PUT path after a server profile loads.
+- Added nine focused provider tests. Focused suite passed 9/9; full frontend suite passed 9 suites/51 tests; production build passed with Node's `fs.F_OK` deprecation warning; Python syntax compilation and `git diff --check` passed.
+- Backend runtime tests could not run because FastAPI/Motor/PyMongo are absent in the environment. No app launch, API call, DB read/write, merge, deployment, or production change occurred. Device account/backend and stored profile remain unverified.
+- Detailed report: `docs/dev-sessions/2026-10-16-android-profile-recovery-guard.md`. Published only the four reporting files to `docs/development-reports-2026-10-15` in commit `01494a29e2b31b9d1133646f951dd8b9d7bafad4`; GitHub readback succeeded for all four paths, and the commit contains no application files.
+
+## 2026-10-17 — Safe diagnostics and profile recovery verification
+
+- Starting and ending checkout: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved existing tower-placement, main-menu, recovery, and documentation changes.
+- Reviewed the complete current diff and profile/auth/backend flows. ADB binary exists, but `adb devices -l` now reports no attached device. No app was launched.
+- Found the current shell has no `REACT_APP_BACKEND_URL`; a pre-guard local bundle contained `undefined/api`. Checked-in build workflows configure `demonanic.onrender.com`, but the installed APK's host remains unverified. Added URL validation: missing/invalid/credential-bearing backend URLs fail closed, and logs show only a hostname.
+- Reviewed profile safeguards: explicit null only opens a user choice; malformed state, 401, network, and server errors do not create a profile; local fallback has server writes disabled; frontend rapid clicks are coalesced; backend insert-only POST plus the existing unique index prevents duplicate inserts from replacing a state. Added mocked backend duplicate/concurrency tests; actual Mongo concurrency remains unverified.
+- No authenticated read-only diagnostic was added because no read-only DB credentials/operator path, expected user identity, device connection, or configured public API host is available. The existing GET endpoint mutates accrual/lastSeen. No production record was queried.
+- Focused frontend tests passed (2 suites/19 tests); all frontend tests passed (10 suites/61 tests); production build passed with the `fs.F_OK` deprecation warning; Python syntax compilation and `git diff --check` passed. Backend pytest could not run (`No module named pytest`); backend runtime dependencies are absent.
+- No database/API request, Android launch, app-data change, account creation, commit, merge, deployment, or production mutation occurred. The detailed report records exact commands, blockers, and the minimal authorized operator check needed.
+
+## 2026-10-17 — Final verification rerun and report publication
+
+- Rechecked branch and HEAD before continuing: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`; all existing changes remained present.
+- Reran focused recovery/config tests (2 suites, 19 tests) and the full frontend suite (10 suites, 61 tests); both passed. `npm run build` completed successfully with the existing Node `fs.F_OK` deprecation warning. Backend pytest remains unavailable (`pytest` module missing). `git diff --check` passed.
+- Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this dated session report to `docs/development-reports-2026-10-15` in docs-only commit `47c7c7e79a8cf5293028dcda079fd8964f232f15`. GitHub readback succeeded for all four paths; the commit diff lists only those Markdown files.
+- No app launch, database query or mutation, branch change, gameplay push, merge, or deployment occurred. Application changes remain uncommitted on the feature branch.
+
+## 2026-10-17 — Installed APK and ADB follow-up
+
+- Starting checkout remained `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Reviewed all existing diffs and preserved them.
+- Ubuntu `/usr/bin/adb` was responding and listed the device in `device` state over a TCP transport. Read-only `pm path`/`adb pull` inspected the installed base APK without launching Demonanic.
+- The APK's single bundled JS contains `void 0` as backend config and the paired `undefined/api` string; `demonanic.onrender.com` is absent. It also has the old `NEW PROFILE CREATED` marker, no explicit missing-profile prompt, and the old `BACKEND_URL` log marker. The installed APK is therefore misconfigured and predates the local guard. This establishes the installed client's configuration/code condition, not whether a cloud record exists or whether a request reached a server.
+- Both checked-in build workflows set the backend host to `demonanic.onrender.com`; the current shell has no `REACT_APP_BACKEND_URL`. No `.env` files were found outside dependencies. No account ID or read-only Mongo access is available; no database/profile route was called.
+- Focused frontend tests passed (2 suites/19 tests), full frontend tests passed (10 suites/61 tests), frontend production build passed with `[DEP0176] fs.F_OK is deprecated`, Python syntax compilation passed, and `git diff --check` passed. Backend pytest remains blocked because pytest is absent.
+- No app launch, data change, profile write, merge, deployment, or gameplay publication occurred. Details and exact evidence are in `docs/dev-sessions/2026-10-17-profile-recovery-apk-adb-followup.md`.
+- Published `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and both 2026-10-17 recovery reports as documentation-only commit `20781b738dc7757188cbee8f9c4378514f885d48` on `docs/development-reports-2026-10-15`. GitHub readback verified the five Markdown paths; no application/backend source was included.
+
+## 2026-10-17 — Android build configuration guard
+
+- Starting/ending application branch and HEAD: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved all pre-existing work.
+- Traced React build-time environment handling: CRA substitutes `REACT_APP_BACKEND_URL` during bundling; Capacitor sync and Gradle embed the already-built assets and do not inject this setting. Both checked-in workflows set `https://demonanic.onrender.com`. The old APK instead contains `void 0` and `undefined/api`, so its frontend bundle was built without the value or stale output was embedded. The exact historical build invocation is not recorded.
+- Added `build:android` preflight validation requiring the expected HTTPS backend origin and changed the Android build workflow to run the four configuration tests and then use that guarded build command. Tests cover expected host acceptance, missing-config failure, invalid/unrelated/insecure URLs, and no localhost fallback.
+- Config tests passed 4/4; focused frontend tests passed 2 suites/19 tests; full frontend tests passed 10 suites/61 tests. Missing-config Android build failed clearly as intended. Configured frontend and Android debug APK builds passed; bundle scan found the expected backend host and recovery UI markers. APK was not installed/launched.
+- Python syntax compilation and `git diff --check` passed. Backend pytest was blocked (`pytest` missing); no real database test ran. No account/profile/backend request or database query occurred. ADB remains connected over TCP.
+- Published only the five reporting documents listed in the session report to `docs/development-reports-2026-10-15` in commit `de1c32251b5cca3c371bc666a5640b89163d2a4d`; GitHub readback confirmed those exact Markdown paths and no source files.
+- Only focused Android build config source/workflow changes were made; existing recovery, tower-placement, and menu changes remain local. No application/backend source was published.
+
+## 2026-10-17 — Read-only original-profile verification attempt
+
+- Starting/ending application branch: `feature/castle-management-first-pass`; starting/ending HEAD: `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. The pre-existing worktree edits and untracked application/test files were preserved; no application source was edited in this session.
+- Reviewed `GameProvider.loadGame()`, explicit local-backup continuation/new-game behavior, backend auth identity lookup and game-state routes, and Android backend validation. The state GET mutates saved state by applying offline accrual and updating `lastSeen`; the PUT endpoint is an upsert. Neither was called. Explicit POST creation is insert-only at the API layer and relies on a unique `user_id` index; no request was made.
+- The backend maps normalized account username to `users.id`; game records are in `game_states` keyed by `user_id`. The safe operator handoff is the exact original login username (never its password), plus independent confirmation of the intended production cluster. No username, ID, token, or game state was available to this session.
+- Local presence checks found `MONGO_URL`, `DB_NAME`, `READ_ONLY_MONGO_URL`, `EXPECTED_USER_ID`, and `REACT_APP_BACKEND_URL` unset; `mongosh` and `mongo` are unavailable. No authorized database connection/operator path was exposed. No database query was attempted. ADB reports a connected device, but the app was not launched and app storage/logs were not read.
+- New checks actually run: `npm run test:android-config` from `frontend/` (exit 0, 4/4 Node tests passed); `git diff --check` (exit 0); `adb get-state` and `adb devices -l` (exit 0, connected; endpoint redacted); environment presence probes (all listed variables unset); Mongo shell availability probes (both unavailable). No frontend full suite/build or backend runtime test was rerun because application code did not change; historical results remain in the prior session report and `TEST_REPORT.md`.
+- Original save status remains **unverified**. The newly assembled guarded APK remains uninstalled/unlaunched; installed APK remains untouched. No game API request, account action, local-save read/write, production database access/change, local commit, merge, deployment, or application-code publication occurred.
+- Detailed evidence and the safest operator request are in `docs/dev-sessions/2026-10-17-profile-recovery-readonly-db-check.md`. Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and that session report to `docs/development-reports-2026-10-15` in commit `7c0d4f5bd03a6f4e1c89bd5215d6142214408f5c`; GitHub readback confirmed all four paths and the commit changed only those Markdown paths.
+
+## 2026-10-17 — Profile creation and save readiness
+
+- Starting/ending application branch and HEAD: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved every pre-existing modified and untracked file; no branch switch, reset, clean, stash, local commit, merge, deployment, or production-data change occurred.
+- Reviewed URL validation/workflow, auth boot/login/register, GameProvider recovery and save gating, and backend create/save routes. Android build preflight rejects missing, malformed, insecure, and wrong-host URLs before CRA runs. Valid saved profiles load; only `{state:null}` offers the explicit new-profile choice; malformed/empty responses and network/auth/server failures remain errors and cannot create a replacement.
+- Confirmed client new-game creation is explicitly gated, authenticated, and sends POST only after confirmation. `serverSaveEnabled` turns on after successful creation or valid saved-profile load; local-only continuation keeps cloud writes disabled. Backend creation uses `insert_one` with unique `user_id`; duplicate key returns 409 and does not replace existing state. Extended the provider regression test to verify a successful explicit create enables a later save.
+- Removed auth/profile/API console logging that included login/register response objects, raw Axios errors, or user identity. Error logging now includes only status/code metadata. No token or raw auth data was collected.
+- Full frontend tests passed 10 suites/61 tests; Android config tests passed 4/4. Missing, malformed, insecure, and wrong-host Android build preflights were each observed to fail clearly with exit 1. Configured frontend build passed; Capacitor sync passed; Android debug build passed (93 tasks). Python syntax compilation and `git diff --check` passed. Backend pytest did not run because this Python environment lacks pytest; no authenticated backend runtime test or production write was attempted.
+- APK static scan passed: expected backend hostname and recovery controls are present; `undefined/api` and old auto-create marker are absent. APK path is `frontend/android/app/build/outputs/apk/debug/app-debug.apk`, size 6,747,835 bytes. It was not installed or launched. ADB `/usr/bin/adb` is connected. Installation is safe for controlled testing, but actual backend profile creation/saving still requires an authorized disposable test account or isolated test database.
+- Detailed report: `docs/dev-sessions/2026-10-17-profile-create-save-readiness.md`. Published only the three reporting files and this session report to `docs/development-reports-2026-10-15` in documentation-only commit `26cdeb6effef15ce786aa01254b71c46deb9dff5`; GitHub readback succeeded for all four paths and the commit changed only those Markdown files. No application code was published.
+
+## 2026-10-17 — Manual Android persistence smoke test report
+
+- The user reports installing the corrected APK. Startup displayed **SAVED PROFILE NOT VERIFIED** with a device-save option and **RETRY LOAD**. Selecting **RETRY LOAD** loaded the existing Keep Command profile with existing resources and a completed Thought Lance research notification.
+- The user deleted a tower, exited the game, reopened it, and confirmed the tower was still gone. This is recorded as a successful manual Android persistence smoke test for the reported retry-load and tower-deletion persistence path only. The device behavior is user-reported and was not independently reproduced by this agent.
+- No game code, profile, app data, production data, or APK was changed by this reporting session. No automated tests/builds were rerun; this session only records the user-supplied test result and publishes docs. Backend runtime verification remains limited: new-profile creation, all save paths, and duplicate/concurrent creation have not been verified against a real backend; prior pytest execution was blocked by missing pytest/backend dependencies and no authorized disposable test account was available.
+- Starting/ending application branch and HEAD: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Existing application modifications and untracked files were preserved. Detailed report: `docs/dev-sessions/2026-10-17-android-persistence-smoke-test.md`.
+- Published only `DEVELOPMENT_LOG.md`, `ROADMAP.md`, `TEST_REPORT.md`, and this report to `docs/development-reports-2026-10-15` in docs-only commit `97cc84c36a205408b6bbe889baddb288b73b0517`. GitHub readback verified all four paths and the commit's changed-path list contains only those Markdown files. No local application commit, merge, deployment, or production-data change occurred.
+
+## 2026-10-17 — Tactical menu and combat usability
+
+- Starting branch/HEAD: `feature/castle-management-first-pass` at `7fb3d67c552a48551f2ee39af3f1ac4cf5f548ad`. Preserved all existing modified and untracked work, including profile-recovery, backend URL guard, castle-management, main-menu, and tower-placement work.
+- Reviewed current TacticalMenu, Battle HUD and spell flow, PrepField placement confirmation, and Engine tower rendering. Battle uses each saved tower's logical `x/y`; placement-slot coordinates remain shared with Preparation. PrepField already has an explicit preview/confirm/cancel flow.
+- Reduced tactical overlay height by replacing its vertical hero list with a horizontal selectable roster, leaving mage spells visible without expanding secondary controls, and collapsing command/ability actions behind an explicit toggle. Enlarged critical mobile targets and exposed selected-hero/spell accessibility labels. Tower confirmation now identifies the tower, exact slot, and resource cost; confirmation and cancellation targets are larger. No combat logic, castle-building logic, tower placement coordinates, saves, or schemas changed.
+- Added focused UI tests for switching to a mage and casting a visible spell, expanding command controls, and confirming the exact tower slot and cost. Existing tower-placement and provider guard tests were rerun.
+- Focused tests passed (4 suites/20 tests), full frontend tests passed (12 suites/64 tests), Android URL configuration tests passed (4/4), guarded frontend build passed with Node's existing `fs.F_OK` deprecation warning, Capacitor sync passed, and Android debug build succeeded (93 tasks; experimental AAPT2 override and `flatDir` warnings). Static bundle marker checks found backend hostname and recovery/tactical/spell/slot-confirmation strings. The new APK was not installed or launched.
+- Previous successful Android persistence smoke test remains user-reported evidence for retry-loading the existing Keep Command profile and persistence of one tower deletion across restart. It was not repeated in this session. Real backend new-profile, all-save-path, and duplicate/concurrent creation remain unverified.
+- `git diff --check` passed. No app/profile data was modified; no merge, deployment, or application-code publication occurred. Detailed report: `docs/dev-sessions/2026-10-17-tactical-menu-combat-usability.md`.
+
+## 2026-10-17 — Failed tower build placement recovery
+
+- Inspected the feature branch and worktree before edits. There were no staged changes; existing modified and untracked castle-management, profile-recovery, menu, tests, and reports were preserved. Stayed on `feature/castle-management-first-pass`.
+- Reproduced the suspected stuck state deterministically: a queued `handlers.build` returning a Promise that resolves `false` left the confirm button at `PLACING…`. The actual Preparation handler returned `true` immediately after queueing `mutate()`, before its deferred `buildTower()` check could fail.
+- Changed Preparation's build handler to resolve with the actual result of `buildTower()`. `PrepField` now waits for that result before entering its pending state; a failed or rejected build leaves the preview and enabled confirmation available for retry. Successful placement still waits for the new tower to appear in state before clearing the preview.
+- Added regression coverage for delayed build failure and successful tower appearance. Focused placement tests passed (2 suites/8 tests); full frontend suite passed (12 suites/65 tests); Android backend configuration tests passed (4/4).
+- Guarded frontend Android build passed with the configured expected backend. Capacitor sync passed; `./gradlew assembleDebug` succeeded (93 actionable tasks). Existing warnings: Node `fs.F_OK` deprecation, experimental AAPT2 override, and `flatDir` metadata limitations. APK remains local and was not installed or launched.
+- `git diff --check` passed after edits. No backend/API request, production data change, branch switch, commit, push, merge, or deployment occurred. Android device touch behavior was not tested in this session. Detailed report: `docs/dev-sessions/2026-10-17-tower-build-failure-recovery.md`.
+- Published only the four reporting documents to `docs/development-reports-2026-10-15` in documentation-only commit `a382d4dd8c7bc8309d2742438b6b705c8aa9d683`; GitHub readback verified the four paths and no application code was included.

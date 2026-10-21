@@ -34,14 +34,17 @@ export function AuthProvider({ children }) {
 
       const { data } = await authApi.me();
 
-      console.log("[Demonanic Auth] BOOT /me SUCCESS:", data);
+      console.log("[Demonanic Auth] BOOT /me SUCCESS");
 
       if (data && typeof data === "object") {
         localStorage.setItem("dm_user", JSON.stringify(data));
       }
       setUser(data);
     } catch (e) {
-      console.error("[Demonanic Auth] BOOT /me FAILED:", e);
+      console.error("[Demonanic Auth] BOOT /me FAILED:", {
+        status: e?.response?.status,
+        code: e?.code,
+      });
 
       const status = e?.response?.status;
       if (status === 401 || status === 403) {
@@ -62,8 +65,8 @@ export function AuthProvider({ children }) {
           setUser(cachedUser);
           return;
         }
-      } catch (cacheError) {
-        console.error("[Demonanic Auth] CACHED USER READ FAILED:", cacheError);
+      } catch {
+        console.error("[Demonanic Auth] CACHED USER READ FAILED");
       }
 
       // Older installations may not have a cached user. Preserve the token,
@@ -79,15 +82,12 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     setError("");
 
-    console.log("[Demonanic Auth] LOGIN START:", {
-      username,
-      passwordLength: password?.length || 0,
-    });
+    console.log("[Demonanic Auth] LOGIN START");
 
     try {
       const { data } = await authApi.login(username, password);
 
-      console.log("[Demonanic Auth] LOGIN SUCCESS:", data);
+      console.log("[Demonanic Auth] LOGIN SUCCESS");
 
       localStorage.setItem("dm_token", data.token);
       if (data.user && typeof data.user === "object") {
@@ -98,9 +98,11 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return true;
     } catch (e) {
-      console.error("[Demonanic Auth] LOGIN FAILED:", e);
+      console.error("[Demonanic Auth] LOGIN FAILED:", {
+        status: e?.response?.status,
+        code: e?.code,
+      });
       const message = apiErr(e);
-      console.error("[Demonanic Auth] DISPLAY ERROR:", message);
       setError(message);
       return false;
     }
@@ -109,15 +111,12 @@ export function AuthProvider({ children }) {
   const register = async (username, password) => {
     setError("");
 
-    console.log("[Demonanic Auth] REGISTER START:", {
-      username,
-      passwordLength: password?.length || 0,
-    });
+    console.log("[Demonanic Auth] REGISTER START");
 
     try {
       const { data } = await authApi.register(username, password);
 
-      console.log("[Demonanic Auth] REGISTER SUCCESS:", data);
+      console.log("[Demonanic Auth] REGISTER SUCCESS");
 
       localStorage.setItem("dm_token", data.token);
       if (data.user && typeof data.user === "object") {
@@ -126,7 +125,10 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return true;
     } catch (e) {
-      console.error("[Demonanic Auth] REGISTER FAILED:", e);
+      console.error("[Demonanic Auth] REGISTER FAILED:", {
+        status: e?.response?.status,
+        code: e?.code,
+      });
       setError(apiErr(e));
       return false;
     }

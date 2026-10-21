@@ -1,11 +1,11 @@
 import axios from "axios";
+import { resolveApiBaseUrl } from "./apiConfig";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const API = resolveApiBaseUrl(BACKEND_URL);
 
-export const API = `${BACKEND_URL}/api`;
-
-console.log("[Demonanic] BACKEND_URL:", BACKEND_URL);
-console.log("[Demonanic] API:", API);
+const BACKEND_HOST = API ? new URL(API).hostname : "unconfigured";
+console.log("[Demonanic] BACKEND_HOST:", BACKEND_HOST);
 
 const client = axios.create({
   baseURL: API,
@@ -14,6 +14,7 @@ const client = axios.create({
 
 client.interceptors.request.use(
   (cfg) => {
+    if (!API) return Promise.reject(new Error("Backend URL is not configured."));
     const token = localStorage.getItem("dm_token");
 
     console.log("[Demonanic API] REQUEST:", {
@@ -45,10 +46,8 @@ client.interceptors.response.use(
   },
   (error) => {
     console.error("[Demonanic API] RESPONSE ERROR:", {
-      message: error?.message,
       code: error?.code,
       status: error?.response?.status,
-      responseData: error?.response?.data,
       url: error?.config?.url,
       baseURL: error?.config?.baseURL,
     });
@@ -58,8 +57,6 @@ client.interceptors.response.use(
 );
 
 export function apiErr(e) {
-  console.error("[Demonanic API] apiErr:", e);
-
   const d = e?.response?.data?.detail;
 
   if (typeof d === "string") return d;
@@ -101,6 +98,9 @@ export const authApi = {
 export const gameApi = {
   getState: () =>
     client.get("/game/state"),
+
+  createState: (state) =>
+    client.post("/game/state", { state }),
 
   saveState: (state) =>
     client.put("/game/state", {

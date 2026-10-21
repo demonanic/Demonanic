@@ -2,7 +2,7 @@ import { createNewState } from "./logic";
 import {
   SPELL_DATABASE, createSpellBlueprint, startSpellResearch, advanceLibraryResearch,
   librarySuccessChance, ensureMageSpellData, mageCanUseSpell, unlockMageSecondaryAffinity,
-  resolveLibraryCompletion, ensureResearchMageBenched,
+  resolveLibraryCompletion, ensureResearchMageBenched, randomDiscoveryPool,
 } from "./libraryResearch";
 
 function libraryState() {
@@ -124,6 +124,68 @@ test("random discovery selects only spells compatible with the assigned mage", (
   const result = createSpellBlueprint(state, { mageId: state.heroes[0].id, mode: "random", roll: () => 0 });
   expect(result.ok).toBe(true);
   expect(result.blueprint.element).toBe("fire");
+});
+
+test("random discovery includes remaining eligible spells when a level-one book has one of two slots occupied", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  mage.level = 1;
+  mage.stats.intelligence = 13;
+  mage.spellbook = [SPELL_DATABASE.find((spell) => spell.id === "ember_bolt")];
+  mage.equippedSpells = ["ember_bolt"];
+
+  expect(randomDiscoveryPool(state, mage).map((spell) => spell.id)).toEqual(["cinder_field", "flare_bind"]);
+  const result = createSpellBlueprint(state, { mageId: mage.id, mode: "random", roll: () => 0 });
+  expect(result.ok).toBe(true);
+  expect(result.blueprint.catalogId).toBe("cinder_field");
+});
+
+test("random discovery reports a genuinely exhausted affinity pool without charging the attempt", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  mage.level = 1;
+  mage.primaryAffinity = "ice";
+  mage.secondaryAffinity = null;
+  mage.stats.intelligence = 13;
+  mage.spellbook = [SPELL_DATABASE.find((spell) => spell.id === "glacier_bind")];
+  mage.equippedSpells = ["glacier_bind"];
+  const before = [state.gold, state.stone];
+  const roll = jest.fn(() => 0);
+
+  expect(randomDiscoveryPool(state, mage)).toEqual([]);
+  expect(createSpellBlueprint(state, { mageId: mage.id, mode: "random", roll }))
+    .toEqual({ ok: false, reason: "incompatible" });
+  expect(roll).not.toHaveBeenCalled();
+  expect([state.gold, state.stone]).toEqual(before);
+});
+
+test("random discovery excludes known and already-pending catalog spells only for their mage", () => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  mage.stats.intelligence = 13;
+  mage.spellbook = [SPELL_DATABASE.find((spell) => spell.id === "ember_bolt")];
+  state.libraryBlueprints = [{ id: "pending", mageId: mage.id, catalogId: "cinder_field" }];
+  const otherMage = {
+    ...mage,
+    id: "other-mage",
+    spellbook: [],
+    primaryAffinity: "fire",
+    secondaryAffinity: null,
+  };
+
+  expect(randomDiscoveryPool(state, mage).map((spell) => spell.id)).toEqual(["flare_bind"]);
+  expect(randomDiscoveryPool(state, otherMage).map((spell) => spell.id)).toContain("ember_bolt");
+});
+
+test.each([
+  [12, ["ember_bolt", "cinder_field"]],
+  [13, ["ember_bolt", "cinder_field", "flare_bind"]],
+  [14, ["ember_bolt", "cinder_field", "flare_bind"]],
+])("random pool respects spell Intelligence thresholds at Intelligence %i", (intelligence, expected) => {
+  const state = libraryState();
+  const mage = state.heroes[0];
+  mage.stats.intelligence = intelligence;
+  expect(randomDiscoveryPool(state, mage).map((spell) => spell.id)).toEqual(expected);
 });
 
 test("spellbook capacity and custom-design Intelligence gates do not charge resources", () => {

@@ -1,9 +1,7 @@
 import { toast } from "sonner";
 import { useGame } from "@/context/GameProvider";
 import { NeonButton } from "@/components/ui-kit";
-import { gameApi } from "@/api";
 import { freeLife, surrender } from "@/game/logic";
-import { heroDerived } from "@/game/logic";
 import { Trophy, Skull, Coins, Pickaxe, Mountain, Zap, Swords, Backpack } from "lucide-react";
 
 export default function Results() {
@@ -14,20 +12,19 @@ export default function Results() {
   const goPrep = () => { saveNow(); setScreen("prep"); };
   const goHome = () => { saveNow(); setScreen("home"); };
 
-  const doFreeLife = () => { mutate((s) => freeLife(s)); toast.success("Free life used — squad & castle restored (30% resources kept)"); setScreen("prep"); };
-
-  const doRevive = async () => {
-    try { await gameApi.reward("revive_hero", "mock_admob", { wave: r.wave }); } catch {}
-    mutate((s) => {
-      s.heroes.forEach((h) => { h.hp = heroDerived(h).maxHp; });
-      s.towers.forEach((t) => { if (t) t.hp = t.maxHp; });
-      s.castleHp = s.castleMaxHp;
-    });
-    toast.success("[MOCK AD] Reward granted — squad revived");
+  const doFreeLife = () => {
+    if (state.freeLifeUsed) return toast.error("Free Life has already been used");
+    mutate((s) => freeLife(s));
+    toast.success("Free life used — squad & castle restored (30% resources kept)");
     setScreen("prep");
   };
 
-  const doSurrender = () => { mutate((s) => surrender(s)); toast.error("Surrendered — Gold tax & morale penalty applied"); goHome(); };
+  const doSurrender = () => {
+    if (state.surrenderTaxAppliedWave === state.wave) return toast.error("Surrender tax was already applied for this wave");
+    mutate((s) => surrender(s));
+    toast.error("Surrendered — Gold tax & morale penalty applied");
+    goHome();
+  };
 
   return (
     <div className="h-full w-full flex items-center justify-center p-4 relative overflow-hidden">
@@ -74,15 +71,15 @@ export default function Results() {
                 Use Free Life (retain 30% resources)
               </NeonButton>
             )}
-            <NeonButton color="magenta" className="w-full py-3" onClick={doRevive} data-testid="results-revive-ad">
-              📺 Watch Ad to Revive Squad (mock)
+            <NeonButton color="magenta" className="w-full py-3" disabled data-testid="results-revive-ad">
+              Ad Revive Unavailable · Provider Confirmation Required
             </NeonButton>
             <NeonButton color="red" className="w-full py-3" onClick={doSurrender} data-testid="results-surrender">
               Surrender (tax + morale penalty)
             </NeonButton>
           </div>
         )}
-        <p className="font-mono-g text-[9px] text-slate-500 mt-3">Revive rewards routed through the mocked provider-independent monetization service.</p>
+        <p className="font-mono-g text-[9px] text-slate-500 mt-3">Rewarded-ad revival is unavailable until a provider can verify completed ads.</p>
       </div>
     </div>
   );

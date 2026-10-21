@@ -105,16 +105,23 @@ function allMages(state) {
   return [...(state.heroes || []), ...(state.bench || [])].filter((hero) => hero?.cls === "mage");
 }
 
-function availableCatalog(state, mage, mode, element, effect) {
+export function randomDiscoveryPool(state, mage) {
+  if (!mage || mage.cls !== "mage") return [];
+  ensureMageSpellData(mage);
   // Discovery is personal: a spell known by another mage is not a global unlock.
   const learnedIds = new Set((mage.spellbook || []).map((spell) => spell.id));
   const pendingIds = new Set((state.libraryBlueprints || [])
     .filter((blueprint) => blueprint.mageId === mage.id)
-    .map((blueprint) => blueprint.catalogId));
-  return SPELL_DATABASE.filter((spell) => {
-    if (!mageCanUseSpell(mage, spell) || learnedIds.has(spell.id) || pendingIds.has(spell.id)) return false;
-    return mode === "random" || (spell.element === element && spell.effect === effect);
-  });
+    .map((blueprint) => blueprint.catalogId || blueprint.spellId));
+  return SPELL_DATABASE.filter((spell) =>
+    mageCanUseSpell(mage, spell) && !learnedIds.has(spell.id) && !pendingIds.has(spell.id));
+}
+
+function availableCatalog(state, mage, mode, element, effect) {
+  const pool = randomDiscoveryPool(state, mage);
+  return mode === "random"
+    ? pool
+    : pool.filter((spell) => spell.element === element && spell.effect === effect);
 }
 
 export function createSpellBlueprint(state, { mageId, mode = "custom", element = "fire", effect = "intensity", roll = Math.random } = {}) {

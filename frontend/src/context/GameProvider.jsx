@@ -1,13 +1,18 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
-import { gameApi } from "@/api";
-import { createNewState, produce, advanceGuildManufacturing } from "@/game/logic";
-import { advanceLibraryResearch, ensureMageSpellData, ensureResearchMageBenched } from "@/game/libraryResearch";
-import { emptyEquipmentState } from "@/game/equipment";
-import { normalizePerks } from "@/game/perks";
-import { heroDerived } from "@/game/logic";
+import { gameApi } from "../api";
+import { createNewState, produce, advanceGuildManufacturing } from "../game/logic";
+import { advanceLibraryResearch, ensureMageSpellData, ensureResearchMageBenched } from "../game/libraryResearch";
+import { emptyEquipmentState } from "../game/equipment";
+import { normalizePerks } from "../game/perks";
+import { heroDerived } from "../game/logic";
+import * as C from "../game/config";
 
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
+
+function safeErrorDetails(error) {
+  return { status: error?.response?.status, code: error?.code };
+}
 
 // Backward-compat for older saves.
 function normalizeState(s) {
@@ -24,6 +29,20 @@ function normalizeState(s) {
   s.guildWorkers = Math.max(0, Math.floor(Number(s.guildWorkers) || 0));
   if (!s.guildAmmoCache || typeof s.guildAmmoCache !== "object") s.guildAmmoCache = {};
   if (!s.guildManufacturing || !(Number(s.guildManufacturing.remaining) > 0)) s.guildManufacturing = null;
+  if (!Number.isFinite(Number(s.surrenderTaxAppliedWave))) {
+    s.surrenderTaxAppliedWave = Math.max(0, Number(s.surrenderDebtWave) || 0);
+  }
+  s.lastCompletedWave = Math.max(0, Math.floor(Number(s.lastCompletedWave) || Number(s.highestWaveCleared) || 0));
+  s.guildBlockadeLevel = Math.max(0, Math.min(1, Math.floor(Number(s.guildBlockadeLevel) || 0)));
+  const blockadeNow = Date.now();
+  const normalizeBlockadeDeadline = (value, maxDuration) => {
+    const deadline = Number(value);
+    return Number.isFinite(deadline) && deadline > blockadeNow
+      ? Math.min(deadline, blockadeNow + maxDuration)
+      : 0;
+  };
+  s.guildBlockadeActiveUntil = normalizeBlockadeDeadline(s.guildBlockadeActiveUntil, C.GUILD_BLOCKADE.durationMs);
+  s.guildBlockadeCooldownUntil = normalizeBlockadeDeadline(s.guildBlockadeCooldownUntil, C.GUILD_BLOCKADE.cooldownMs);
 
   s.goldVaultPercent = Math.max(0, Math.min(100, Number(s.goldVaultPercent) || 0));
   s.goldTreasuryPercent = 100 - s.goldVaultPercent;
@@ -68,6 +87,12 @@ function normalizeState(s) {
       ...(Number.isFinite(Number(prior.turretAmmo)) ? { turretAmmo: Math.max(0, Number(prior.turretAmmo)) } : {}),
       ...(Number.isFinite(Number(prior.turretMaxAmmo)) ? { turretMaxAmmo: Math.max(0, Number(prior.turretMaxAmmo)) } : {}),
     };
+  });
+  const barricades = Array.isArray(s.barricades) ? s.barricades : [];
+  s.barricades = Array.from({ length: C.BARRICADE.positions }, (_, index) => {
+    const prior = barricades[index] && typeof barricades[index] === "object" ? barricades[index] : {};
+    const maxHp = Math.max(0, Math.min(C.BARRICADE.maxHp, Number(prior.maxHp) || 0));
+    return { ...prior, maxHp, hp: Math.max(0, Math.min(maxHp, Number(prior.hp) || 0)) };
   });
   if (Array.isArray(s.heroes)) {
     s.heroes.forEach((h) => {
@@ -128,10 +153,13 @@ export function GameProvider({ children, user }) {
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [profilePrompt, setProfilePrompt] = useState(null);
   const [offlineGains, setOfflineGains] = useState(null);
   const [lastResult, setLastResult] = useState(null);
   const stateRef = useRef(null);
   const saveTimer = useRef(null);
+  const serverSaveEnabled = useRef(false);
+  const newGamePending = useRef(false);
 
   stateRef.current = state;
   const hasState = Boolean(state);
@@ -150,13 +178,48 @@ export function GameProvider({ children, user }) {
   const loadGame = useCallback(async () => {
     setLoading(true);
     setLoadError("");
+    setProfilePrompt(null);
+    serverSaveEnabled.current = false;
 
     try {
-      console.log("[Demonanic Game] LOAD START:", user?.username || user?.id || "unknown");
+      if (!user?.id || !localStorage.getItem("dm_token")) {
+        setProfilePrompt({ kind: "error", message: "Sign in again to load your saved profile." });
+        return;
+      }
+
+      console.log("[Demonanic Game] LOAD START");
 
       const { data } = await gameApi.getState();
 
-      if (data?.state) {
+      if (!data || typeof data !== "object" || !Object.prototype.hasOwnProperty.call(data, "state")) {
+        throw new Error("The profile service returned an invalid response.");
+      }
+
+      if (data.state === null) {
+        // Only the backend's explicit null result means no profile. Do not
+        // create or sync anything until the player makes an explicit choice.
+        let backup = { found: false, state: null, invalid: false };
+        if (backupKey) {
+          try {
+            const raw = localStorage.getItem(backupKey);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Number.isFinite(parsed.wave)) {
+                backup = { found: true, state: null, invalid: true };
+              } else {
+                backup = { found: true, state: normalizeState(parsed), invalid: false };
+              }
+            }
+          } catch (backupError) {
+            backup = { found: true, state: null, invalid: true };
+          }
+        }
+        setProfilePrompt({ kind: "missing", ...backup });
+        return;
+      }
+
+      if (data.state && typeof data.state === "object" && !Array.isArray(data.state) && Number.isFinite(data.state.wave)) {
+        serverSaveEnabled.current = true;
         const reportedOfflineMinutes = Math.max(0, Math.min(720, Number(data.state._offlineGains?.minutes) || 0));
         if (data.state._offlineGains && data.state._offlineGains.minutes > 1) {
           setOfflineGains(data.state._offlineGains);
@@ -181,67 +244,74 @@ export function GameProvider({ children, user }) {
           towers: finalState.towers?.length || 0,
         });
       } else {
-        // The API says this account has no server state. Before creating or
-        // saving a fresh profile, check whether this user has a local save.
-        // Never overwrite a recoverable local profile with a blank new game.
-        let localState = null;
-        if (backupKey) {
-          try {
-            const raw = localStorage.getItem(backupKey);
-            if (raw) localState = normalizeState(JSON.parse(raw));
-          } catch (backupError) {
-            console.error("[Demonanic Game] LOCAL BACKUP READ FAILED:", backupError);
-          }
-        }
-
-        if (localState) {
-          setState(localState);
-          setScreen(localState.needsSquad ? "squad" : "home");
-          console.warn("[Demonanic Game] SERVER PROFILE MISSING; RESTORED LOCAL SAVE WITHOUT OVERWRITING IT");
-          // Do not immediately PUT this save: the missing server profile needs
-          // investigation before a local copy is allowed to replace server data.
-        } else {
-          // No server profile and no per-user local backup: initialize a new account.
-          const finalState = createNewState();
-          normalizeState(finalState);
-          writeLocalBackup(finalState);
-          await gameApi.saveState(finalState);
-          setState(finalState);
-          setScreen("squad");
-          console.log("[Demonanic Game] NEW PROFILE CREATED");
-        }
+        throw new Error("The profile service returned an invalid state.");
       }
     } catch (e) {
-      console.error("[Demonanic Game] LOAD FAILED:", e);
+      console.error("[Demonanic Game] LOAD FAILED:", safeErrorDetails(e));
 
-      // Never silently replace a saved profile with a fresh profile after a
-      // network/server error. Use the per-user local backup if available.
-      let restored = null;
+      // Offer any local copy as an offline option. It remains local until the
+      // player chooses it, and server writes stay disabled in that mode.
+      let backup = { found: false, state: null, invalid: false };
       if (backupKey) {
         try {
           const raw = localStorage.getItem(backupKey);
-          if (raw) restored = normalizeState(JSON.parse(raw));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Number.isFinite(parsed.wave)) {
+              backup = { found: true, state: null, invalid: true };
+            } else {
+              backup = { found: true, state: normalizeState(parsed), invalid: false };
+            }
+          }
         } catch (backupError) {
-          console.error("[Demonanic Game] LOCAL BACKUP FAILED:", backupError);
+          backup = { found: true, state: null, invalid: true };
         }
       }
 
-      if (restored) {
-        setState(restored);
-        setScreen(restored.needsSquad ? "squad" : "home");
-        // A local backup is still a valid playable profile. Do not block the
-        // player on an API outage; the next successful save/load reconnects
-        // the server copy.
-        setLoadError("");
-        console.warn("[Demonanic Game] RESTORED LOCAL BACKUP");
-      } else {
-        setState(null);
-        setLoadError("Unable to load your saved profile. Your game was not replaced.");
-      }
+      setState(null);
+      setProfilePrompt({ kind: "error", message: "Unable to verify your saved profile. Your game was not replaced.", ...backup });
     } finally {
       setLoading(false);
     }
-  }, [backupKey, user?.id, user?.username, writeLocalBackup]);
+  }, [backupKey, user?.id, writeLocalBackup]);
+
+  const continueWithLocalBackup = useCallback(() => {
+    if (!profilePrompt?.found || profilePrompt.invalid || !profilePrompt.state) return false;
+    serverSaveEnabled.current = false;
+    const localState = profilePrompt.state;
+    setProfilePrompt(null);
+    setState(localState);
+    setScreen(localState.needsSquad ? "squad" : "home");
+    return true;
+  }, [profilePrompt]);
+
+  const startNewGame = useCallback(async () => {
+    if (profilePrompt?.kind !== "missing" || profilePrompt.found || newGamePending.current) return false;
+    if (!user?.id || !localStorage.getItem("dm_token")) {
+      setProfilePrompt({ kind: "error", message: "Sign in again before creating a new profile." });
+      return false;
+    }
+    newGamePending.current = true;
+    setLoading(true);
+    setProfilePrompt(null);
+    try {
+      const newState = normalizeState(createNewState());
+      await gameApi.createState(newState);
+      serverSaveEnabled.current = true;
+      writeLocalBackup(newState);
+      setState(newState);
+      setScreen("squad");
+      return true;
+    } catch (e) {
+      console.error("[Demonanic Game] NEW PROFILE CREATION FAILED:", safeErrorDetails(e));
+      setState(null);
+      setProfilePrompt({ kind: "error", message: "A new profile was not created. Retry loading before trying again." });
+      return false;
+    } finally {
+      newGamePending.current = false;
+      setLoading(false);
+    }
+  }, [profilePrompt, user?.id, writeLocalBackup]);
 
   useEffect(() => {
     loadGame();
@@ -251,10 +321,11 @@ export function GameProvider({ children, user }) {
     writeLocalBackup(s);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
+      if (!serverSaveEnabled.current) return;
       gameApi.saveState(s).then(() => {
         console.log("[Demonanic Game] SAVE OK");
       }).catch((e) => {
-        console.error("[Demonanic Game] SAVE FAILED:", e);
+        console.error("[Demonanic Game] SAVE FAILED:", safeErrorDetails(e));
       });
     }, 700);
   }, [writeLocalBackup]);
@@ -272,12 +343,13 @@ export function GameProvider({ children, user }) {
   const saveNow = useCallback(async () => {
     if (!stateRef.current) return false;
     writeLocalBackup(stateRef.current);
+    if (!serverSaveEnabled.current) return false;
     try {
       await gameApi.saveState(stateRef.current);
       console.log("[Demonanic Game] SAVE NOW OK");
       return true;
     } catch (e) {
-      console.error("[Demonanic Game] SAVE NOW FAILED:", e);
+      console.error("[Demonanic Game] SAVE NOW FAILED:", safeErrorDetails(e));
       return false;
     }
   }, [writeLocalBackup]);
@@ -327,6 +399,9 @@ export function GameProvider({ children, user }) {
       saveNow,
       loading,
       loadError,
+      profilePrompt,
+      continueWithLocalBackup,
+      startNewGame,
       retryLoad: loadGame,
       screen,
       setScreen,

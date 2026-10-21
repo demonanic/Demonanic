@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { LAYOUT, slotPositions } from "@/game/engine";
-import { NeonButton, StatBar } from "@/components/ui-kit";
-import { slotCap, towerDerived, canAfford } from "@/game/logic";
+import { LAYOUT, slotPositions } from "../game/engine";
+import { NeonButton, StatBar } from "./ui-kit";
+import { slotCap, towerDerived, canAfford } from "../game/logic";
 import { Wrench, Trash2, X } from "lucide-react";
-import * as C from "@/game/config";
-import { assignTowerPlacementSlots, commitTowerPlacement, logicalPositionPercent, logicalTowerPosition, nearestAvailablePlacement, placementForSlot } from "@/game/towerPlacement";
+import * as C from "../game/config";
+import { assignTowerPlacementSlots, commitTowerPlacement, logicalPositionPercent, logicalTowerPosition, nearestAvailablePlacement, placementForSlot } from "../game/towerPlacement";
 
 const { W, H, WALL_Y, GATE_Y, HERO_Y } = LAYOUT;
 const pctX = (x) => `${(x / W) * 100}%`;
@@ -120,15 +120,22 @@ export default function PrepField({ state, handlers }) {
 
         {/* barricade lanes */}
         {state.barricades.map((b, pos) => {
-          const x = (W / 5) * (pos + 0.5); const on = b.maxHp > 0;
+          const x = (W / 5) * (pos + 0.5);
+          const on = b.hp > 0;
+          const destroyed = b.maxHp > 0 && b.hp <= 0;
           return (
-            <button key={pos} data-testid={`field-barricade-${pos}`} onPointerDown={(e) => e.stopPropagation()}
+            <button key={pos} type="button" aria-label={`Barricade lane ${pos + 1}: ${on ? `${Math.round(b.hp)} of ${Math.round(b.maxHp)} HP` : destroyed ? "destroyed" : "empty"}`} data-testid={`field-barricade-${pos}`} onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setSel({ kind: "barricade", idx: pos }); }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded overflow-hidden"
               style={{ left: pctX(x), top: pctY(WALL_Y), width: "15%", height: "2.6%", pointerEvents: placing ? "none" : "auto",
-                backgroundImage: on ? "repeating-linear-gradient(45deg,#FFE600 0,#FFE600 5px,#12131A 5px,#12131A 10px)" : "none",
-                border: `1px solid ${on ? "#FFE600" : "rgba(255,230,0,0.35)"}`, opacity: on ? 0.5 + 0.5 * (b.hp / b.maxHp) : 0.4,
-                outline: sel?.kind === "barricade" && sel.idx === pos ? "2px solid #00F3FF" : "none" }} />
+                background: on ? "linear-gradient(180deg,rgba(0,243,255,0.20),rgba(9,11,22,0.96))" : destroyed ? "rgba(255,42,95,0.10)" : "rgba(9,11,22,0.30)",
+                border: `1px solid ${on ? "#00F3FF" : destroyed ? "#FF2A5F" : "rgba(0,243,255,0.24)"}`,
+                boxShadow: on ? "0 0 8px rgba(0,243,255,0.55), inset 0 0 6px rgba(168,85,247,0.35)" : "none",
+                opacity: on ? 0.5 + 0.5 * (b.hp / b.maxHp) : destroyed ? 0.55 : 0.35,
+                outline: sel?.kind === "barricade" && sel.idx === pos ? "2px solid #A855F7" : "none" }}>
+              {on && <span className="absolute bottom-0 left-1 h-0.5 bg-cyan-300" style={{ width: `${Math.max(0, Math.min(100, b.hp / b.maxHp * 100))}%` }} />}
+              {destroyed && <span className="font-mono-g text-[8px] font-bold text-rose-400">×</span>}
+            </button>
           );
         })}
 
@@ -204,13 +211,23 @@ export default function PrepField({ state, handlers }) {
 
       {/* placement confirmation: committing is explicit; cancel returns resources untouched */}
       {placing && pendingPosition && (
-        <div className="w-full max-w-md mt-2 grid grid-cols-2 gap-2" data-testid="tower-placement-confirmation">
-          <NeonButton color="green" className="!py-2" onClick={() => {
+        <div className="w-full max-w-md mt-2" data-testid="tower-placement-confirmation">
+          <div className="mb-1.5 flex flex-wrap justify-center gap-x-2 font-mono-g text-[10px] text-slate-200" data-testid="tower-placement-confirmation-summary">
+            <span className="font-bold text-cyan-200">{C.TOWERS[pendingPosition.type].name}</span>
+            <span className="text-fuchsia-200">SLOT {pendingPosition.slotIndex + 1}</span>
+            <span className="text-yellow-200">{C.TOWERS[pendingPosition.type].construction.gold}G · {C.TOWERS[pendingPosition.type].construction.stone}S</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+          <NeonButton color="green" className="!min-h-12 !py-2" onClick={async () => {
             if (awaitingPlacement) return;
             const pending = pendingPosition;
             const existingIds = new Set(state.towers.map((tower) => tower.id));
-            const placed = commitTowerPlacement(pending, handlers.build);
-            if (placed !== false) {
+            try {
+              const placed = await commitTowerPlacement(pending, handlers.build);
+              if (!placed) {
+                setAwaitingPlacement(null);
+                return;
+              }
               setAwaitingPlacement({
                 type: pending.type,
                 x: pending.x,
@@ -218,13 +235,16 @@ export default function PrepField({ state, handlers }) {
                 slotIndex: pending.slotIndex,
                 existingIds,
               });
+            } catch {
+              setAwaitingPlacement(null);
             }
-          }} data-testid="confirm-tower-placement" disabled={!!awaitingPlacement}>{awaitingPlacement ? "PLACING…" : "CONFIRM PLACEMENT"}</NeonButton>
-          <NeonButton color="red" className="!py-2" onClick={() => {
+          }} data-testid="confirm-tower-placement" disabled={!!awaitingPlacement}>{awaitingPlacement ? "PLACING…" : `CONFIRM SLOT ${pendingPosition.slotIndex + 1}`}</NeonButton>
+          <NeonButton color="red" className="!min-h-12 !py-2" onClick={() => {
             setPendingPosition(null);
             setPlacing(null);
             setAwaitingPlacement(null);
-          }} data-testid="disengage-tower-placement">DISENGAGE / CANCEL</NeonButton>
+          }} data-testid="disengage-tower-placement">CANCEL</NeonButton>
+          </div>
         </div>
       )}
 
@@ -257,15 +277,10 @@ export default function PrepField({ state, handlers }) {
           return (
             <div className="glass-card rounded-xl p-2.5" data-testid="barricade-actions">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono-g text-xs text-yellow-300">Barricade lane {sel.idx + 1}</span>
-                <span className="font-mono-g text-[10px] text-slate-400">{Math.round(b.hp)}/{Math.round(b.maxHp)} HP</span>
+                <span className="font-mono-g text-xs text-cyan-200">Barricade lane {sel.idx + 1}</span>
+                <span className={`font-mono-g text-[10px] ${b.hp <= 0 && b.maxHp > 0 ? "text-rose-300" : "text-slate-400"}`}>{b.hp <= 0 && b.maxHp > 0 ? "DESTROYED" : `${Math.round(b.hp)}/${Math.round(b.maxHp)} HP`}</span>
               </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {[25, 50, 100].map((g) => (
-                  <NeonButton key={g} color="yellow" className="!px-2 !py-1 !text-[10px]" onClick={() => handlers.buyBarricade(sel.idx, g)} data-testid={`field-barricade-buy-${sel.idx}-${g}`}>+{g}g</NeonButton>
-                ))}
-                {b.hp < b.maxHp && <NeonButton color="green" className="!px-2 !py-1 !text-[10px]" onClick={() => handlers.repairBarricade(sel.idx)} data-testid={`field-barricade-repair-${sel.idx}`}><Wrench size={11} /></NeonButton>}
-              </div>
+              <p className="font-mono-g text-[9px] text-slate-400">Barricades are installed, repaired, and replaced through the Guild.</p>
             </div>
           );
         })()}

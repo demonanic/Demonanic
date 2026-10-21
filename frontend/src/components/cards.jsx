@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, Plus, Zap, Shield, Swords, Wind, Brain, Heart } from "lucide-react";
-import { StatBar, NeonButton, HeroMiniSprite } from "@/components/ui-kit";
-import * as C from "@/game/config";
-import { heroDerived, towerDerived } from "@/game/logic";
-import PerkTree from "@/components/PerkTree";
+import { StatBar, NeonButton, HeroMiniSprite } from "./ui-kit";
+import * as C from "../game/config";
+import { allocateSp, buyPerk, heroDerived, towerDerived, undoPendingPerk, undoPendingSp } from "../game/logic";
+import PerkTree from "./PerkTree";
 
 export function Modal({ children, onClose, testid, slowed }) {
   return (
@@ -24,8 +24,53 @@ export function Modal({ children, onClose, testid, slowed }) {
 
 const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
 
-export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, slowed, combatMode, onCombatMode, onRetreat, onRally }) {
+export function HeroCard({ hero: sourceHero, editable, onAlloc, onPerk, onClose, onCommitProgression, draftProgression = false, onConfig, slowed, combatMode, onCombatMode, onRetreat, onRally }) {
   const [perkTreeOpen, setPerkTreeOpen] = useState(false);
+  const originalProgression = useRef(structuredClone(sourceHero));
+  const [progressionDraft, setProgressionDraft] = useState(() => structuredClone(sourceHero));
+  const committingDraft = useRef(false);
+  const hero = draftProgression ? progressionDraft : sourceHero;
+  const originalPerks = originalProgression.current.perks || [];
+  const removablePerks = draftProgression
+    ? (hero.perks || []).filter((perkId) => !originalPerks.includes(perkId))
+    : [];
+  const hasProgressionChanges = draftProgression && (
+    hero.sp !== originalProgression.current.sp ||
+    hero.ap !== originalProgression.current.ap ||
+    JSON.stringify(hero.stats) !== JSON.stringify(originalProgression.current.stats) ||
+    JSON.stringify(hero.perks) !== JSON.stringify(originalPerks)
+  );
+  const updateProgressionDraft = (update) => {
+    setProgressionDraft((current) => {
+      const next = structuredClone(current);
+      return update(next) ? next : current;
+    });
+  };
+  const allocateStat = (stat) => {
+    if (draftProgression) updateProgressionDraft((next) => allocateSp(next, stat));
+    else onAlloc?.(stat);
+  };
+  const unlockPerk = (perkId) => {
+    if (draftProgression) updateProgressionDraft((next) => buyPerk(next, perkId));
+    else onPerk?.(perkId);
+  };
+  const undoPerk = (perkId) => updateProgressionDraft((next) =>
+    undoPendingPerk(next, perkId, originalPerks));
+  const undoStat = (stat) => updateProgressionDraft((next) =>
+    undoPendingSp(next, stat, originalProgression.current.stats));
+  const confirmProgression = () => {
+    if (!hasProgressionChanges || committingDraft.current) return;
+    committingDraft.current = true;
+    const committed = onCommitProgression?.({
+      originalHero: originalProgression.current,
+      draftHero: progressionDraft,
+    });
+    if (committed === false) {
+      committingDraft.current = false;
+      return;
+    }
+    onClose?.();
+  };
   const cls = C.HERO_CLASSES[hero.cls];
   const d = heroDerived(hero);
   const curXp = C.HERO_XP[hero.level - 1] || 0;
@@ -72,16 +117,25 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
           <div>
             <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
               <span>Core Stats</span>
-              {editable && <span className="text-cyan-400">SP:{hero.sp}</span>}
+              {editable && <span className="text-cyan-400">{draftProgression ? "SP LEFT:" : "SP:"}
+                <span data-testid="hero-sp-remaining">{hero.sp}</span>
+              </span>}
             </div>
             {["attack", "defense", "agility", "intelligence"].map((st) => (
               <div key={st} className="flex items-center justify-between px-2 py-1 rounded bg-black/30 mb-1">
                 <span className="flex items-center gap-1 text-[11px] font-mono-g text-slate-300">{STAT_ICONS[st]}{st.slice(0, 3).toUpperCase()}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono-g font-bold text-sm" style={{ color: cls.color }}>{hero.stats[st] + (d.gear?.[st] || 0)}</span>
+                  <span className="font-mono-g font-bold text-sm" style={{ color: cls.color }} data-testid={`hero-stat-${st}`}>{hero.stats[st] + (d.gear?.[st] || 0)}</span>
                   {editable && (
-                    <button disabled={hero.sp <= 0} onClick={() => onAlloc(st)} data-testid={`hero-alloc-${st}`}
-                      className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 disabled:opacity-30 flex items-center justify-center"><Plus size={12} /></button>
+                    <div className="flex items-center gap-1">
+                      {draftProgression && (
+                        <button disabled={hero.stats[st] <= originalProgression.current.stats[st]} onClick={() => undoStat(st)} data-testid={`hero-undo-${st}`}
+                          aria-label={`Undo pending ${st} point`}
+                          className="w-7 h-7 rounded bg-rose-500/15 border border-rose-400/40 text-rose-300 disabled:opacity-30 flex items-center justify-center">−</button>
+                      )}
+                      <button disabled={hero.sp <= 0} onClick={() => allocateStat(st)} data-testid={`hero-alloc-${st}`}
+                        className="w-7 h-7 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 disabled:opacity-30 flex items-center justify-center"><Plus size={12} /></button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -142,7 +196,9 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
         <div>
           <div className="font-mono-g text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
             <span className="flex items-center gap-1"><Zap size={12} /> PRK / ABILITIES</span>
-            <span className="text-fuchsia-400">AP:{hero.ap || 0}</span>
+            <span className="text-fuchsia-400">{draftProgression ? "AP LEFT:" : "AP:"}
+              <span data-testid="hero-ap-remaining">{hero.ap || 0}</span>
+            </span>
           </div>
           <button
             type="button"
@@ -160,8 +216,24 @@ export function HeroCard({ hero, editable, onAlloc, onPerk, onConfig, onClose, s
             {hero.perks?.length ? "ACTIVE PRKs: " + hero.perks.length : "No PRKs selected yet."}
           </div>
         </div>
+        {draftProgression && (
+          <div className="mt-4 border-t border-white/10 pt-3" data-testid="progression-draft-actions">
+          <div className="mb-2 font-mono-g text-[8px] text-slate-400">
+            Pending allocations · {originalProgression.current.sp - hero.sp} SP · {originalProgression.current.ap - hero.ap} AP
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NeonButton color="red" className="!min-h-11" onClick={onClose} data-testid="cancel-progression">
+              CANCEL
+            </NeonButton>
+            <NeonButton color="green" className="!min-h-11" onClick={confirmProgression} disabled={!hasProgressionChanges} data-testid="confirm-progress" >
+              CONFIRM ALLOCATIONS
+            </NeonButton>
+          </div>
+          </div>
+        )}
       </div>
-      {perkTreeOpen && <PerkTree hero={hero} editable={editable} onPerk={onPerk} onClose={() => setPerkTreeOpen(false)} />}
+      {perkTreeOpen && <PerkTree hero={hero} editable={editable} onPerk={unlockPerk}
+        removablePerks={removablePerks} onUndoPerk={undoPerk} onClose={() => setPerkTreeOpen(false)} />}
     </Modal>
   );
 }

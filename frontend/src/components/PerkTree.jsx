@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { X, Lock, Check, Zap, CircleDot } from "lucide-react";
-import * as C from "@/game/config";
-import { getPerkTree, normalizePerks, canUnlockPerk, unlockedAbilities } from "@/game/perks";
+import * as C from "../game/config";
+import { getPerkTree, normalizePerks, canUnlockPerk, unlockedAbilities } from "../game/perks";
 
 const CATEGORY_STYLE = {
   STAT: "border-cyan-400/40 text-cyan-300",
@@ -9,7 +9,7 @@ const CATEGORY_STYLE = {
   ENEMY: "border-rose-400/40 text-rose-300",
 };
 
-export default function PerkTree({ hero, editable = false, onPerk, onClose }) {
+export default function PerkTree({ hero, editable = false, onPerk, removablePerks = [], onUndoPerk, onClose }) {
   const cls = C.HERO_CLASSES[hero.cls];
   const tree = getPerkTree(hero.cls);
   const owned = useMemo(() => normalizePerks(hero.cls, hero.perks), [hero.cls, hero.perks]);
@@ -24,11 +24,15 @@ export default function PerkTree({ hero, editable = false, onPerk, onClose }) {
     const available = editable && canUnlockPerk(hero, hero.cls, p.id);
     const lockedByParent = !!p.parent && !owned.includes(p.parent);
     const lockedByAp = Number(hero.ap || 0) < p.cost;
+    const hasPendingChild = tree.children.some((child) => child.parent === p.id && owned.includes(child.id));
+    const removable = removablePerks.includes(p.id) && !hasPendingChild;
     return (
       <button
         key={p.id}
         type="button"
-        onClick={() => { setFocus(p.id); if (available) onPerk?.(p.id); }}
+        onClick={() => { setFocus(p.id); if (available) onPerk?.(p.id); else if (removable) onUndoPerk?.(p.id); }}
+        aria-label={removable ? `Undo pending ${p.name}` : p.name}
+        title={removable ? "Tap to undo this pending perk" : undefined}
         className={"w-full text-left rounded-lg border p-2 transition-all " +
           (selected ? "bg-green-500/10 border-green-400/60 shadow-[0_0_12px_rgba(57,255,20,.12)] " :
            available ? "bg-fuchsia-500/10 border-fuchsia-400/60 " :
@@ -44,7 +48,9 @@ export default function PerkTree({ hero, editable = false, onPerk, onClose }) {
         </div>
         <div className="mt-1 flex items-center gap-1.5">
           <span className={"font-mono-g text-[7px] px-1 py-0.5 rounded border " + (CATEGORY_STYLE[p.category] || "border-white/10 text-slate-400")}>{p.category}</span>
-          <span className="font-mono-g text-[7px] text-slate-500 truncate">{p.desc}</span>
+          <span className="font-mono-g text-[7px] text-slate-500 truncate">
+            {removable ? "PENDING · TAP TO UNDO" : p.desc}
+          </span>
         </div>
       </button>
     );
@@ -102,7 +108,9 @@ export default function PerkTree({ hero, editable = false, onPerk, onClose }) {
                       <span className="font-mono-g text-[7px] text-slate-500">{a.cooldown}s CD</span>
                     </div>
                     <div className="font-mono-g text-[8px] text-slate-400 mt-1">{a.desc}</div>
-                    <div className="font-mono-g text-[7px] text-slate-600 mt-1">Requires: {a.requires.map((id) => [...tree.roots, ...tree.children].find((p) => p.id === id)?.name || id).join(" + ")}</div>
+                    <div className="font-mono-g text-[7px] text-slate-600 mt-1">{a.requires.length
+                      ? "Requires: " + a.requires.map((id) => [...tree.roots, ...tree.children].find((p) => p.id === id)?.name || id).join(" + ")
+                      : "Available from battle start"}</div>
                   </button>
                 );
               })}

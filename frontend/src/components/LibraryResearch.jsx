@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Brain, FlaskConical, BookOpen, Sparkles, Clock3 } from "lucide-react";
 import { NeonButton, StatBar } from "@/components/ui-kit";
-import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell, mageSpellbookCapacity, customSpellIntelligenceRequirement } from "@/game/libraryResearch";
+import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell, mageSpellbookCapacity, customSpellIntelligenceRequirement, randomDiscoveryPool } from "@/game/libraryResearch";
 
 export default function LibraryResearch({ state, mutate }) {
   const [mode, setMode] = useState("custom");
@@ -22,6 +22,7 @@ export default function LibraryResearch({ state, mutate }) {
   const spells = state.librarySpells || [];
   const occupiedSlots = mage ? (mage.spellbook || []).length + blueprints.filter((blueprint) => blueprint.mageId === mage.id).length : 0;
   const spellCapacity = mageSpellbookCapacity(mage);
+  const randomPoolSize = mage ? randomDiscoveryPool(state, mage).length : 0;
   const chance = librarySuccessChance(state, mage ? intelligence : 10);
   const ready = library.unlocked !== false && Number(library.hp) > 0;
   const researchProgress = order ? Math.max(0, Math.min(1, 1 - order.remainingSeconds / Math.max(1, order.durationSeconds))) : 0;
@@ -30,7 +31,9 @@ export default function LibraryResearch({ state, mutate }) {
     const result = createSpellBlueprint(s, { mageId: mage?.id, mode, element, effect });
     if (!result.ok) {
       const message = result.reason === "resources" ? "Need 80 Gold and 20 Stone to attempt discovery." :
-        result.reason === "catalog" || result.reason === "incompatible" ? "That mage has no undiscovered spells matching their affinity and Intelligence." :
+        result.reason === "catalog" || result.reason === "incompatible" ? mode === "random"
+          ? "This mage has no undiscovered random spells matching their current affinity and Intelligence. Choose another mage, improve Intelligence, or unlock a secondary affinity at level 10."
+          : "No undiscovered spell matches this mage's affinity, Intelligence, and selected design. Try another compatible element/effect or improve Intelligence." :
         result.reason === "mage" ? "Choose a mage before discovery." :
         result.reason === "capacity" ? "This mage has reached their spellbook limit. Level up to unlock more capacity." :
         result.reason === "intelligence" ? `Custom designs require Intelligence ${result.requiredIntelligence}. Train this mage first.` :
@@ -75,6 +78,13 @@ export default function LibraryResearch({ state, mutate }) {
         <button type="button" aria-pressed={mode === "custom"} onClick={() => setMode("custom")} className={`rounded border p-2 font-mono-g text-xs ${mode === "custom" ? "border-fuchsia-300 bg-fuchsia-300/15 text-fuchsia-100" : "border-white/10 text-slate-400"}`}>CUSTOM DESIGN</button>
         <button type="button" aria-pressed={mode === "random"} onClick={() => setMode("random")} className={`rounded border p-2 font-mono-g text-xs ${mode === "random" ? "border-fuchsia-300 bg-fuchsia-300/15 text-fuchsia-100" : "border-white/10 text-slate-400"}`}>RANDOM DISCOVERY</button>
       </div>
+      {mode === "random" && mage && (
+        <p className="mt-2 font-mono-g text-[10px] text-slate-300" data-testid="random-discovery-pool">
+          {randomPoolSize
+            ? `${randomPoolSize} eligible undiscovered spell${randomPoolSize === 1 ? "" : "s"}`
+            : "No eligible undiscovered spells for this mage"}
+        </p>
+      )}
       {mode === "custom" && <div className="grid grid-cols-2 gap-2 mt-2">
         <label className="font-mono-g text-[10px] text-slate-300">ELEMENT<select aria-label="Spell element" value={element} onChange={(e) => setElement(e.target.value)} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">{SPELL_ELEMENTS.map((item) => <option key={item} value={item} disabled={!affinities.includes(item)}>{item.toUpperCase()}{affinities.includes(item) ? "" : " · NO AFFINITY"}</option>)}</select></label>
         <label className="font-mono-g text-[10px] text-slate-300">EFFECT<select aria-label="Spell effect" value={effect} onChange={(e) => setEffect(e.target.value)} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">{SPELL_EFFECTS.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select></label>

@@ -26,7 +26,7 @@ function Splash({ label = "SUMMONING..." }) {
 }
 
 function GameRouter() {
-  const { loading, loadError, retryLoad, screen } = useGame();
+  const { loading, loadError, retryLoad, screen, profilePrompt, continueWithLocalBackup, startNewGame } = useGame();
   if (loading) return <Splash label="SUMMONING..." />;
   if (loadError) {
     return (
@@ -38,6 +38,39 @@ function GameRouter() {
           onClick={retryLoad}
           data-testid="retry-game-load"
         >
+          RETRY LOAD
+        </button>
+      </div>
+    );
+  }
+  if (profilePrompt) {
+    const canContinueLocal = profilePrompt.found && !profilePrompt.invalid && profilePrompt.state;
+    const canCreateNew = profilePrompt.kind === "missing" && !profilePrompt.found;
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-[#0a0b10] p-6 text-center">
+        <div className="font-display font-black text-2xl text-rose-400 mb-3">
+          {profilePrompt.kind === "missing" ? "SAVED PROFILE NOT FOUND" : "SAVED PROFILE NOT VERIFIED"}
+        </div>
+        <p className="font-mono-g text-xs text-slate-400 max-w-sm mb-5">
+          {canContinueLocal
+            ? "A device save is available. Continuing keeps it on this device until the server profile is verified."
+            : profilePrompt.invalid
+              ? "A device save exists but could not be read. It was left untouched. Retry loading or recover it before starting another game."
+              : canCreateNew
+                ? "No profile was returned for this account. Starting a new game is an explicit choice and will not replace an existing server profile."
+                : profilePrompt.message || "Your game was not replaced. Retry loading your profile."}
+        </p>
+        {canContinueLocal && (
+          <button className="neon-btn glass-card rounded-lg px-5 py-3 mb-3 font-mono-g text-xs text-cyan-300" onClick={continueWithLocalBackup}>
+            CONTINUE WITH DEVICE SAVE
+          </button>
+        )}
+        {canCreateNew && (
+          <button className="neon-btn glass-card rounded-lg px-5 py-3 mb-3 font-mono-g text-xs text-fuchsia-300" onClick={startNewGame}>
+            START NEW GAME
+          </button>
+        )}
+        <button className="neon-btn glass-card rounded-lg px-5 py-3 font-mono-g text-xs text-cyan-300" onClick={retryLoad} data-testid="retry-game-load">
           RETRY LOAD
         </button>
       </div>

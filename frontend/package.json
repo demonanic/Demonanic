@@ -66,6 +66,8 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "build:android": "node scripts/validate-android-backend.cjs && craco build",
+    "test:android-config": "node --test scripts/validate-android-backend.test.cjs",
     "test": "craco test"
   },
   "browserslist": {

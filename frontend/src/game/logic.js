@@ -1,7 +1,7 @@
 // Pure game-state logic. No React, no rendering. Data-driven from config.js.
 import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
-import { getPerk, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
+import { getPerk, getPerkTree, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
 import { advanceLibraryResearch, ensureMageSpellData } from "./libraryResearch";
 
 let _heroSeq = 0;
@@ -52,15 +52,18 @@ export function heroDerived(hero) {
     critMult: C.CRIT_MULT + (gear.critDamage / 100),
     critDmgBonus: Math.floor(effectiveStats.attack / 10) * 0.01 + (gear.critDamage / 100),
     dodge: Math.min(0.50, C.dodgeChance(effectiveStats.agility) + perks.dodgePct),
+    lowHpDodge: perks.lowHpDodgePct,
     healPower: 1 + effectiveStats.intelligence / 100 + perks.healPct,
     maxHpMultiplier: 1 + perks.maxHpPct,
     abilityDamageMultiplier: 1 + perks.abilityDamagePct,
+    shieldAbilityDamageMultiplier: 1 + perks.shieldAbilityDamagePct,
     moveSpeedMultiplier: 1 + perks.moveSpeedPct,
     reactionBonus: perks.reactionBonus,
     barrierMultiplier: 1 + perks.barrierPct,
     damageReduction: perks.damageReductionPct,
     lowHpDefense: perks.lowHpDefense,
     lowHpDamage: perks.lowHpDamagePct,
+    executionDamage: perks.executionDamagePct,
     highHpDamage: perks.highHpDamagePct,
     critHealPct: perks.critHealPct,
     cooldownMultiplier: Math.max(0.5, 1 - perks.cooldownPct),
@@ -127,7 +130,9 @@ export function createNewState(squadClasses) {
     morale: C.MORALE.base,
     castleHp: castleMaxHp, castleMaxHp,
     wave: 1, highestWaveCleared: 0, freeLifeUsed: false,
-    surrenderTaxRate: 0, surrenderDebtWave: 0,
+    surrenderTaxRate: 0, surrenderDebtWave: 0, surrenderTaxAppliedWave: 0,
+    lastCompletedWave: 0,
+    guildBlockadeLevel: 0, guildBlockadeActiveUntil: 0, guildBlockadeCooldownUntil: 0,
     heroes, bench: [], needsSquad: !squadClasses,
     vault: [],
     shoppe: { inventory: [], nextRefreshAt: 0, lastRefreshAt: 0 },
@@ -404,7 +409,7 @@ export function guildRepairDefenses(state) {
   }
   const barricadeRepairs = [];
   for (const barricade of state.barricades || []) {
-    if (!barricade || !(barricade.maxHp > 0)) continue;
+    if (!barricade || !(barricade.maxHp > 0) || !(barricade.hp > 0)) continue;
     const missing = Math.max(0, barricade.maxHp - (Number(barricade.hp) || 0));
     if (missing > 0) {
       goldCost += Math.ceil(missing * 0.2);
@@ -515,22 +520,83 @@ export function chargeUpkeep(state) {
 }
 
 // ---- barricades ----
+function guildCanManageBarricades(state) {
+  const guild = state.buildings?.guild;
+  return !!guild && guild.unlocked !== false && guild.hp > 0 && (Number(guild.level) || 1) >= 1;
+}
+
 export function buyBarricade(state, pos, goldAmt) {
-  goldAmt = Math.max(C.BARRICADE.minGold, Math.min(C.BARRICADE.maxGold, goldAmt));
-  if (state.gold < goldAmt) return false;
+  const b = state.barricades?.[pos];
+  goldAmt = Math.floor(Number(goldAmt));
+  if (!guildCanManageBarricades(state) || !Number.isInteger(pos) || !b ||
+    !Number.isFinite(goldAmt) || goldAmt < C.BARRICADE.minGold ||
+    goldAmt > C.BARRICADE.maxGold || state.gold < goldAmt ||
+    b.hp <= 0 && b.maxHp > 0 || b.maxHp + goldAmt * C.BARRICADE.goldToHp > C.BARRICADE.maxHp) return false;
   const addHp = goldAmt * C.BARRICADE.goldToHp;
-  const b = state.barricades[pos];
-  if (b.maxHp + addHp > C.BARRICADE.maxHp) return false;
-  state.gold -= goldAmt; b.maxHp += addHp; b.hp += addHp;
+  state.gold -= goldAmt;
+  b.maxHp += addHp;
+  b.hp += addHp;
   return true;
 }
+
+export function replaceBarricade(state, pos) {
+  const b = state.barricades?.[pos];
+  if (!guildCanManageBarricades(state) || !Number.isInteger(pos) || !b ||
+    b.maxHp <= 0 || b.hp > 0 || state.gold < C.BARRICADE.maxGold) return false;
+  state.gold -= C.BARRICADE.maxGold;
+  b.maxHp = C.BARRICADE.maxHp;
+  b.hp = C.BARRICADE.maxHp;
+  return true;
+}
+
+export function upgradeGuildBlockade(state) {
+  const guild = state.buildings?.guild;
+  if (!guildCanManageBarricades(state) ||
+    (Number(guild.level) || 1) < C.GUILD_BLOCKADE.requiredGuildLevel ||
+    (Number(state.guildBlockadeLevel) || 0) >= 1 ||
+    state.gold < C.GUILD_BLOCKADE.upgradeGold || state.stone < C.GUILD_BLOCKADE.upgradeStone) return false;
+  state.gold -= C.GUILD_BLOCKADE.upgradeGold;
+  state.stone -= C.GUILD_BLOCKADE.upgradeStone;
+  state.guildBlockadeLevel = 1;
+  guild.activity = "Universal blockade unlocked";
+  return true;
+}
+
+export function guildBlockadeStatus(state, now = Date.now()) {
+  const activeUntil = Math.max(0, Number(state.guildBlockadeActiveUntil) || 0);
+  const cooldownUntil = Math.max(0, Number(state.guildBlockadeCooldownUntil) || 0);
+  return {
+    unlocked: (Number(state.guildBlockadeLevel) || 0) >= 1,
+    active: activeUntil > now,
+    remainingMs: Math.max(0, activeUntil - now),
+    cooldownMs: Math.max(0, cooldownUntil - now),
+  };
+}
+
+export function activateGuildBlockade(state, now = Date.now()) {
+  const status = guildBlockadeStatus(state, now);
+  if (!guildCanManageBarricades(state) || !status.unlocked || status.active ||
+    status.cooldownMs > 0 || !(state.barricades || []).some((b) => b && b.hp > 0) ||
+    state.gold < C.GUILD_BLOCKADE.activationGold || state.stone < C.GUILD_BLOCKADE.activationStone) return false;
+  state.gold -= C.GUILD_BLOCKADE.activationGold;
+  state.stone -= C.GUILD_BLOCKADE.activationStone;
+  state.guildBlockadeActiveUntil = now + C.GUILD_BLOCKADE.durationMs;
+  state.guildBlockadeCooldownUntil = now + C.GUILD_BLOCKADE.cooldownMs;
+  return true;
+}
+
 export function repairBarricade(state, pos) {
-  const b = state.barricades[pos];
-  const missing = b.maxHp - b.hp;
-  if (missing <= 0) return false;
-  const cost = C.repairStoneCost(missing);
-  if (state.stone < cost) return false;
-  state.stone -= cost; b.hp = b.maxHp; return true;
+  const b = state.barricades?.[pos];
+  const guild = state.buildings?.guild;
+  if (!guildCanManageBarricades(state) || !Number.isInteger(pos) || !b || b.hp <= 0 || b.maxHp <= b.hp) return false;
+  const goldCost = Math.ceil((b.maxHp - b.hp) * 0.2);
+  const stoneCost = Math.ceil((b.maxHp - b.hp) * 0.1);
+  if (state.gold < goldCost || state.stone < stoneCost) return false;
+  state.gold -= goldCost;
+  state.stone -= stoneCost;
+  b.hp = b.maxHp;
+  guild.activity = `Repaired barricade lane ${pos + 1}`;
+  return true;
 }
 
 // ---- hero progression ----
@@ -542,7 +608,8 @@ export function addHeroXp(hero, xp) {
   if (!hero.abilityCooldowns || typeof hero.abilityCooldowns !== "object") hero.abilityCooldowns = {};
 }
 export function allocateSp(hero, stat) {
-  if (hero.sp <= 0) return false;
+  if (!hero || !["attack", "defense", "agility", "intelligence"].includes(stat) ||
+    !Number.isInteger(hero.sp) || hero.sp <= 0 || !Number.isInteger(hero.stats?.[stat])) return false;
   hero.sp -= 1; hero.stats[stat] += 1;
   return true;
 }
@@ -554,6 +621,63 @@ export function buyPerk(hero, perkId) {
   hero.ap -= perk.cost;
   hero.perks.push(perk.id);
   hero.perks = [...new Set(hero.perks)];
+  return true;
+}
+
+export function undoPendingSp(hero, stat, originalStats) {
+  if (!hero || !originalStats || !["attack", "defense", "agility", "intelligence"].includes(stat) ||
+    !Number.isInteger(hero.sp) || hero.sp < 0 || !Number.isInteger(hero.stats?.[stat]) ||
+    !Number.isInteger(originalStats[stat]) || hero.stats[stat] <= originalStats[stat]) return false;
+  hero.stats[stat] -= 1;
+  hero.sp += 1;
+  return true;
+}
+
+export function undoPendingPerk(hero, perkId, originalPerks) {
+  if (!hero || !Array.isArray(hero.perks) || !Array.isArray(originalPerks) ||
+    originalPerks.includes(perkId) || hero.perks.filter((id) => id === perkId).length !== 1 ||
+    !Number.isInteger(hero.ap) || hero.ap < 0) return false;
+  const perk = getPerk(hero.cls, perkId);
+  if (!perk || !Number.isInteger(perk.cost) || perk.cost <= 0) return false;
+  const hasPurchasedChild = getPerkTree(hero.cls).children.some((child) =>
+    child.parent === perkId && hero.perks.includes(child.id));
+  if (hasPurchasedChild) return false;
+  hero.perks = hero.perks.filter((id) => id !== perkId);
+  hero.ap += perk.cost;
+  return true;
+}
+
+export function commitHeroProgressionDraft(hero, original, draft) {
+  const statKeys = ["attack", "defense", "agility", "intelligence"];
+  if (!hero || !original || !draft || !Number.isInteger(original.sp) || !Number.isInteger(original.ap) ||
+    hero.sp !== original.sp || hero.ap !== original.ap ||
+    JSON.stringify(hero.stats) !== JSON.stringify(original.stats) ||
+    JSON.stringify(normalizePerks(hero.cls, hero.perks)) !== JSON.stringify(normalizePerks(original.cls, original.perks)) ||
+    !Number.isInteger(draft.sp) || draft.sp < 0 || !Number.isInteger(draft.ap) || draft.ap < 0 ||
+    !Array.isArray(draft.perks)) return false;
+
+  let statPointsSpent = 0;
+  for (const stat of statKeys) {
+    const before = original.stats?.[stat];
+    const after = draft.stats?.[stat];
+    if (!Number.isInteger(before) || !Number.isInteger(after) || after < before) return false;
+    statPointsSpent += after - before;
+  }
+  if (statPointsSpent > original.sp || draft.sp !== original.sp - statPointsSpent) return false;
+
+  const originalPerks = normalizePerks(hero.cls, original.perks);
+  const draftPerks = normalizePerks(hero.cls, draft.perks);
+  if (originalPerks.some((id) => !draftPerks.includes(id)) || draftPerks.length !== draft.perks.length) return false;
+  const candidate = { ...hero, ap: original.ap, perks: [...originalPerks] };
+  for (const perkId of draftPerks.filter((id) => !originalPerks.includes(id))) {
+    if (!buyPerk(candidate, perkId)) return false;
+  }
+  if (candidate.ap !== draft.ap) return false;
+
+  hero.stats = { ...draft.stats };
+  hero.sp = draft.sp;
+  hero.ap = draft.ap;
+  hero.perks = [...candidate.perks];
   return true;
 }
 
@@ -825,7 +949,12 @@ export function makeSingleEnemy(state, typeKey) {
 
 // ---- wave results & failure ----
 export function freeLife(state) {
-  state.gold = Math.floor(state.gold * C.FREE_LIFE.keepResourceFrac);
+  if (!state || state.freeLifeUsed) return false;
+  const vaultProtected = state.buildings?.vault?.unlocked !== false && (Number(state.buildings?.vault?.hp) || 0) > 0;
+  const treasury = Math.max(0, Number(state.gold) || 0);
+  const vault = vaultProtected ? 0 : Math.max(0, Number(state.vaultGold) || 0);
+  const exposedGold = treasury + vault;
+  deductGoldLoss(state, exposedGold - Math.floor(exposedGold * C.FREE_LIFE.keepResourceFrac), !vaultProtected);
   state.stone = Math.floor(state.stone * C.FREE_LIFE.keepResourceFrac);
   state.metal = Math.floor((Number(state.metal) || 0) * C.FREE_LIFE.keepResourceFrac);
   for (const h of state.heroes) { const d = heroDerived(h); h.hp = d.maxHp; }
@@ -838,23 +967,47 @@ export function freeLife(state) {
   state.castleHp = state.castleMaxHp;
   state.morale = C.FREE_LIFE.moraleReset;
   state.freeLifeUsed = true;
+  return true;
 }
 
 export function surrender(state) {
+  const wave = Math.max(1, Number(state.wave) || 1);
+  if (Number(state.surrenderTaxAppliedWave) === wave) return false;
   state.surrenderTaxRate = C.surrenderTaxRate(state.wave);
-  state.surrenderDebtWave = state.wave;
+  state.surrenderDebtWave = wave;
+  const vaultProtected = state.buildings?.vault?.unlocked !== false && (Number(state.buildings?.vault?.hp) || 0) > 0;
+  const exposedGold = Math.max(0, Number(state.gold) || 0) +
+    (vaultProtected ? 0 : Math.max(0, Number(state.vaultGold) || 0));
+  deductGoldLoss(state, Math.ceil(exposedGold * state.surrenderTaxRate), !vaultProtected);
+  state.surrenderTaxAppliedWave = wave;
   addMorale(state, C.MORALE.surrender);
+  return true;
 }
 
-export function completeWave(state) {
+function deductGoldLoss(state, amount, exposeVault) {
+  let remaining = Math.max(0, Number(amount) || 0);
+  const treasuryLoss = Math.min(Math.max(0, Number(state.gold) || 0), remaining);
+  state.gold = Math.max(0, (Number(state.gold) || 0) - treasuryLoss);
+  remaining -= treasuryLoss;
+  if (exposeVault && remaining > 0) {
+    const vaultLoss = Math.min(Math.max(0, Number(state.vaultGold) || 0), remaining);
+    state.vaultGold = Math.max(0, (Number(state.vaultGold) || 0) - vaultLoss);
+  }
+}
+
+export function completeWave(state, clearedWave = state.wave) {
+  if (!Number.isInteger(clearedWave) || clearedWave !== state.wave ||
+    Number(state.lastCompletedWave) === clearedWave) return false;
+  state.lastCompletedWave = clearedWave;
   state.highestWaveCleared = Math.max(state.highestWaveCleared, state.wave);
   state.castleMaxHp = C.castleMaxHp(state.highestWaveCleared);
   addMorale(state, C.MORALE.waveComplete);
   state.bests.highestWave = Math.max(state.bests.highestWave, state.highestWaveCleared);
   if (state.surrenderDebtWave && state.wave >= state.surrenderDebtWave) {
-    state.surrenderTaxRate = 0; state.surrenderDebtWave = 0;
+    state.surrenderTaxRate = 0; state.surrenderDebtWave = 0; state.surrenderTaxAppliedWave = 0;
   }
   state.wave += 1;
+  return true;
 }
 
 

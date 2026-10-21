@@ -5,6 +5,7 @@ import {
   nearestAvailablePlacement,
   placementForSlot,
 } from "./towerPlacement";
+import { buildTower } from "./logic";
 
 const slots = [
   { x: 60, y: 182 },
@@ -24,6 +25,20 @@ describe("tower placement", () => {
 
     expect(commitTowerPlacement(placement, build)).toBe(true);
     expect(build).toHaveBeenCalledWith("archer", 60, 342, 2);
+  });
+
+  test("build persists the selected slot and rejects an occupied slot", () => {
+    const state = {
+      gold: 10000,
+      stone: 10000,
+      metal: 0,
+      heroes: Array.from({ length: 4 }, () => ({ level: 10 })),
+      towers: [{ id: "existing", type: "archer", x: 60, y: 182, placementSlot: 0 }],
+    };
+
+    expect(buildTower(state, "archer", 360, 182, 0)).toBe(false);
+    expect(buildTower(state, "archer", 360, 182, 1)).toBe(true);
+    expect(state.towers[1]).toMatchObject({ x: 360, y: 182, placementSlot: 1 });
   });
 
   test("explicit slot assignments remain stable when another tower is added", () => {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Coins, Mountain, Users, Hammer, ShieldCheck, Wrench, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { NeonButton, SectionTitle, StatBar } from "@/components/ui-kit";
-import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo, towerDerived, guildStorageCapacity, guildAmmoCapacity, startGuildManufacturing, guildManufacturingRate, goldAllocation, setGoldAllocation } from "@/game/logic";
+import { productionRates, hostTavernFeast, recruitHero, enrollAcademyHero, recallAcademyHero, academyTrainingHours, academySeats, guildRepairDefenses, guildManufactureAmmo, towerDerived, guildStorageCapacity, guildAmmoCapacity, startGuildManufacturing, guildManufacturingRate, goldAllocation, setGoldAllocation, buyBarricade, repairBarricade, replaceBarricade, upgradeGuildBlockade } from "@/game/logic";
 import * as C from "@/game/config";
 import { TAVERN_FEAST, workerCost } from "@/game/config";
 import KingdomMap from "@/components/KingdomMap";
@@ -39,6 +39,7 @@ function condition(hp, maxHp) {
 export default function CastleBuildings({ state, mutate }) {
   const [selected, setSelected] = useState("mine");
   const [expanded, setExpanded] = useState(true);
+  const [replacementLane, setReplacementLane] = useState(null);
   const rates = productionRates(state);
   const building = BUILDINGS.find((item) => item.id === selected) || BUILDINGS[0];
   const current = buildingState(state, building.id);
@@ -233,7 +234,7 @@ export default function CastleBuildings({ state, mutate }) {
                 const cached = Object.values(cache).reduce((sum, n) => sum + Math.max(0, Number(n) || 0), 0);
                 const order = state.guildManufacturing, rate = guildManufacturingRate(state);
                 const damagedTowers = (state.towers || []).filter((t) => t && t.hp < towerDerived(t).maxHp);
-                const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp < b.maxHp);
+                const damagedBarricades = (state.barricades || []).filter((b) => b && b.maxHp > 0 && b.hp > 0 && b.hp < b.maxHp);
                 return <>
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     <div className="rounded bg-black/30 p-2"><div className="font-mono-g text-[9px] text-slate-400">METAL YARD</div><div className="font-display font-bold text-lg">{Math.floor(state.metal || 0)} / {cap.metal}</div></div>
@@ -257,6 +258,57 @@ export default function CastleBuildings({ state, mutate }) {
                     </>}
                   </div>
                   <div className="mt-3 border-t border-orange-400/20 pt-3"><div className="font-display font-bold text-sm text-orange-100">DEFENSE REPAIRS</div><p className="font-mono-g text-[10px] text-slate-400">{damagedTowers.length} damaged towers · {damagedBarricades.length} damaged barricades</p><NeonButton color="orange" className="w-full mt-2" disabled={current.hp <= 0 || (!damagedTowers.length && !damagedBarricades.length)} onClick={() => mutate((s) => { const result = guildRepairDefenses(s); if (!result) toast.error("Insufficient Treasury Gold/Stone or no damaged defenses"); else toast.success(`Repaired ${result.towers} towers and ${result.barricades} barricades`); })}>Repair All Defenses</NeonButton></div>
+                  <div className="mt-3 border-t border-orange-400/20 pt-3" data-testid="guild-barricade-management">
+                    <div className="font-display font-bold text-sm text-orange-100">BARRICADE YARD</div>
+                    <p className="font-mono-g text-[10px] text-slate-400 mt-1">Guild orders use Treasury Gold and Stone. Full replacement: {C.BARRICADE.maxGold}G for {C.BARRICADE.maxHp} HP.</p>
+                    <div className="mt-2 space-y-2">
+                      {(state.barricades || []).map((barricade, lane) => {
+                        const destroyed = barricade.maxHp > 0 && barricade.hp <= 0;
+                        const empty = barricade.maxHp <= 0;
+                        const missing = Math.max(0, barricade.maxHp - barricade.hp);
+                        const repairGoldCost = Math.ceil(missing * 0.2);
+                        const repairStoneCost = Math.ceil(missing * 0.1);
+                        return <div key={lane} className="rounded border border-orange-400/15 bg-black/25 p-2" data-testid={`guild-barricade-${lane}`}>
+                          <div className="flex items-center justify-between gap-2 font-mono-g text-[10px]">
+                            <span className="text-orange-100">LANE {lane + 1}</span>
+                            <span className={destroyed ? "text-rose-300" : barricade.hp > 0 ? "text-cyan-200" : "text-slate-500"}>
+                              {destroyed ? "DESTROYED" : empty ? "EMPTY" : `${Math.round(barricade.hp)}/${Math.round(barricade.maxHp)} HP`}
+                            </span>
+                          </div>
+                          {empty ? <button type="button" disabled={current.hp <= 0 || current.unlocked === false || state.gold < C.BARRICADE.maxGold}
+                            onClick={() => mutate((s) => { if (!buyBarricade(s, lane, C.BARRICADE.maxGold)) toast.error("Barricade installation failed"); else toast.success(`Lane ${lane + 1} barricade installed`); })}
+                            className="mt-1 min-h-11 w-full rounded border border-cyan-400/30 px-2 font-mono-g text-[9px] text-cyan-100 disabled:opacity-35"
+                            data-testid={`guild-barricade-install-${lane}`}>INSTALL MAX DURABILITY · {C.BARRICADE.maxGold}G</button> :
+                            destroyed ? replacementLane === lane ? <div className="mt-1 grid grid-cols-2 gap-1">
+                              <button type="button" disabled={current.hp <= 0 || state.gold < C.BARRICADE.maxGold} onClick={() => mutate((s) => {
+                                if (!replaceBarricade(s, lane)) toast.error("Replacement failed — check Guild condition and Treasury Gold");
+                                else { toast.success(`Lane ${lane + 1} barricade replaced`); setReplacementLane(null); }
+                              })} className="min-h-11 rounded border border-green-400/35 font-mono-g text-[9px] text-green-200 disabled:opacity-35" data-testid={`guild-barricade-confirm-replace-${lane}`}>CONFIRM · {C.BARRICADE.maxGold}G</button>
+                              <button type="button" className="min-h-11 rounded border border-white/20 font-mono-g text-[9px] text-slate-300" onClick={() => setReplacementLane(null)} data-testid={`guild-barricade-cancel-replace-${lane}`}>CANCEL</button>
+                            </div> : <button type="button" disabled={current.hp <= 0 || current.unlocked === false || state.gold < C.BARRICADE.maxGold}
+                              onClick={() => setReplacementLane(lane)} className="mt-1 min-h-11 w-full rounded border border-rose-400/30 px-2 font-mono-g text-[9px] text-rose-200 disabled:opacity-35"
+                              data-testid={`guild-barricade-replace-${lane}`}>REPLACE · {C.BARRICADE.maxGold}G · CONFIRM FIRST</button> :
+                              <div className="mt-1 grid grid-cols-2 gap-1">
+                                <button type="button" disabled={current.hp <= 0 || current.unlocked === false || state.gold < repairGoldCost || state.stone < repairStoneCost}
+                                  onClick={() => mutate((s) => { if (!repairBarricade(s, lane)) toast.error("Repair failed — check Guild condition and supplies"); else toast.success(`Lane ${lane + 1} barricade repaired`); })}
+                                  className="min-h-11 rounded border border-green-400/30 font-mono-g text-[9px] text-green-200 disabled:opacity-35"
+                                  data-testid={`guild-barricade-repair-${lane}`}>REPAIR · {repairGoldCost}G/{repairStoneCost}S</button>
+                                <div className="flex items-center justify-center font-mono-g text-[8px] text-slate-500">REINFORCE IN PREP</div>
+                              </div>}
+                        </div>;
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 border-t border-fuchsia-400/20 pt-3" data-testid="guild-universal-blockade-upgrade">
+                    <div className="font-display font-bold text-sm text-fuchsia-200">UNIVERSAL BLOCKADE</div>
+                    <p className="font-mono-g text-[10px] text-slate-400 mt-1">Requires Guild level {C.GUILD_BLOCKADE.requiredGuildLevel}. The temporary field stops every enemy at a living barricade; 8 seconds active, 60 seconds cooldown.</p>
+                    {(Number(state.guildBlockadeLevel) || 0) > 0 ?
+                      <div className="mt-2 rounded border border-fuchsia-400/20 bg-fuchsia-400/5 p-2 font-mono-g text-[9px] text-fuchsia-100">UNLOCKED · Battle activation costs {C.GUILD_BLOCKADE.activationGold}G / {C.GUILD_BLOCKADE.activationStone}S</div> :
+                      <button type="button" disabled={current.hp <= 0 || current.unlocked === false || (Number(current.level) || 1) < C.GUILD_BLOCKADE.requiredGuildLevel || state.gold < C.GUILD_BLOCKADE.upgradeGold || state.stone < C.GUILD_BLOCKADE.upgradeStone}
+                        onClick={() => mutate((s) => { if (!upgradeGuildBlockade(s)) toast.error("Upgrade unavailable — reach Guild level 2 and check supplies"); else toast.success("Universal blockade unlocked"); })}
+                        className="mt-2 min-h-11 w-full rounded border border-fuchsia-400/35 px-2 font-mono-g text-[9px] text-fuchsia-100 disabled:opacity-35"
+                        data-testid="unlock-guild-blockade">UNLOCK · {C.GUILD_BLOCKADE.upgradeGold}G / {C.GUILD_BLOCKADE.upgradeStone}S</button>}
+                  </div>
                   {(state.towers || []).map((tower, index) => { if (!tower || C.TOWER_RESOURCE[tower.type]?.kind !== "ammo") return null; const max = towerDerived(tower).maxAmmo, ammo = Number(tower.ammo) || 0, available = Number(cache[tower.type]) || 0; return <div key={tower.id || index} className="mt-2 rounded bg-black/30 p-2 flex items-center justify-between gap-2"><span className="font-mono-g text-[10px]">{C.TOWERS[tower.type]?.name}: {ammo}/{max} · Cache {Math.floor(available)}</span><button type="button" className="rounded border border-orange-400/40 px-2 py-1 font-mono-g text-[10px] disabled:opacity-30" disabled={available <= 0 || ammo >= max} onClick={() => mutate((s) => { const result = guildManufactureAmmo(s, index); if (!result) toast.error("No matching ammunition in cache"); else toast.success(`Refilled ${result.amount} rounds`); })}>REFILL</button></div>; })}
                 </>;
               })()}
