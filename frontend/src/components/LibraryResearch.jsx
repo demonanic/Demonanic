@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Brain, FlaskConical, BookOpen, Sparkles, Clock3 } from "lucide-react";
 import { NeonButton, StatBar } from "@/components/ui-kit";
-import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell, mageSpellbookCapacity, customSpellIntelligenceRequirement, randomDiscoveryPool } from "@/game/libraryResearch";
+import { SPELL_ELEMENTS, SPELL_EFFECTS, LIBRARY_RULES, librarySuccessChance, createSpellBlueprint, startSpellResearch, mageAffinities, mageIntelligence, spellIntelligenceRequirement, mageCanUseSpell, mageSpellbookCapacity, customSpellIntelligenceRequirement, randomDiscoveryPool, randomDiscoveryAlternatives } from "@/game/libraryResearch";
 
 export default function LibraryResearch({ state, mutate }) {
   const [mode, setMode] = useState("custom");
@@ -23,6 +23,7 @@ export default function LibraryResearch({ state, mutate }) {
   const occupiedSlots = mage ? (mage.spellbook || []).length + blueprints.filter((blueprint) => blueprint.mageId === mage.id).length : 0;
   const spellCapacity = mageSpellbookCapacity(mage);
   const randomPoolSize = mage ? randomDiscoveryPool(state, mage).length : 0;
+  const randomAlternatives = mage ? randomDiscoveryAlternatives(state, mage) : { eligible: [], intelligenceLocked: [], affinityLocked: [] };
   const chance = librarySuccessChance(state, mage ? intelligence : 10);
   const ready = library.unlocked !== false && Number(library.hp) > 0;
   const researchProgress = order ? Math.max(0, Math.min(1, 1 - order.remainingSeconds / Math.max(1, order.durationSeconds))) : 0;
@@ -79,11 +80,18 @@ export default function LibraryResearch({ state, mutate }) {
         <button type="button" aria-pressed={mode === "random"} onClick={() => setMode("random")} className={`rounded border p-2 font-mono-g text-xs ${mode === "random" ? "border-fuchsia-300 bg-fuchsia-300/15 text-fuchsia-100" : "border-white/10 text-slate-400"}`}>RANDOM DISCOVERY</button>
       </div>
       {mode === "random" && mage && (
-        <p className="mt-2 font-mono-g text-[10px] text-slate-300" data-testid="random-discovery-pool">
-          {randomPoolSize
-            ? `${randomPoolSize} eligible undiscovered spell${randomPoolSize === 1 ? "" : "s"}`
-            : "No eligible undiscovered spells for this mage"}
-        </p>
+        <div className="mt-2 rounded border border-fuchsia-400/15 bg-black/20 p-2 font-mono-g text-[10px] text-slate-300" data-testid="random-discovery-pool">
+          {randomPoolSize > 0 ? (
+            <p>{randomPoolSize} eligible undiscovered spell{randomPoolSize === 1 ? "" : "s"}.</p>
+          ) : (
+            <>
+              <p className="text-amber-200">No random spells are eligible for this mage right now. No resources will be spent until an eligible spell exists.</p>
+              {randomAlternatives.intelligenceLocked.length > 0 && <p className="mt-1">Train Intelligence to unlock: {randomAlternatives.intelligenceLocked.slice(0, 3).map((spell) => `${spell.name} (INT ${spellIntelligenceRequirement(spell)})`).join(", ")}{randomAlternatives.intelligenceLocked.length > 3 ? ", …" : ""}.</p>}
+              {randomAlternatives.affinityLocked.length > 0 && <p className="mt-1">Other affinities: {Array.from(new Set(randomAlternatives.affinityLocked.map((spell) => spell.element))).map((item) => item.toUpperCase()).join(", ")}. A secondary affinity can be unlocked at mage level 10.</p>}
+              {randomAlternatives.intelligenceLocked.length === 0 && randomAlternatives.affinityLocked.length === 0 && <p className="mt-1">All catalog spells for this mage are already learned or pending research. Finish or review existing blueprints, or develop a secondary affinity when available.</p>}
+            </>
+          )}
+        </div>
       )}
       {mode === "custom" && <div className="grid grid-cols-2 gap-2 mt-2">
         <label className="font-mono-g text-[10px] text-slate-300">ELEMENT<select aria-label="Spell element" value={element} onChange={(e) => setElement(e.target.value)} className="block w-full mt-1 rounded bg-black/50 border border-fuchsia-400/30 p-2 text-xs text-white">{SPELL_ELEMENTS.map((item) => <option key={item} value={item} disabled={!affinities.includes(item)}>{item.toUpperCase()}{affinities.includes(item) ? "" : " · NO AFFINITY"}</option>)}</select></label>
