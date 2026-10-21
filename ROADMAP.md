@@ -59,3 +59,57 @@ Audit started: 2026-10-21 on `review/mobile-working-copy`. No perk-system code c
 3. Implement the branch data model and hybrid unlock path while retaining legacy IDs.
 4. Implement respecialization with cost/cooldown, safe persistence, and failure handling.
 5. Balance-test, run regression suites, build Android, and verify on-device.
+
+## Expanded perk tree — implementation specification draft
+
+### Runtime audit findings
+
+The existing perk catalogue contains several effects that are currently declared and aggregated but have no clear combat-engine consumer in the audited engine file:
+- `reactiveSpeedPct` (Ghoststep)
+- `reactionBonus` (Guardian Instinct is surfaced as a derived field, but no matching engine consumer was found in the audited source)
+- `aoe` (Firestorm foundation)
+- `burn` (Burning Sigil)
+- `lifebloom`
+- `reactiveSupport`
+- `markedDamagePct`
+
+These are **effect integration gaps to verify and resolve**, not permission to silently change their intended behavior. Before expanding the tree, either implement each effect with tests or explicitly mark it as a future effect and avoid adding more nodes that depend on it. Existing effects already consumed in combat include cleave/multi-target hits, HP-threshold damage bonuses, defense/dodge, healing/barrier/cooldown multipliers, crit healing, attack speed, range, movement speed, and damage reduction.
+
+### Branch layout proposal
+
+The first release should expand the four existing class trees without replacing their roots or changing legacy IDs. These are themed branches within each permanent class, not class-change systems:
+
+- **Knight:** Vanguard (front-line pressure and cleave), Warden (guarding allies, barriers and threat response), Champion (execution, survival and decisive strikes).
+- **Rouge** (retain code key and `rouge_*` IDs): Assassin (critical/opening damage), Shadow (evasion, movement and escape), Saboteur (marking, debuffs and multi-target setup).
+- **Mage:** Elementalist (elemental damage and damage-over-time), Arcanist (ability efficiency, cooldowns and control), Occultist (life-force, barriers and hybrid support).
+- **Archer:** Marksman (range and precision), Ranger (mobility and sustained attacks), Artillerist (multi-target attacks, piercing and setup).
+
+Each branch should have a small, readable sequence of foundation → specialization → capstone. Exact new node count and AP prices must be finalized against the existing per-level AP budget and combat simulations before coding. No node should be purely descriptive: each must have a testable effect or a clear unlock role.
+
+### Hybrid-build rules
+
+1. The hero's permanent base class remains unchanged.
+2. AP perks remain class-specific and use the class's existing perk tree.
+3. Cross-discipline abilities are unlocked through a separate **Cross-Training** track, not by accepting arbitrary foreign-class perk IDs.
+4. Cross-Training should unlock a curated set of secondary abilities with role-appropriate restrictions, a limited number of equipped cross-discipline slots, and a meaningful AP/resource opportunity cost. The initial shortlist and exact costs require balance review.
+5. Class identity is retained through exclusive capstones and native-class bonuses. Hybrid builds trade some specialization depth for flexibility.
+6. Existing researched Mage spells remain a separate Library system; respec must not delete or unlearn researched spells.
+
+### Respecialization contract
+
+- Available only in Preparation/home screens, never during an active battle or active combat transition.
+- Confirm dialog lists the exact perks to be removed, AP returned, cost, and remaining cooldown.
+- Cost and cooldown are both applied to the hero/profile only after all validation succeeds. Tune the values using the existing economy simulation; do not hard-code an untested high cost.
+- First pass resets AP perk choices only. SP stat allocations, hero level/XP, equipment, inventory, spells, HP, identity, and unrelated progression remain unchanged.
+- Persist the resulting state using the existing save path. Because the current provider save is asynchronous and may fail, do not present a respec as durably successful until save acknowledgement is received. On failure, restore the pre-respec state and resources; avoid an optimistic partial reset.
+- Store a versioned respec timestamp/cooldown marker with the profile. Legacy profiles without the marker should normalize to “never respecialized” without losing existing data.
+
+### Acceptance checklist before release
+
+- Every existing perk effect is either verified active with tests or explicitly deferred and not relied on by new nodes.
+- Old profiles with legacy perk labels and `rouge_*` IDs still load and derive the same stats.
+- Invalid class IDs, duplicate perks, missing prerequisites, negative AP, and overspending are rejected without mutation.
+- Hybrid ability unlocks are restricted to the curated cross-training list; no foreign-class AP node can be purchased by manipulating IDs.
+- Respec is blocked during battle, has a clear confirmation and cooldown, cannot charge twice, preserves unrelated progression, and rolls back on save failure.
+- Mobile UI remains readable and navigable on a phone viewport.
+- Run focused perk tests and the full frontend test suite, then build/install Android and request on-device verification. Do not merge to `main` or deploy without approval.
