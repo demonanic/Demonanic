@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useGame } from "@/context/GameProvider";
-import { NeonButton } from "@/components/ui-kit";
-import { setSquad } from "@/game/logic";
-import * as C from "@/game/config";
+import { useGame } from "../context/GameProvider";
+import { NeonButton } from "../components/ui-kit";
+import { setClasslessSquad, setSquad } from "../game/logic";
+import * as C from "../game/config";
 import { X, Swords } from "lucide-react";
 
 export default function SquadSelect() {
@@ -13,6 +13,13 @@ export default function SquadSelect() {
   const remove = (i) => setPicks(picks.filter((_, idx) => idx !== i));
   const confirm = () => {
     mutate((s) => setSquad(s, picks));
+    saveNow();
+    setScreen("home");
+  };
+  const confirmClassless = () => {
+    let created = false;
+    mutate((s) => { created = setClasslessSquad(s); });
+    if (!created) return;
     saveNow();
     setScreen("home");
   };
@@ -67,6 +74,10 @@ export default function SquadSelect() {
         <NeonButton color="magenta" className="w-full py-3.5 text-base" disabled={picks.length !== 4} onClick={confirm} data-testid="squad-confirm">
           <Swords size={16} className="inline mr-2" /> Confirm Squad
         </NeonButton>
+        <NeonButton color="cyan" className="w-full mt-2 py-3" disabled={picks.length > 0} onClick={confirmClassless} data-testid="squad-classless-confirm">
+          Start with Four Classless Heroes
+        </NeonButton>
+        <p className="font-mono-g text-[9px] text-yellow-300 text-center mt-2">Classless heroes are saved and viewable; live combat remains gated until the complete flow is verified.</p>
         <p className="font-mono-g text-[10px] text-slate-500 text-center mt-3">Recruit more heroes with Gold during Preparation as you progress.</p>
       </div>
     </div>

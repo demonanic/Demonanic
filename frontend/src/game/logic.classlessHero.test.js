@@ -1,4 +1,4 @@
-import { createHero, createNewState, recruitHero } from "./logic";
+import { createHero, createNewState, recruitHero, setClasslessSquad } from "./logic";
 
 describe("classless hero creation adapter", () => {
   test("no-argument hero creation returns the classless baseline", () => {
@@ -38,5 +38,23 @@ describe("classless hero creation adapter", () => {
     const legacyHero = createHero("knight");
     expect(legacyHero.cls).toBe("knight");
     expect(legacyHero.hp).toBeGreaterThan(0);
+  });
+
+  test("new profile classless squad uses four shared models and preserves profile economy", () => {
+    const state = createNewState();
+    const economy = { gold: state.gold, stone: state.stone, metal: state.metal, castleHp: state.castleHp };
+    expect(setClasslessSquad(state)).toBe(true);
+    expect(state.heroes).toHaveLength(4);
+    expect(state.heroes.every((hero) => !hero.cls && hero.combat.maxHp === 300)).toBe(true);
+    expect(new Set(state.heroes.map((hero) => hero.identity.id)).size).toBe(4);
+    expect(state.needsSquad).toBe(false);
+    expect({ gold: state.gold, stone: state.stone, metal: state.metal, castleHp: state.castleHp }).toEqual(economy);
+  });
+
+  test("classless squad setup rejects occupied profiles without mutation", () => {
+    const state = createNewState(["knight"]);
+    const before = JSON.stringify(state);
+    expect(setClasslessSquad(state)).toBe(false);
+    expect(JSON.stringify(state)).toBe(before);
   });
 });

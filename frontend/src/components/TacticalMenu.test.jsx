@@ -16,17 +16,17 @@ const spells = [{ id: "fireball", name: "Fireball", color: "#FF6600", cost: 12, 
 function Harness({
   onCastSpell, onManual, onAbility = () => {}, onClose = () => {},
   onToggleOpaque = () => {}, onBeginAbilityTarget = () => {}, onBeginSpellTarget = () => {},
-  abilityStatus = [], targetSelection = null, initialCommandMode = "move",
+  abilityStatus = [], targetSelection = null, initialCommandMode = "move", menuHeroes = heroes, heroStatuses = [],
 }) {
   const [selectedHero, setSelectedHero] = useState(0);
   const [commandMode, setCommandMode] = useState(initialCommandMode);
-  const menuHeroes = initialCommandMode === "target" ? heroes.map((hero) => ({ ...hero, manual: true })) : heroes;
-  return <TacticalMenu open heroes={menuHeroes} selectedHero={selectedHero} onSelectHero={setSelectedHero}
+  const displayedHeroes = initialCommandMode === "target" ? menuHeroes.map((hero) => ({ ...hero, manual: true })) : menuHeroes;
+  return <TacticalMenu open heroes={displayedHeroes} selectedHero={selectedHero} onSelectHero={setSelectedHero}
     onClose={onClose} commandMode={commandMode} onManual={onManual} onAuto={() => {}} onCommandMode={setCommandMode}
     gold={100} onRetreat={() => {}} onRally={() => {}} onRevive={() => {}} onDetails={() => {}}
     onAbility={onAbility} abilityStatus={abilityStatus} onCastSpell={onCastSpell} spellStatus={spells}
     onBeginAbilityTarget={onBeginAbilityTarget} onBeginSpellTarget={onBeginSpellTarget}
-    targetSelection={targetSelection} onCancelTarget={() => setCommandMode("move")}
+    targetSelection={targetSelection} heroStatuses={heroStatuses} onCancelTarget={() => setCommandMode("move")}
     opaque={false} onToggleOpaque={onToggleOpaque} />;
 }
 
@@ -94,6 +94,27 @@ describe("TacticalMenu mobile controls", () => {
     expect(onAbility).toHaveBeenCalledWith(0, "knight_shield_bash");
     expect(onClose).not.toHaveBeenCalled();
     expect(container.querySelector('[data-testid="tactical-menu"]')).not.toBeNull();
+  });
+
+  test("shows Shared Strike for a classless hero and routes it through the existing ability action", () => {
+    const onAbility = jest.fn();
+    const onBeginAbilityTarget = jest.fn();
+    const classless = { identity: { id: "shared-ui", name: "Aster" }, appearance: { id: null },
+      combat: { hp: 240, maxHp: 300 }, progression: { level: 1, xp: 0, ap: 0, sp: 0 } };
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}} onAbility={onAbility} onBeginAbilityTarget={onBeginAbilityTarget}
+      menuHeroes={[classless]} heroStatuses={[{ hp: 240, maxHp: 300, alive: true }]}
+      abilityStatus={[{ id: "shared_strike", name: "Shared Strike", desc: "24 raw direct-hit weapon damage at baseline (150%); 12s cooldown; no resource cost.", damage: 24, cooldownSeconds: 12, resourceCost: 0, cooldown: 0, available: true, targetMode: "enemy", range: 220 }]} />));
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const action = container.querySelector('[data-testid="tactical-ability-shared_strike"]');
+    expect(action.disabled).toBe(false);
+    expect(action.textContent).toContain("Shared Strike");
+    expect(action.textContent).toContain("24 RAW");
+    expect(action.textContent).toContain("12s CD");
+    expect(action.textContent).toContain("0 COST");
+    expect(action.getAttribute("aria-label")).toContain("ready");
+    act(() => action.click());
+    expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "shared_strike");
+    expect(onAbility).not.toHaveBeenCalled();
   });
 
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {

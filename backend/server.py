@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
 import os
 import logging
+import math
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
@@ -67,6 +68,28 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
     base_hp = {"knight": 320, "rouge": 240, "mage": 210, "archer": 230}
     for roster_key in ("heroes", "bench"):
         for hero in state.get(roster_key, []) or []:
+            # New classless records use the nested hero model. Require its
+            # identity/combat shape and absence of a legacy class field so
+            # legacy top-level recovery below remains unchanged.
+            if (isinstance(hero, dict) and "cls" not in hero and
+                    isinstance(hero.get("identity"), dict) and
+                    isinstance(hero["identity"].get("id"), str) and hero["identity"]["id"].strip() and
+                    isinstance(hero.get("combat"), dict)):
+                combat = hero["combat"]
+                hp = combat.get("hp")
+                max_hp = combat.get("maxHp")
+                try:
+                    valid_hp = isinstance(hp, (int, float)) and not isinstance(hp, bool) and math.isfinite(float(hp))
+                    valid_max_hp = (isinstance(max_hp, (int, float)) and not isinstance(max_hp, bool) and
+                                    math.isfinite(float(max_hp)) and max_hp > 0)
+                except (OverflowError, TypeError, ValueError):
+                    valid_hp = valid_max_hp = False
+                if not valid_hp or not valid_max_hp or hp <= 0 or hp >= max_hp:
+                    continue
+                new_hp = min(max_hp, hp + max_hp * (gc.RECOVERY_HERO_HP_PERCENT_PER_HOUR / 100.0) * recovery_hours)
+                combat["hp"] = new_hp
+                hero_recovery += new_hp - hp
+                continue
             if float(hero.get("hp", 0)) <= 0:
                 continue
             cls = hero.get("cls") or hero.get("key") or "knight"

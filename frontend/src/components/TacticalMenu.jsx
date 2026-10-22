@@ -52,8 +52,15 @@ export default function TacticalMenu({
   if (!visible) return null;
 
   const selected = selectedHero != null ? heroes[selectedHero] : null;
-  const selectedDead = !!selected && selected.hp <= 0;
+  const selectedClassless = !!selected && !selected.cls && !!selected.combat;
+  const selectedStatus = selectedHero != null ? heroStatuses[selectedHero] || {} : {};
+  const selectedHp = Number(selectedStatus.hp ?? selected?.combat?.hp ?? selected?.hp) || 0;
+  const selectedMaxHp = Math.max(1, Number(selectedStatus.maxHp ?? selected?.combat?.maxHp ?? selected?.maxHp) || 1);
+  const selectedDead = !!selected && (selectedStatus.alive === false || selectedHp <= 0);
   const cls = selected ? C.HERO_CLASSES[selected.cls] : null;
+  const selectedName = selectedClassless ? selected.identity?.name || "Classless Hero" : cls?.name || "HERO";
+  const selectedAp = selectedClassless ? selected.progression?.ap : selected?.ap;
+  const selectedSp = selectedClassless ? selected.progression?.sp : selected?.sp;
   const passivePerks = selected ? (selected.perks || []).map((id) => getPerk(selected.cls, id)).filter(Boolean) : [];
   const reviveCost = selected ? C.paidRevivalCost(selected.level) : 0;
   const isManual = !!selected?.manual;
@@ -85,16 +92,18 @@ export default function TacticalMenu({
         >
           <div className="flex min-h-12 items-center gap-2 border-b border-white/10 px-2">
             {selected && (
-              <HeroMiniSprite cls={selected.cls} color={cls?.color} size="sm" dead={selectedDead} />
+              selectedClassless
+                ? <span className="h-8 w-8 rounded border border-cyan-400/30 bg-black/30" aria-label={selected.appearance?.id ? `Appearance ${selected.appearance.id}` : "Appearance not selected"} />
+                : <HeroMiniSprite cls={selected.cls} color={cls?.color} size="sm" dead={selectedDead} />
             )}
             <div className="min-w-0 flex-1">
               <div className="truncate font-mono-g text-[10px] font-bold uppercase tracking-wide text-cyan-100">
-                {selected ? `${cls?.name || "HERO"} · ${category}` : `${category} · Select a hero in Squad`}
+                {selected ? `${selectedName} · ${category}` : `${category} · Select a hero in Squad`}
               </div>
               {selected && (
                 <div className="font-mono-g text-[8px] text-slate-300">
-                  {selectedDead ? "FALLEN" : `${Math.round(selected.hp)}/${Math.round(selected.maxHp)} HP`}
-                  {" · "}{Math.floor(gold)}G{selected.ap != null ? ` · ${selected.ap} AP` : ""}
+                  {selectedDead ? "FALLEN" : `${Math.round(selectedHp)}/${Math.round(selectedMaxHp)} HP`}
+                  {" · "}{Math.floor(gold)}G{selectedAp != null ? ` · ${selectedAp} AP` : ""}
                 </div>
               )}
             </div>
@@ -130,7 +139,12 @@ export default function TacticalMenu({
                 <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2" aria-label="Select hero">
                   {heroes.map((hero, index) => {
                     const heroClass = C.HERO_CLASSES[hero.cls];
-                    const dead = hero.hp <= 0;
+                    const classless = !hero.cls && !!hero.combat;
+                    const status = heroStatuses[index] || {};
+                    const hp = Number(status.hp ?? hero.combat?.hp ?? hero.hp) || 0;
+                    const dead = status.alive === false || hp <= 0;
+                    const name = classless ? hero.identity?.name || "Classless Hero" : heroClass?.name || hero.cls;
+                    const color = classless ? "#22D3EE" : heroClass?.color;
                     return (
                       <button
                         key={hero.id || index}
@@ -139,14 +153,14 @@ export default function TacticalMenu({
                         className={`flex min-h-14 min-w-[68px] flex-col items-center justify-center gap-1 rounded-lg border px-2 py-1 ${
                           selectedHero === index ? "border-fuchsia-300/80 bg-fuchsia-500/15" : "border-white/10 bg-white/[0.03]"
                         } ${dead ? "opacity-50" : ""}`}
-                        aria-label={`Select ${heroClass?.name || hero.cls}`}
+                        aria-label={`Select ${name}`}
                         aria-pressed={selectedHero === index}
                         data-testid={`tactical-hero-${index}`}
                       >
-                        <HeroMiniSprite cls={hero.cls} color={heroClass?.color} size="sm" dead={dead} />
-                        <span className="font-mono-g text-[9px] font-bold" style={{ color: heroClass?.color }}>
-                          {heroClass?.name || hero.cls}
-                        </span>
+                        {classless
+                          ? <span className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" aria-hidden="true" />
+                          : <HeroMiniSprite cls={hero.cls} color={color} size="sm" dead={dead} />}
+                        <span className="font-mono-g text-[9px] font-bold" style={{ color }}>{name}</span>
                       </button>
                     );
                   })}
@@ -154,11 +168,11 @@ export default function TacticalMenu({
                 {selected && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded border border-white/10 bg-white/[0.03] px-2 py-2 font-mono-g text-[9px] text-slate-200" data-testid="tactical-squad-status">
-                      <div>{selectedDead ? "FALLEN" : `${Math.round(selected.hp)}/${Math.round(selected.maxHp)} HP`}</div>
+                      <div>{selectedDead ? "FALLEN" : `${Math.round(selectedHp)}/${Math.round(selectedMaxHp)} HP`}</div>
                       <div className="mt-1 text-slate-400">
                         {selected.manual ? "MANUAL" : "AUTO"}
-                        {selected.ap != null ? ` · ${selected.ap} AP` : ""}
-                        {selected.sp != null ? ` · ${selected.sp} SP` : ""}
+                        {selectedAp != null ? ` · ${selectedAp} AP` : ""}
+                        {selectedSp != null ? ` · ${selectedSp} SP` : ""}
                       </div>
                       {(heroStatuses[selectedHero]?.shield || selected.shield) > 0 && (
                         <div className="mt-1 text-cyan-200">SHIELD · {Math.round(heroStatuses[selectedHero]?.shield || selected.shield)}</div>
@@ -325,6 +339,9 @@ export default function TacticalMenu({
                           >
                             <span className="block font-bold">{ability.name}</span>
                             <span className="block text-[8px] text-slate-200">
+                              {Number.isFinite(ability.damage) ? `${Math.round(ability.damage)} RAW · ` : ""}
+                              {Number.isFinite(ability.cooldownSeconds) ? `${ability.cooldownSeconds}s CD · ` : ""}
+                              {Number.isFinite(ability.resourceCost) ? `${ability.resourceCost} COST · ` : ""}
                               {ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : ability.reason === "no_target" ? "NO TARGET" : "UNAVAILABLE"}
                               {Number.isFinite(ability.range) ? ` · ${Math.round(ability.range)}R` : ""}
                               {ability.targetMode === "area" && Number.isFinite(ability.radius) ? ` · ${Math.round(ability.radius)}A` : ""}
@@ -386,17 +403,20 @@ export default function TacticalMenu({
         aria-label="Select active hero" data-testid="tactical-hero-selector">
         {heroes.map((hero, index) => {
           const heroClass = C.HERO_CLASSES[hero.cls];
+          const classless = !hero.cls && !!hero.combat;
           const status = heroStatuses[index];
-          const hp = Math.max(0, Number(status?.hp ?? hero.hp) || 0);
-          const maxHp = Math.max(1, Number(status?.maxHp ?? hero.maxHp) || 1);
+          const hp = Math.max(0, Number(status?.hp ?? hero.combat?.hp ?? hero.hp) || 0);
+          const maxHp = Math.max(1, Number(status?.maxHp ?? hero.combat?.maxHp ?? hero.maxHp) || 1);
           const alive = status?.alive ?? hp > 0;
+          const name = classless ? hero.identity?.name || "Classless Hero" : heroClass?.name || hero.cls;
+          const color = classless ? "#22D3EE" : heroClass?.color;
           return (
             <button
               key={hero.id || index}
               type="button"
               disabled={switchDisabled}
               onClick={() => onSelectHero?.(index)}
-              aria-label={`Select ${heroClass?.name || hero.cls}, ${Math.round(hp)} of ${Math.round(maxHp)} HP`}
+              aria-label={`Select ${name}, ${Math.round(hp)} of ${Math.round(maxHp)} HP`}
               aria-pressed={selectedHero === index}
               className={`flex min-h-14 min-w-[68px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1 disabled:opacity-50 ${
                 selectedHero === index ? "border-fuchsia-300/70 bg-fuchsia-500/10" : "border-transparent bg-white/[0.02]"
@@ -404,12 +424,14 @@ export default function TacticalMenu({
               data-testid={`battle-active-hero-${index}`}
             >
               <span className="flex items-center gap-1">
-                <HeroMiniSprite cls={hero.cls} color={heroClass?.color} size="sm" dead={!alive} />
-                <span className="font-mono-g text-[8px] font-bold" style={{ color: heroClass?.color }}>{heroClass?.name || hero.cls}</span>
+                {classless
+                  ? <span className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" aria-label={hero.appearance?.id ? `Appearance ${hero.appearance.id}` : "Appearance not selected"} />
+                  : <HeroMiniSprite cls={hero.cls} color={color} size="sm" dead={!alive} />}
+                <span className="font-mono-g text-[8px] font-bold" style={{ color }}>{name}</span>
               </span>
               <span className="w-full text-center font-mono-g text-[8px] text-slate-200">{Math.round(hp)}/{Math.round(maxHp)} HP</span>
               <span className="h-1 w-full overflow-hidden rounded bg-white/10">
-                <span className="block h-full" style={{ width: `${Math.max(0, Math.min(100, hp / maxHp * 100))}%`, background: heroClass?.color }} />
+                <span className="block h-full" style={{ width: `${Math.max(0, Math.min(100, hp / maxHp * 100))}%`, background: color }} />
               </span>
             </button>
           );

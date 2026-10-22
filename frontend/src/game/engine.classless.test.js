@@ -108,7 +108,10 @@ describe("bounded classless combat adapter", () => {
     const hpBefore = hero.ref.hp;
     const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
 
-    expect(engine.getHeroAbilityStatus(0)[0]).toMatchObject({ id: "shared_strike", available: true, cooldown: 0 });
+    expect(engine.getHeroAbilityStatus(0)[0]).toMatchObject({
+      id: "shared_strike", available: true, cooldown: 0, damage: 24, cooldownSeconds: 12,
+      resourceCost: 0, desc: expect.stringContaining("24 raw direct-hit weapon damage at baseline"),
+    });
     expect(engine.useHeroAbility(0, "shared_strike")).toBe(true);
     expect(target.hp).toBe(476);
     expect(adjacent.hp).toBe(500);

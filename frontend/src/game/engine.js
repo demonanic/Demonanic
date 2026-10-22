@@ -253,7 +253,11 @@ export class Engine {
       const capability = HERO_BASELINE.sharedStrike;
       const cooldown = Math.max(0, h.abilityCooldowns[capability.id] || 0);
       const target = this._selectTarget(h);
-      return [{ id: capability.id, name: "Shared Strike", desc: "150% direct-hit weapon damage to one valid target.", color: h.d.color,
+      const baselineDamage = Math.round(HERO_BASELINE.basicAttack.damage * capability.damageMultiplier);
+      return [{ id: capability.id, name: "Shared Strike",
+        desc: `${baselineDamage} raw direct-hit weapon damage at baseline (150%); 12s cooldown; no resource cost.`,
+        damage: baselineDamage, cooldownSeconds: capability.cooldownSeconds,
+        resourceCost: capability.resourceCost, color: h.d.color,
         cooldown, available: h.alive && cooldown <= 0 && !!target, targetMode: "enemy", range: h.d.range,
         reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : target ? null : "no_target" }];
     }

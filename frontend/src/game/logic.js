@@ -161,6 +161,18 @@ export function setSquad(state, classKeys) {
   emptyEquipmentState(state);
 }
 
+// Explicit starter option for new profiles. It is only available before a
+// squad exists and creates four shared-model heroes without legacy classes.
+export function setClasslessSquad(state) {
+  if (!state || !state.needsSquad || !Array.isArray(state.heroes) || state.heroes.length) return false;
+  const heroes = Array.from({ length: 4 }, (_, index) => createHeroModel({ name: `Hero ${index + 1}` }));
+  state.heroes = heroes;
+  if (!Array.isArray(state.bench)) state.bench = [];
+  state.needsSquad = false;
+  emptyEquipmentState(state);
+  return true;
+}
+
 // recruit a new hero (Gold). Fills empty squad slots first, else goes to bench.
 export function recruitHero(state, classKey) {
   const owned = state.heroes.length + (state.bench ? state.bench.length : 0);
