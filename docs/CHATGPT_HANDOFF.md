@@ -2,6 +2,70 @@
 
 Living handoff for repository review and continuation. Update this file after meaningful audits, implementation, debugging, architectural decisions, and verification. Preserve older decisions and label proposals separately from approved requirements. Do not include secrets or private account data.
 
+## Latest rebuild milestone — architecture audit and progression foundation — 2026-10-22
+
+### Repository checkpoint and scope
+
+- Read `AGENTS.md`, this handoff, and `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md` in full. The bible remains the sole authority for perk and ability behavior.
+- Branch `review/mobile-working-copy`, HEAD at task start `4df3e4cd724724e75d3fbb54796fc3bf65fb2b3b`; fetched `origin/review/mobile-working-copy` and verified 0 ahead / 0 behind. No branch switch or merge.
+- Pre-existing user changes at task start: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`; untracked `frontend/src/components/PerkTree.test.jsx`. Their Git blob hashes remain `a3e4bf63668f88ed1ebebca6fc441362b3ffb8c4`, `a52492e8dfb8ecd4e0ac25cb6a1817b1b6da6e4e`, `52e5fd545f7d5f99fbef95f7eda2a12057e98768`, and `7925804f09e661d91d5b983f7dc5e0e60da6f0c8` respectively; this task did not edit or stage them.
+- `rg` is unavailable in this environment; source discovery used `find` and `grep -RInE` instead.
+
+### Architecture audit — verified facts
+
+- **Hero model and progression:** `frontend/src/game/config.js` owns four class definitions, class stat modifiers, base HP, range, attack rate, and class-specific attack configurations. `frontend/src/game/logic.js` `createHero`, `heroDerived`, recruitment, rename fallback, XP, and `buyPerk` depend on those definitions. New heroes cannot currently be unclassified. `frontend/src/game/perks.js` stores class-keyed trees and filters/validates class-specific IDs.
+- **Combat:** `frontend/src/game/engine.js` derives damage type and behavior from `cls`, uses a `range < 130` melee/ranged split, restricts spells to Mage, and has class-specific targeting/attack paths. It contains the battle action and defeat lifecycle that should be retained while replacing class selection and effect dispatch in bounded slices. Existing damage formulas do not implement the bible's category pipeline and independent caps.
+- **Rendering:** `frontend/src/components/ui-kit.jsx` `HeroMiniSprite` selects class-specific presentation; `engine.js` also has class-based hero rendering. Rendering should consume a configurable appearance identifier independent of progression. The owner has not selected a new default sprite; this milestone neither changes nor selects one.
+- **UI:** class selection and display appear in `SquadSelect.jsx`, `CastleBuildings.jsx`, `cards.jsx`, `Roster.jsx`, `Preparation.jsx`, `Profile.jsx`, `PrepField.jsx`, `TacticalMenu.jsx`, `Armory.jsx`, and `PerkTree.jsx`. Perk UI and display names currently assume class-keyed data. Future work needs to separate build title/purchased node presentation from identity and eligibility.
+- **Equipment and adjacent gameplay:** `frontend/src/game/equipment.js` constrains secondary weapon matching by class. Mage Library ownership/eligibility is class-gated in `libraryResearch.js`, `LibraryResearch.jsx`, `Armory.jsx`, and `GameProvider.jsx`. Academy training and the economy/castle/manufacturing systems are distinct subsystems and should be retained unless a traced dependency requires a change.
+- **Profiles and infrastructure:** `AuthContext.jsx` and `api.js` provide separate authentication and game-state API paths. `GameProvider.jsx` normalizes full-profile data and autosaves. `backend/server.py` stores the profile as a whole state; `PUT /game/state` replaces the state and no revision/CAS protection was found in the inspected endpoint. Backend offline accrual also reads hero state. Do not use a production profile for fresh-game resets; create an isolated disposable test account/profile or dedicated test environment.
+- **Tests:** existing tests cover legacy progression, engine abilities/targeting/defense, UI, `GameProvider`, economy, Academy, and Library. They do not establish the bible's classless contract; add focused unit tests first, then integration tests for new profile creation, progression-to-combat wiring, and UI. Add deterministic simulations for provisional numeric balance and repeatable playthrough checks using disposable profiles.
+
+### Proposed architecture boundaries
+
+- Replace class eligibility and derived class stats with an explicitly unclassified hero identity model plus separately specified shared combat profile. Keep appearance/animation configuration independent of purchased nodes and titles.
+- Use a canonical progression domain for the bible's permanent node IDs, AP purchase validation, derived titles, and signature eligibility. Keep purchase validation pure and atomic. Keep effect execution in combat handlers so catalog data cannot imply an effect is live.
+- Refactor combat incrementally around one shared starter ability and explicit common attack, target selection, movement, cooldown, damage, and defeat lifecycle. Replace class-based damage dispatch with bible-defined tags/categories and the Section 3 pipeline/caps; implement the approved crit, CDR, mitigation, sustain, control, marks, shields, aura, untargetability, and lethal-resolution rules with observable tests.
+- Replace class-specific hero creation and UI choices with unclassified creation, roster/preparation/tactical/perk interfaces, while keeping equipment, Library, and Academy behind compatibility boundaries until separately reviewed. The sprite remains a configurable presentation choice.
+- Retain authentication, backend connectivity, accounts, profile API, economy, castle, towers, and manufacturing. Change shared infrastructure only when a traced dependency demonstrates necessity. Never delete/reset production accounts or database profiles.
+
+### First implementation slice selected
+
+The smallest useful safe foundation is a standalone progression catalog and pure validator, not runtime hero/combat replacement. Implemented files in this task:
+
+- `frontend/src/game/classlessProgression.js`: canonical 47 node IDs across all 11 branches; tier, AP cost, level threshold, prerequisites, and the three explicitly gated Phase 2 nodes; pure `purchaseNode` returns a copied state on success or a reason code on refusal. It rejects malformed owned state, unknown/duplicate IDs, missing prerequisites, insufficient AP, below-level purchases, gated nodes, and a third Tier III node. It has no effect handlers and no signatures/titles or profile integration.
+- `frontend/src/game/classlessProgression.test.js`: catalog and validator tests, including input immutability on both success and failure.
+
+This slice consumes a progression value with `level`, available `ap`, and `ownedNodeIds`; it does not accrue AP, define a full hero, modify `logic.js`, or connect to legacy `perks.js`. That separation avoids disturbing the user's pre-existing `perks.js` work. It is groundwork, not completion of the classless system.
+
+### Next milestone plan, dependencies, and acceptance
+
+1. **Approve/specify shared hero baseline.** The bible says every new hero has a shared baseline but supplies no numeric base stats, max HP, attack/range/cooldown, target policy, or movement values. Older handoff values are proposals and are not authority. Get an explicit baseline decision or a bible revision before wiring new hero creation or combat. Keep sprite configurable until the owner chooses one.
+2. **Add a build-independent classless hero model and creation path.** Planned files after baseline approval: new `frontend/src/game/heroModel.js` and focused `heroModel.test.js`, then `logic.js` and `config.js` adapters for new-game creation/derived stats. Tests should prove no class eligibility key, shared baseline consistency, Shared Strike entitlement, stable progression fields, and no regression to shared profile/economy setup. Use disposable profiles only.
+3. **Connect progression UI/state.** Replace legacy `PerkTree.jsx` class catalog consumers with the canonical validator and display unavailable gates. Resolve the three known bible wording/count questions only with owner approval; the current validator follows explicit IDs and prerequisites without resolving prose discrepancies. Tests: bible acceptance cases 1–4, purchase atomicity, title/eligibility separation once title recipes are approved.
+4. **Refactor common combat and render adapters.** Trace `engine.js`, `config.js`, `ui-kit.jsx`, `PrepField.jsx`, and battle UI; make sprite/animation selection independent from build. Test common attack/target/cooldown/defeat paths and effect boundaries before implementing each bible system. Then incrementally implement the bible pipeline, caps, crit, CDR, mitigation, sustain, control/marks/shields/auras, untargetability, and lethal order with relevant acceptance tests.
+5. **Integrate signatures and phase gates.** Add Phase 1 signatures only after their prerequisites and effect handlers are tested. Keep Pyromancer unavailable until the burn/DoT handler exists; keep Construct, Familiar, Primal Bond, Summoner, and Beastmaster unavailable until the required companion lifecycle exists. No partial gate effects.
+6. **Fresh-profile gameplay validation.** Establish a dedicated disposable test identity/environment, then run progression-to-battle integration, deterministic simulations, focused and full frontend suites, and builds. Preserve production accounts/data, authentication, economy, castle, and manufacturing. Keep rollback boundaries per module/feature slice; do not change backend profile schema or enable any migration as part of these first frontend milestones.
+
+**Acceptance for the implemented slice:** all 47 canonical IDs appear once; node tiers/costs/levels and prerequisites match the bible; only C3, C3a, and N3 are purchase-gated Phase 2 nodes; third Tier III purchase is refused; unknown, duplicate, invalid, unaffordable, and under-level requests are rejected; failed and successful validations do not mutate the input. **Not accepted by this slice:** full hero creation, AP accrual, effects, combat, signatures, titles, UI, persistence, or profile migration.
+
+### Risks and decisions
+
+- The bible leaves the numeric shared baseline unspecified; do not start runtime hero/combat integration using values from older proposals.
+- Existing class assumptions span hero creation/derivation, battle targeting/damage/attack selection, Mage spells/Library, class-bound equipment, UI, and rendering. Removing `cls` in one pass would cause wide breakage. Retain service/account/profile/economy/castle/manufacturing infrastructure.
+- Existing `normalizeState` mutates/normalizes full profiles and the backend PUT replaces whole profile state without observed concurrency control. Use only disposable profiles for fresh gameplay; no production deletion/reset or broad profile migration.
+- Four bible questions remain open: catalog Phase 1/gated totals; six-versus-five nodes in a mastered branch; Loaded Dice expected value; and the sustain-cap scope. No choice was made here. Respec, elemental resistance behavior, companion lifecycle, SP, new Library access, and PvP remain as explicitly undecided in the bible.
+
+### Validation and working-tree record
+
+- First attempted command `CI=true yarn --cwd frontend test --watchAll=false --runInBand src/game/classlessProgression.test.js` could not start: `yarn: not found` (exit 127).
+- Corrected command `CI=true npm --prefix frontend test -- --watchAll=false --runInBand src/game/classlessProgression.test.js`: **PASS**, 1 suite, 15 tests. An intermediate run exposed a malformed test fixture (an owned W2 without W1); the fixture was corrected and the final run passed.
+- `git diff --check`: passed after the implementation and handoff edits; staged code diff check also passed before its commit.
+- No full suite, build, backend test, profile integration, simulation, or device check was run.
+- Exact changed task files: `frontend/src/game/classlessProgression.js`, `frontend/src/game/classlessProgression.test.js`, and `docs/CHATGPT_HANDOFF.md`. The two new code files were committed separately as `ddbdc5c` (`Add isolated canonical progression validator`). Existing four user-owned files remain separate and unchanged. The handoff-only commit and remote publication are pending final synchronization checks.
+
+The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
 ## Current owner-approved direction — fresh classless rebuild
 
 The project owner has changed the priority: preserving the old class-based gameplay architecture and existing hero progression is no longer a primary release requirement. Rebuild gameplay around `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md`, the sole authority for perk and ability behavior. New heroes are unclassified and use the bible's shared baseline and Shared Strike. Replace class-based progression and combat assumptions with its universal perk architecture, damage pipeline, caps, combat rules, canonical IDs, prerequisites, signatures, and phase gates. Use fresh disposable test profiles for gameplay validation.
@@ -17,7 +81,7 @@ Retain authentication, backend connectivity, accounts, economy, castle systems, 
 5. **Integrate UI and isolated fresh-profile playtest.** Update hero creation, roster/preparation, perk tree, tactical controls, and presentation to remove class eligibility assumptions for new heroes while retaining service/account and non-gameplay systems. Exercise fresh test profiles through progression and battles; run focused tests, full frontend tests, and builds as appropriate. Rollback: revert UI integration and reset only disposable profiles.
 6. **Review deferred gates and release boundary.** Verify Phase 1 acceptance and dependency criteria before separately proposing Phase 1.5; keep Phase 2 companion nodes/signatures unavailable until lifecycle requirements exist. Review data and infrastructure impacts before any production migration proposal. No production account/profile/database deletion or reset is permitted. Rollback: keep later phases behind explicit gates and retain the last accepted Phase 1 checkpoint.
 
-This is a recommended sequence, not permission to begin implementation. The current task updates planning documentation only; no gameplay code, tests, profiles, backend data, or production settings were changed. Next action: owner review of this plan and explicit approval to begin the first implementation milestone. No decision on the four open bible questions is implied.
+The sequence remains a recommendation beyond the isolated validator implemented in the latest milestone above. No full hero creation, live progression integration, combat rewrite, profile change, backend data change, or production setting change has begun. The next runtime hero milestone depends on an owner-approved shared baseline; the four open bible questions remain unresolved.
 
 ### This handoff update — 2026-10-22
 
