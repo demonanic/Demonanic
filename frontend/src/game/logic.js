@@ -3,9 +3,13 @@ import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
 import { getPerk, getPerkTree, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
 import { advanceLibraryResearch, ensureMageSpellData } from "./libraryResearch";
+import { createHeroModel } from "./heroModel";
 
 let _heroSeq = 0;
 export function createHero(classKey) {
+  // No-argument creation is the classless model. Explicit class keys remain a
+  // compatibility path for the existing class-dependent screens and saves.
+  if (classKey == null) return createHeroModel();
   const cls = C.HERO_CLASSES[classKey];
   const stats = { ...C.BASE_STATS };
   for (const k in cls.mods) stats[k] += cls.mods[k];
@@ -22,6 +26,10 @@ export function createHero(classKey) {
   };
   ensureMageSpellData(hero);
   return hero;
+}
+
+export function createClasslessHero(options = {}) {
+  return createHeroModel(options);
 }
 
 export function heroMaxHp(cls, level, stats) {
