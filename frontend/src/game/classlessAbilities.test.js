@@ -6,9 +6,9 @@ import {
   validateClasslessAbilityUse,
 } from "./classlessAbilities";
 
-describe("canonical classless Precision ability definitions", () => {
-  test("exposes only the two implemented Phase 1 Precision node abilities", () => {
-    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a"]);
+describe("canonical classless active ability definitions", () => {
+  test("exposes implemented Phase 1 Vanguard and Precision node abilities only", () => {
+    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a"]);
     expect(getClasslessAbilityDefinition("P3")).toMatchObject({
       unlockNodeId: "P3", name: "Execution", cooldownSeconds: 22, resourceCost: 0,
       targetMode: "enemy", damageMultiplier: 1.8, conditionalTargetHpBelow: 0.35, conditionalDamageBonus: 0.25,
@@ -17,7 +17,17 @@ describe("canonical classless Precision ability definitions", () => {
       unlockNodeId: "P3a", name: "Killshot", cooldownSeconds: 18, resourceCost: 0,
       damageMultiplier: 2, conditionalTargetHpBelow: 0.4, refundCooldownOnKill: true,
     });
-    expect(getClasslessAbilityDefinition("V3")).toBeNull();
+    expect(getClasslessAbilityDefinition("V3")).toMatchObject({
+      unlockNodeId: "V3", name: "Cleaving Strike", cooldownSeconds: 20, resourceCost: 0,
+      effect: "weapon_cleave", damageMultiplier: 1.6, adjacentDamageMultiplier: 0.4,
+      adjacentRadius: 55, requiresTarget: true,
+    });
+    expect(getClasslessAbilityDefinition("V3a")).toMatchObject({
+      unlockNodeId: "V3a", name: "War Cry", cooldownSeconds: 30, resourceCost: 0,
+      effect: "attack_speed_aura", range: 8, durationSeconds: 6, attackSpeedBonus: 0.15,
+      targetMode: null, requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("A3")).toBeNull();
   });
 
   test("derives unlocks solely from canonical node ownership", () => {
@@ -49,5 +59,14 @@ describe("canonical classless Precision ability definitions", () => {
     expect(validateClasslessAbilityUse({ hero, abilityId: "P3", target: validTarget, targetValid: true })).toMatchObject({ ok: false, reason: "locked" });
     hero.progression.ownedNodeIds = ["P3"];
     expect(validateClasslessAbilityUse({ hero, abilityId: "P3a", target: validTarget, targetValid: true })).toMatchObject({ ok: false, reason: "locked" });
+  });
+
+  test("validates a targetless War Cry activation through the same eligibility path", () => {
+    const hero = createHeroModel({ id: "vanguard-hero" });
+    hero.progression.ownedNodeIds = ["V3a"];
+    expect(validateClasslessAbilityUse({ hero: { ...hero, alive: true }, abilityId: "V3a",
+      cooldown: 0, battleActive: true })).toMatchObject({ ok: true, reason: null, abilityId: "V3a" });
+    expect(validateClasslessAbilityUse({ hero: { ...hero, alive: true }, abilityId: "V3a",
+      cooldown: 4, battleActive: true })).toMatchObject({ ok: false, reason: "cooldown", cooldown: 4 });
   });
 });

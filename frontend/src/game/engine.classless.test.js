@@ -206,12 +206,74 @@ describe("bounded classless combat adapter", () => {
     random.mockRestore();
   });
 
+  test("Cleaving Strike hits its selected target and nearest adjacent enemy through the weapon pipeline", () => {
+    const hero = createHeroModel({ id: "cleaving-build" });
+    hero.progression.ownedNodeIds = ["V1", "V2", "V3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtimeHero = engine.heroes[0];
+    const primary = enemy("primary", runtimeHero.x + 30, runtimeHero.y);
+    const nearest = enemy("nearest adjacent", runtimeHero.x + 35, runtimeHero.y, { hp: 200, maxHp: 200 });
+    const farther = enemy("far adjacent", runtimeHero.x + 40, runtimeHero.y, { hp: 200, maxHp: 200 });
+    const outside = enemy("outside adjacency", runtimeHero.x + 90, runtimeHero.y);
+    engine.active = [primary, nearest, farther, outside];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "V3")).toMatchObject({
+      available: true, cooldownSeconds: 20, resourceCost: 0, targetMode: "enemy", range: 220,
+    });
+    const result = engine.useHeroAbility(0, "V3", primary);
+    expect(result).toMatchObject({ ok: true, abilityId: "V3", cooldownRemaining: 20, killedTarget: false });
+    expect(result.affectedTargets).toEqual([primary, nearest]);
+    expect(primary.hp).toBeCloseTo(500 - 16 * 1.6 * 1.08);
+    expect(nearest.hp).toBeCloseTo(200 - 16 * 0.4 * 1.08);
+    expect(farther.hp).toBe(200);
+    expect(outside.hp).toBe(500);
+    expect(engine.useHeroAbility(0, "V3", primary)).toMatchObject({ ok: false, reason: "cooldown" });
+    random.mockRestore();
+  });
+
+  test("War Cry buffs only living allies in eight units and accelerates their basic attack cooldown", () => {
+    const hero = createHeroModel({ id: "war-cry-build" });
+    hero.progression.ownedNodeIds = ["V1", "V2", "V3a", "S1"];
+    const ally = createHeroModel({ id: "war-cry-ally" });
+    const distant = createHeroModel({ id: "war-cry-distant" });
+    const dead = createHeroModel({ id: "war-cry-dead" });
+    dead.combat.hp = 0;
+    const sim = { ...createNewState(), heroes: [hero, ally, distant, dead] };
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+    const [source, nearby, far, fallen] = engine.heroes;
+    nearby.x = source.x + 7;
+    far.x = source.x + 9;
+    const status = engine.getHeroAbilityStatus(0).find(({ id }) => id === "V3a");
+    expect(status).toMatchObject({ available: true, cooldownSeconds: 30, resourceCost: 0, range: 8, targetMode: null });
+
+    const result = engine.useHeroAbility(0, "V3a");
+    expect(result).toMatchObject({ ok: true, abilityId: "V3a", cooldownRemaining: 30 });
+    expect(result.affectedTargets).toEqual([source, nearby]);
+    expect(source.warCryUntil).toBe(6);
+    expect(nearby.warCryUntil).toBe(6);
+    expect(far.warCryUntil).toBe(0);
+    expect(fallen.warCryUntil).toBe(0);
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "V3a")).toMatchObject({ active: true, activeRemaining: 6 });
+    expect(engine.useHeroAbility(0, "V3a")).toMatchObject({ ok: false, reason: "cooldown" });
+
+    engine.spawnQueue = [];
+    engine.active = [];
+    source.manual = true;
+    source.cd = 1;
+    engine.update(0.5);
+    expect(source.cd).toBeCloseTo(1 - 0.5 * (1.2 / 1.05));
+    expect(nearby.warCryUntil).toBe(6);
+    expect(nearby.warCryAttackSpeedBonus).toBe(0.15);
+  });
+
   test("classless active ability failure does not charge cooldown, HP, or resource", () => {
     const hero = createHeroModel({ id: "failed-ability-build" });
     hero.progression.ownedNodeIds = ["P1", "P2", "P3"];
     const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
     const target = enemy("healthy target", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 200, maxHp: 500 });
     engine.active = [target];
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "P3")).toMatchObject({ available: false, reason: "target_health" });
     const result = engine.executeClasslessAbility(0, "P3", target);
     expect(result).toMatchObject({ ok: false, reason: "target_health" });
     expect(target.hp).toBe(200);

@@ -129,4 +129,34 @@ describe("classless perk purchase through roster and profile persistence", () =>
     expect(gameApi.createState).not.toHaveBeenCalled();
     expect(gameApi.getState).toHaveBeenCalledTimes(2);
   });
+
+  test("purchases Vanguard active abilities through the roster UI and reloads both node IDs", async () => {
+    remoteState.heroes[0].progression = { level: 10, xp: 9000, ap: 6, sp: 0, ownedNodeIds: ["V1", "V2"] };
+    await mount();
+    await click("roster-classless-progression-perk-stable-id");
+    const cleaveNode = container.querySelector('[data-testid="classless-node-V3"]');
+    const warCryNode = container.querySelector('[data-testid="classless-node-V3a"]');
+    expect(cleaveNode.textContent).toContain("Cleaving Strike");
+    expect(cleaveNode.textContent).toContain("160% weapon damage");
+    expect(warCryNode.textContent).toContain("War Cry");
+    expect(warCryNode.textContent).toContain("15% attack speed for 6 seconds");
+    expect(container.querySelector('[data-testid="classless-node-purchase-V3"]').disabled).toBe(false);
+    expect(container.querySelector('[data-testid="classless-node-purchase-V3a"]').disabled).toBe(false);
+
+    await click("classless-node-purchase-V3");
+    await click("classless-node-purchase-V3a");
+    const hero = JSON.parse(container.querySelector('[data-testid="hero-state"]').textContent);
+    expect(hero.progression).toMatchObject({ ap: 0, ownedNodeIds: ["V1", "V2", "V3", "V3a"] });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 750)); });
+    expect(remoteState.heroes[0].progression.ownedNodeIds).toEqual(["V1", "V2", "V3", "V3a"]);
+
+    await act(async () => root.unmount());
+    root = null;
+    await mount();
+    const loaded = JSON.parse(container.querySelector('[data-testid="hero-state"]').textContent);
+    expect(loaded.identity.id).toBe("perk-stable-id");
+    expect(loaded.cls).toBeUndefined();
+    expect(loaded.progression).toMatchObject({ ap: 0, ownedNodeIds: ["V1", "V2", "V3", "V3a"] });
+    expect(gameApi.getState).toHaveBeenCalledTimes(2);
+  });
 });

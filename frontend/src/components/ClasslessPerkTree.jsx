@@ -16,6 +16,8 @@ const EFFECT_LABELS = {
   V1: "+8% direct weapon damage (active)",
   V2: "+10% follow-through damage (active)",
   V2a: "+4% consecutive-hit damage per stack (active)",
+  V3: "Active · 20s cooldown · 160% weapon damage plus 40% to one adjacent enemy (active)",
+  V3a: "Active · 30s cooldown · nearby allies gain 15% attack speed for 6s (active)",
   W1: "+8% maximum HP (active)",
   W2: "−6% incoming damage (active)",
   W2a: "1.5% maximum HP per second below half HP (active)",

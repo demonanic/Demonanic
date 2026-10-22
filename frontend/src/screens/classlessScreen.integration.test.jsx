@@ -253,4 +253,37 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(reloaded.progression.ownedNodeIds).toEqual(["P1", "P2", "P3"]);
     expect(reloaded.cls).toBeUndefined();
   });
+
+  test("purchased Vanguard War Cry activates through Battle and ownership survives provider save/reload", async () => {
+    await enterCombat(300, (hero) => {
+      hero.progression = { level: 10, xp: 9000, ap: 3, sp: 9, ownedNodeIds: ["V1", "V2"] };
+      const purchase = purchaseClasslessNode(hero, "V3a");
+      expect(purchase.ok).toBe(true);
+      hero.progression = purchase.progression;
+    });
+
+    await act(async () => activeEngine._hud());
+    await click("tactical-category-abilities");
+    const warCry = container.querySelector('[data-testid="tactical-ability-V3a"]');
+    expect(warCry).not.toBeNull();
+    expect(warCry.disabled).toBe(false);
+    expect(warCry.textContent).toContain("War Cry");
+    await click("tactical-ability-V3a");
+    expect(activeEngine.heroes[0].warCryUntil).toBeCloseTo(activeEngine.time + 6);
+    expect(activeEngine.heroes[0].warCryAttackSpeedBonus).toBe(0.15);
+    expect(activeEngine.heroes[0].abilityCooldowns.V3a).toBe(30);
+
+    await act(async () => {
+      activeEngine.forceWin();
+      activeEngine._checkEnd();
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 750)); });
+    expect(persisted.heroes[0].progression.ownedNodeIds).toEqual(["V1", "V2", "V3a"]);
+    await unmountProvider();
+    await mountProvider();
+    const reloaded = JSON.parse(container.querySelector('[data-testid="hero-json"]').textContent);
+    expect(reloaded.identity.id).toBe("screen-stable-hero");
+    expect(reloaded.progression.ownedNodeIds).toEqual(["V1", "V2", "V3a"]);
+    expect(reloaded.cls).toBeUndefined();
+  });
 });

@@ -160,6 +160,8 @@ export class Engine {
         reactiveReason: null,
         abilityCooldowns: {},
         spellCooldowns: {},
+        warCryUntil: 0,
+        warCryAttackSpeedBonus: 0,
         maxMana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         mana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         currentTarget: null,
@@ -282,23 +284,25 @@ export class Engine {
         reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : target ? null : "no_target" };
       return [sharedStrike, ...getUnlockedClasslessAbilities(h.model).map((definition) => {
         const abilityCooldown = Math.max(0, h.abilityCooldowns[definition.id] || 0);
-        const validTargets = this.active.filter((enemy) => this._isValidClasslessTarget(h, enemy) &&
+        const inRangeTargets = definition.requiresTarget
+          ? this.active.filter((enemy) => this._isValidClasslessTarget(h, enemy)) : [];
+        const validTargets = inRangeTargets.filter((enemy) => !Number.isFinite(definition.conditionalTargetHpBelow) ||
           enemy.hp / Math.max(1, enemy.maxHp) < definition.conditionalTargetHpBelow);
-        const hasTargetsInRange = this.active.some((enemy) => this._isValidClasslessTarget(h, enemy));
-        const validation = validTargets.length
-          ? validateClasslessAbilityUse({ hero: { ...h.model, alive: h.alive, protect: h.protect, retreating: h.retreating },
-            abilityId: definition.id, cooldown: abilityCooldown, battleActive: !this.ended,
-            target: validTargets[0], targetValid: true })
-          : null;
-        const reason = !h.alive || this.ended || h.protect > 0 || h.retreating ? "unavailable"
-          : abilityCooldown > 0 ? "cooldown"
-          : validTargets.length ? null : hasTargetsInRange ? "target_health" : "no_target";
+        const validationTarget = validTargets[0] || inRangeTargets[0] || null;
+        const validation = validateClasslessAbilityUse({ hero: { ...h.model, alive: h.alive, protect: h.protect, retreating: h.retreating },
+          abilityId: definition.id, cooldown: abilityCooldown, battleActive: !this.ended,
+          target: validationTarget, targetValid: !definition.requiresTarget || !!validationTarget });
         const cooldownSeconds = definition.cooldownSeconds * h.d.cooldownMultiplier;
+        const activeRemaining = definition.effect === "attack_speed_aura"
+          ? Math.max(0, h.warCryUntil - this.time) : 0;
+        const damage = Number.isFinite(definition.damageMultiplier)
+          ? Math.round(h.d.attack * definition.damageMultiplier) : undefined;
         return { id: definition.id, name: definition.name, desc: definition.description,
           cooldown: abilityCooldown, cooldownSeconds, resourceCost: definition.resourceCost,
-          damage: Math.round(h.d.attack * definition.damageMultiplier), color: h.d.color,
-          available: !!validation?.ok && abilityCooldown <= 0, targetMode: definition.targetMode,
-          range: h.d.range, reason: validation?.ok ? null : reason };
+          damage, color: h.d.color, active: activeRemaining > 0, activeRemaining,
+          available: validation.ok, targetMode: definition.targetMode,
+          range: definition.rangeMode === "hero_attack_range" ? h.d.range : definition.range,
+          radius: definition.adjacentRadius, reason: validation.reason };
       })];
     }
     return unlockedAbilities(h.ref).map((a) => {
@@ -329,7 +333,8 @@ export class Engine {
       const ability = abilityId === HERO_BASELINE.sharedStrike.id ? null :
         getUnlockedClasslessAbilities(h.model).find((item) => item.id === abilityId);
       return this.active.filter((enemy) => this._isValidClasslessTarget(h, enemy) &&
-        (!ability || enemy.hp / Math.max(1, enemy.maxHp) < ability.conditionalTargetHpBelow)).map((enemy) => ({
+        (!ability || !Number.isFinite(ability.conditionalTargetHpBelow) ||
+          enemy.hp / Math.max(1, enemy.maxHp) < ability.conditionalTargetHpBelow)).map((enemy) => ({
         type: enemy.type, name: enemy.name || enemy.type, hp: Math.max(0, Math.round(enemy.hp)),
         maxHp: Math.max(1, Math.round(enemy.maxHp)), distance: Math.round(Math.hypot(enemy.x - h.x, enemy.y - h.y)), enemy,
       }));
@@ -706,31 +711,64 @@ export class Engine {
     const h = this.heroes[index];
     const definition = getUnlockedClasslessAbilities(h?.model).find((item) => item.id === abilityId);
     if (!definition) return { ok: false, reason: "locked", abilityId };
-    const target = targetOrPoint?.enemy || targetOrPoint || this.active
-      .filter((enemy) => this._isValidClasslessTarget(h, enemy) &&
-        enemy.hp / Math.max(1, enemy.maxHp) < definition.conditionalTargetHpBelow)
-      .reduce((nearest, enemy) => !nearest || Math.hypot(enemy.x - h.x, enemy.y - h.y) < Math.hypot(nearest.x - h.x, nearest.y - h.y) ? enemy : nearest, null);
+    const target = definition.requiresTarget
+      ? targetOrPoint?.enemy || targetOrPoint || this.active
+        .filter((enemy) => this._isValidClasslessTarget(h, enemy) &&
+          (!Number.isFinite(definition.conditionalTargetHpBelow) ||
+            enemy.hp / Math.max(1, enemy.maxHp) < definition.conditionalTargetHpBelow))
+        .reduce((nearest, enemy) => !nearest || Math.hypot(enemy.x - h.x, enemy.y - h.y) < Math.hypot(nearest.x - h.x, nearest.y - h.y) ? enemy : nearest, null)
+      : null;
     const validation = validateClasslessAbilityUse({
       hero: h ? { ...h.model, alive: h.alive, protect: h.protect, retreating: h.retreating } : null,
       abilityId,
       cooldown: Math.max(0, h?.abilityCooldowns?.[abilityId] || 0),
       battleActive: !!h && !this.ended,
       target,
-      targetValid: !!h && this._isValidClasslessTarget(h, target),
+      targetValid: !definition.requiresTarget || (!!h && this._isValidClasslessTarget(h, target)),
     });
     if (!validation.ok) return validation;
 
-    const targetWasAlive = target.hp > 0;
-    this._applyHit({ sourceId: `H${h.i}`, target, dmg: h.d.attack * definition.damageMultiplier,
-      magic: false, damageType: null, critChance: h.d.critChance, critMult: h.d.critMult,
-      classless: true, heroIndex: h.i, ability: true, damageCategory: "weapon",
-      situationalBonus: target.hp / Math.max(1, target.maxHp) < definition.conditionalTargetHpBelow
-        ? definition.conditionalDamageBonus : 0 });
-    const killedTarget = targetWasAlive && target.hp <= 0;
+    let affectedTargets = [];
+    let killedTarget = false;
+    if (definition.effect === "weapon_strike" || definition.effect === "weapon_cleave") {
+      const secondaryTarget = definition.effect === "weapon_cleave"
+        ? this._multiTargetTargets(target, 2, definition.adjacentRadius)[0] || null : null;
+      const targetWasAlive = target.hp > 0;
+      const hit = this._applyHit({ sourceId: `H${h.i}`, target, dmg: h.d.attack * definition.damageMultiplier,
+        magic: false, damageType: null, critChance: h.d.critChance, critMult: h.d.critMult,
+        classless: true, heroIndex: h.i, ability: true, damageCategory: "weapon",
+        situationalBonus: Number.isFinite(definition.conditionalTargetHpBelow) &&
+          target.hp / Math.max(1, target.maxHp) < definition.conditionalTargetHpBelow
+          ? definition.conditionalDamageBonus : 0 });
+      if (!hit) return { ok: false, reason: "no_target", abilityId };
+      killedTarget = targetWasAlive && target.hp <= 0;
+      affectedTargets.push(target);
+      if (secondaryTarget) {
+        if (this._applyHit({ sourceId: `H${h.i}`, target: secondaryTarget,
+          dmg: h.d.attack * definition.adjacentDamageMultiplier, magic: false, damageType: null,
+          critChance: h.d.critChance, critMult: h.d.critMult, classless: true, heroIndex: h.i,
+          ability: true, damageCategory: "weapon" })) affectedTargets.push(secondaryTarget);
+      }
+    } else if (definition.effect === "attack_speed_aura") {
+      const allies = this.heroes.filter((ally) => ally.alive &&
+        Math.hypot(ally.x - h.x, ally.y - h.y) <= definition.range);
+      if (!allies.includes(h)) return { ok: false, reason: "unavailable", abilityId };
+      const expiresAt = this.time + definition.durationSeconds;
+      for (const ally of allies) {
+        ally.warCryUntil = Math.max(ally.warCryUntil || 0, expiresAt);
+        ally.warCryAttackSpeedBonus = Math.max(ally.warCryAttackSpeedBonus || 0, definition.attackSpeedBonus);
+        this._float(ally.x, ally.y - 20, "WAR CRY", "#F59E0B");
+      }
+      affectedTargets = allies;
+    } else {
+      return { ok: false, reason: "unavailable", abilityId };
+    }
+
     const cooldown = definition.refundCooldownOnKill && killedTarget ? 0 : definition.cooldownSeconds * h.d.cooldownMultiplier;
     h.abilityCooldowns[definition.id] = cooldown;
     this.actionCompletions.push({ index, result: "completed", abilityId: definition.id });
-    return { ok: true, reason: null, abilityId: definition.id, target, cooldownRemaining: cooldown, killedTarget };
+    return { ok: true, reason: null, abilityId: definition.id, target, affectedTargets,
+      cooldownRemaining: cooldown, killedTarget };
   }
 
   useSharedStrike(index, targetOrNull = null) {
@@ -1085,10 +1123,14 @@ export class Engine {
       this._tickClasslessSustain(h, dt);
       for (const id of Object.keys(h.spellCooldowns)) h.spellCooldowns[id] = Math.max(0, h.spellCooldowns[id] - dt);
       h.mana = Math.min(h.maxMana, h.mana + (2 + Math.max(0, h.d.intelligence || 0) * 0.04) * dt);
-      h.cd -= dt;
       const cfg = h.ref.attackConfig || "";
       const melee = h.classless ? h.d.rangeMode !== "midline" : h.d.range < 130;
       const support = h.d.magic && /Support|Heal|Barrier/i.test(cfg);
+      const baseAttackSpeed = h.classless ? h.d.classlessEffects.attackSpeed : 0;
+      const activeAttackSpeedBonus = h.warCryUntil > this.time ? h.warCryAttackSpeedBonus : 0;
+      const cappedAttackSpeed = Math.min(0.20, baseAttackSpeed + activeAttackSpeedBonus);
+      const attackSpeedMultiplier = (1 + cappedAttackSpeed) / (1 + baseAttackSpeed);
+      h.cd -= dt * (!support && activeAttackSpeedBonus > 0 ? attackSpeedMultiplier : 1);
 
       if (h.retreating) {
         this._returnHome(h, dt);
@@ -1901,9 +1943,9 @@ export class Engine {
     return true;
   }
 
-  _multiTargetTargets(target, multiTarget) {
+  _multiTargetTargets(target, multiTarget, radius = 55) {
     return this.active
-      .filter((other) => other !== target && other.hp > 0 && Math.hypot(other.x - target.x, other.y - target.y) <= 55)
+      .filter((other) => other !== target && other.hp > 0 && Math.hypot(other.x - target.x, other.y - target.y) <= radius)
       .sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y))
       .slice(0, multiTarget - 1);
   }

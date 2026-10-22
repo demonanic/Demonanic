@@ -91,6 +91,17 @@ describe("purchaseNode", () => {
     expect(purchaseClasslessNode(secondAbility, "P3a")).toMatchObject({ ok: true, progression: { ap: 0, ownedNodeIds: ["P1", "P2a", "P3a"] } });
   });
 
+  test("Vanguard active nodes unlock only after their canonical purchase validates", () => {
+    const hero = createHero();
+    hero.progression = { level: 10, xp: 9000, ap: 6, sp: 9, ownedNodeIds: ["V1", "V2"] };
+    const cleave = purchaseClasslessNode(hero, "V3");
+    expect(cleave).toMatchObject({ ok: true, progression: { ap: 3, ownedNodeIds: ["V1", "V2", "V3"] } });
+    const warCry = purchaseClasslessNode(hero, "V3a");
+    expect(warCry).toMatchObject({ ok: true, progression: { ap: 3, ownedNodeIds: ["V1", "V2", "V3a"] } });
+    const twoTierThree = purchaseClasslessNode({ ...hero, progression: cleave.progression }, "V3a");
+    expect(twoTierThree).toMatchObject({ ok: true, progression: { ap: 0, ownedNodeIds: ["V1", "V2", "V3", "V3a"] } });
+  });
+
   test.each([
     [{ level: 1, ap: 1, ownedNodeIds: [] }, "V2", "level_required"],
     [{ level: 1, ap: 1, ownedNodeIds: [] }, "H3", "level_required"],

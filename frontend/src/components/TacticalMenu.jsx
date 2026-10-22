@@ -350,7 +350,9 @@ export default function TacticalMenu({
                               {Number.isFinite(ability.damage) ? `${Math.round(ability.damage)} RAW · ` : ""}
                               {Number.isFinite(ability.cooldownSeconds) ? `${ability.cooldownSeconds}s CD · ` : ""}
                               {Number.isFinite(ability.resourceCost) ? `${ability.resourceCost} COST · ` : ""}
-                              {ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : abilityReasonText(ability.reason)}
+                              {ability.active
+                                ? `ACTIVE ${ability.activeRemaining.toFixed(1)}s · CD ${ability.cooldown.toFixed(1)}s`
+                                : ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : abilityReasonText(ability.reason)}
                               {Number.isFinite(ability.range) ? ` · ${Math.round(ability.range)}R` : ""}
                               {ability.targetMode === "area" && Number.isFinite(ability.radius) ? ` · ${Math.round(ability.radius)}A` : ""}
                             </span>

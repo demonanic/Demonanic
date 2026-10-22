@@ -177,6 +177,59 @@ describe("TacticalMenu mobile controls", () => {
     random.mockRestore();
   });
 
+  test("Vanguard Cleaving Strike selection routes through TacticalMenu into real engine hits", () => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: "tactical-V3", name: "Aster" });
+    hero.progression.ownedNodeIds = ["V1", "V2", "V3"];
+    state.heroes = [hero];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    const primary = { type: "cleavePrimary", name: "Primary", hp: 500, maxHp: 500,
+      x: engine.heroes[0].x + 30, y: engine.heroes[0].y, speed: 0, lane: -1, floats: true, dmgBy: {}, affinities: {} };
+    const adjacent = { type: "cleaveAdjacent", name: "Adjacent", hp: 500, maxHp: 500,
+      x: engine.heroes[0].x + 35, y: engine.heroes[0].y, speed: 0, lane: -1, floats: true, dmgBy: {}, affinities: {} };
+    engine.active = [primary, adjacent];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    const onBeginAbilityTarget = jest.fn((index, id) => engine.useHeroAbility(index, id, primary));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} onBeginAbilityTarget={onBeginAbilityTarget} />));
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const cleave = container.querySelector('[data-testid="tactical-ability-V3"]');
+    expect(cleave.disabled).toBe(false);
+    expect(cleave.textContent).toContain("Cleaving Strike");
+    act(() => cleave.click());
+    expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "V3");
+    expect(primary.hp).toBeCloseTo(500 - 16 * 1.6 * 1.08);
+    expect(adjacent.hp).toBeCloseTo(500 - 16 * 0.4 * 1.08);
+    expect(engine.heroes[0].abilityCooldowns.V3).toBe(20);
+    random.mockRestore();
+  });
+
+  test("War Cry button activates the real engine aura without a target-selection detour", () => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: "tactical-V3a", name: "Aster" });
+    hero.progression.ownedNodeIds = ["V1", "V2", "V3a"];
+    const ally = createHeroModel({ id: "tactical-V3a-ally", name: "Bryn" });
+    state.heroes = [hero, ally];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    engine.heroes[1].x = engine.heroes[0].x + 5;
+    const onAbility = jest.fn((index, id) => engine.useHeroAbility(index, id));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}} onAbility={onAbility}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} />));
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const warCry = container.querySelector('[data-testid="tactical-ability-V3a"]');
+    expect(warCry.disabled).toBe(false);
+    expect(warCry.textContent).toContain("War Cry");
+    expect(warCry.textContent).toContain("30s CD");
+    expect(warCry.textContent).toContain("8R");
+    act(() => warCry.click());
+    expect(onAbility).toHaveBeenCalledWith(0, "V3a");
+    expect(engine.heroes[0].warCryUntil).toBe(6);
+    expect(engine.heroes[1].warCryUntil).toBe(6);
+    expect(engine.heroes[1].warCryAttackSpeedBonus).toBe(0.15);
+  });
+
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {
     act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
       initialCommandMode="target"
