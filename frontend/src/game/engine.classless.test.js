@@ -46,6 +46,26 @@ describe("bounded classless combat adapter", () => {
     random.mockRestore();
   });
 
+  test("allocated Attack and Agility feed classless damage and evasion derivation", () => {
+    const allocated = createHeroModel({ id: "allocated" });
+    allocated.combat.stats.attack = 11;
+    allocated.combat.stats.agility = 12;
+    const refreshed = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [allocated] }, { enemies: [], total: 1 });
+    expect(refreshed.heroes[0].d.attack).toBe(17);
+    expect(refreshed.heroes[0].d.dodge).toBeCloseTo(0.06);
+  });
+
+  test("implemented universal passive nodes change derived combat and Shared Strike cooldown", () => {
+    const hero = createHeroModel({ id: "passive-build" });
+    hero.progression.ownedNodeIds = ["V1", "P1", "P2a", "S1", "T1", "F1"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    expect(engine.heroes[0].d.attack).toBeCloseTo(16 * 1.08);
+    expect(engine.heroes[0].d.rate).toBeCloseTo(1.05 / 1.05);
+    expect(engine.heroes[0].d.critChance).toBeCloseTo(0.13);
+    expect(engine.heroes[0].d.critMult).toBeCloseTo(1.85);
+    expect(engine.getHeroAbilityStatus(0)[0].cooldownSeconds).toBeCloseTo(11.4);
+  });
+
   test("midline uses its explicit mode even below the legacy numeric threshold and holds position", () => {
     const { engine, hero } = makeEngine();
     hero.d.range = 120;

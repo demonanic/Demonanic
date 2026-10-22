@@ -8,6 +8,7 @@ import { rollEquipmentDrop } from "./equipment";
 import { unlockedAbilities, getAbility, MAGE_SPELLS } from "./perks";
 import { logicalTowerPosition } from "./towerPlacement";
 import { HERO_BASELINE } from "./heroModel";
+import { classlessCombatEffects } from "./classlessCombatEffects";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -39,27 +40,31 @@ function classlessHeroDerived(hero) {
   const combat = hero.combat;
   const attack = combat.basicAttack;
   const stats = combat.stats;
+  const effects = classlessCombatEffects(hero.progression?.ownedNodeIds);
+  const attackDamage = (attack.damage + ((Number(stats.attack) || 10) - HERO_BASELINE.stats.attack)) * (1 + effects.weaponDamage);
   return {
     maxHp: combat.maxHp,
-    attack: attack.damage,
-    damage: attack.damage,
+    // Baseline attack stat 10 maps to the approved 16 weapon damage; each
+    // allocated Attack point adds one weapon damage, matching legacy stat scaling.
+    attack: attackDamage,
+    damage: attackDamage,
     range: attack.range,
     rangeMode: attack.rangeMode,
-    rate: attack.intervalSeconds,
+    rate: attack.intervalSeconds / (1 + effects.attackSpeed),
     movementSpeed: attack.movementSpeed,
     magic: false,
     damageType: null,
     defense: stats.defense,
     agility: stats.agility,
     intelligence: stats.intelligence,
-    critChance: attack.criticalChance,
-    critMult: attack.criticalDamageMultiplier,
-    dodge: attack.dodgeChance,
+    critChance: Math.min(0.5, attack.criticalChance + effects.critChance),
+    critMult: Math.min(2.5, attack.criticalDamageMultiplier + effects.critDamage),
+    dodge: C.dodgeChance(stats.agility),
     lowHpDodge: 0,
     moveSpeedMultiplier: 1,
     abilityDamageMultiplier: 1,
-    cooldownMultiplier: 1,
     perkEffects: {},
+    cooldownMultiplier: 1 - effects.cooldownReduction,
     color: "#22D3EE",
     classless: true,
   };
@@ -253,10 +258,10 @@ export class Engine {
       const capability = HERO_BASELINE.sharedStrike;
       const cooldown = Math.max(0, h.abilityCooldowns[capability.id] || 0);
       const target = this._selectTarget(h);
-      const baselineDamage = Math.round(HERO_BASELINE.basicAttack.damage * capability.damageMultiplier);
+      const baselineDamage = Math.round(h.d.attack * capability.damageMultiplier);
       return [{ id: capability.id, name: "Shared Strike",
         desc: `${baselineDamage} raw direct-hit weapon damage at baseline (150%); 12s cooldown; no resource cost.`,
-        damage: baselineDamage, cooldownSeconds: capability.cooldownSeconds,
+        damage: baselineDamage, cooldownSeconds: capability.cooldownSeconds * h.d.cooldownMultiplier,
         resourceCost: capability.resourceCost, color: h.d.color,
         cooldown, available: h.alive && cooldown <= 0 && !!target, targetMode: "enemy", range: h.d.range,
         reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : target ? null : "no_target" }];
@@ -669,7 +674,7 @@ export class Engine {
     this._applyHit({
       sourceId: `H${h.i}`,
       target,
-      dmg: HERO_BASELINE.basicAttack.damage * HERO_BASELINE.sharedStrike.damageMultiplier,
+      dmg: h.d.attack * HERO_BASELINE.sharedStrike.damageMultiplier,
       magic: false,
       damageType: null,
       critChance: h.d.critChance,
@@ -677,7 +682,7 @@ export class Engine {
       perkData: null,
       sharedStrike: true,
     });
-    h.abilityCooldowns[HERO_BASELINE.sharedStrike.id] = HERO_BASELINE.sharedStrike.cooldownSeconds;
+    h.abilityCooldowns[HERO_BASELINE.sharedStrike.id] = HERO_BASELINE.sharedStrike.cooldownSeconds * h.d.cooldownMultiplier;
     this.actionCompletions.push({ index, result: "completed" });
     return true;
   }

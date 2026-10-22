@@ -2,6 +2,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { GameProvider, useGame } from "../context/GameProvider";
 import { createHeroModel, serializeGameState } from "../game/heroModel";
+import * as C from "../game/config";
 import { createNewState } from "../game/logic";
 import Preparation from "./Preparation";
 import Battle from "./Battle";
@@ -85,7 +86,7 @@ describe("classless preparation, Battle, completion, and provider persistence", 
   const enterCombat = async (hp = 300) => {
     const hero = createHeroModel({ id: "screen-stable-hero", name: "Aster", appearanceId: "approved-test-look" });
     hero.combat.hp = hp;
-    hero.progression.xp = 17;
+    hero.progression.xp = C.HERO_XP[1] - 1;
     hero.progression.ap = 4;
     hero.progression.sp = 2;
     hero.progression.ownedNodeIds = ["V1"];
@@ -184,9 +185,10 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(persisted.heroes[0].identity.id).toBe("screen-stable-hero");
     expect(persisted.heroes[0].cls).toBeUndefined();
     expect(persisted.heroes[0].combat.hp).toBe(outcome === "victory" ? 300 : 0);
-    expect(persisted.heroes[0].progression.xp).toBe(17 + activeEngine.xpGains.heroes[0]);
-    expect(persisted.heroes[0].progression.ap).toBe(4);
-    expect(persisted.heroes[0].progression.sp).toBe(2);
+    expect(persisted.heroes[0].progression.xp).toBe(C.HERO_XP[1] - 1 + activeEngine.xpGains.heroes[0]);
+    expect(persisted.heroes[0].progression.level).toBe(2);
+    expect(persisted.heroes[0].progression.ap).toBe(5);
+    expect(persisted.heroes[0].progression.sp).toBe(3);
     expect(persisted.heroes[0].progression.ownedNodeIds).toEqual(["V1"]);
     expect(persisted.heroes[0].appearance.id).toBe("approved-test-look");
     expect(persisted.testProfileMarker).toBe("disposable-classless-fixture");
@@ -200,6 +202,9 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(reloaded.cls).toBeUndefined();
     expect(reloaded.combat.hp).toBe(outcome === "victory" ? 300 : 0);
     expect(reloaded.progression.xp).toBe(persisted.heroes[0].progression.xp);
+    expect(reloaded.progression.level).toBe(2);
+    expect(reloaded.progression.ap).toBe(5);
+    expect(reloaded.progression.sp).toBe(3);
     expect(reloaded.appearance.id).toBe("approved-test-look");
     expect(reloaded.progression.ownedNodeIds).toEqual(["V1"]);
     expect(persistedProfile.gold).toBeGreaterThanOrEqual(222);

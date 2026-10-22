@@ -46,6 +46,17 @@ describe("classless battle result persistence foundation", () => {
     expect(result.heroes[0].combat.capabilities.sharedStrike.cooldownSeconds).toBe(12);
   });
 
+  test("battle XP can cross multiple shared level thresholds and grants AP/SP per level", () => {
+    const state = makeState();
+    const hero = state.heroes[0];
+    hero.progression = { level: 1, xp: 0, ap: 0, sp: 0, ownedNodeIds: [] };
+    const result = mergeClasslessBattleResults(state, {
+      heroIds: [hero.identity.id], runtimeHeroes: [{ combat: { hp: 280 } }], xpGains: { 0: 700 },
+    });
+    expect(result.heroes[0].progression).toEqual({ level: 4, xp: 700, ap: 3, sp: 3, ownedNodeIds: [] });
+    expect(state.heroes[0].progression).toEqual({ level: 1, xp: 0, ap: 0, sp: 0, ownedNodeIds: [] });
+  });
+
   test("leaves legacy heroes and legacy awards for the existing progression path", () => {
     const state = createNewState(["knight"]);
     const before = JSON.stringify(state.heroes[0]);

@@ -1,11 +1,12 @@
 import { serializeGameState } from "./heroModel";
+import { awardClasslessXp } from "./classlessProgression";
 
 const classlessId = (hero) => !hero?.cls && hero?.combat && typeof hero.identity?.id === "string"
   ? hero.identity.id
   : null;
 
-// Stage classless combat results on a disposable JSON snapshot. Legacy XP and
-// level-up rules remain the responsibility of the legacy battle path.
+// Stage classless results on a disposable snapshot and resolve level/AP/SP
+// through the shared threshold curve. Legacy class progression stays separate.
 export function mergeClasslessBattleResults(state, { heroIds, runtimeHeroes, xpGains }) {
   if (!state || !Array.isArray(heroIds) || !Array.isArray(runtimeHeroes) ||
       !xpGains || typeof xpGains !== "object") throw new TypeError("Invalid battle result");
@@ -26,7 +27,9 @@ export function mergeClasslessBattleResults(state, { heroIds, runtimeHeroes, xpG
     const xp = Number(xpGains[index] || 0);
     if (!Number.isFinite(xp) || xp < 0) throw new TypeError("Invalid classless XP award");
     hero.combat.hp = runtime.combat.hp;
-    hero.progression.xp += xp;
+    const awarded = awardClasslessXp(hero.progression, xp);
+    if (!awarded.ok) throw new TypeError("Invalid classless progression XP state");
+    hero.progression = awarded.progression;
     const rosterIndex = roster.indexOf(hero);
     roster[rosterIndex] = hero;
   }

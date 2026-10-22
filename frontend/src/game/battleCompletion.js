@@ -41,7 +41,6 @@ export function stageBattleCompletion({ state, sim, result, heroIds, waveNumber 
   const stagedClasslessById = new Map([...(stagedClassless?.heroes || []), ...(stagedClassless?.bench || [])]
     .filter((hero) => !hero.cls && hero.combat && typeof hero.identity?.id === "string")
     .map((hero) => [hero.identity.id, hero]));
-  const preLevels = new Map((state.heroes || []).map((hero) => [hero.id, hero.level]));
   const totalXp = Object.values(gainsHeroes).reduce((sum, value) => sum + value, 0) +
     Object.values(gainsTowers).reduce((sum, value) => sum + value, 0);
 
@@ -115,8 +114,10 @@ export function stageBattleCompletion({ state, sim, result, heroIds, waveNumber 
       castleHp: Math.round(sim.castleHp),
       gearDrops: Math.max(0, (sim.vault || []).length - (state.vault || []).length),
       leveledUp: heroIds.filter((id, index) => {
-        const hero = (state.heroes || []).find((entry) => entry.id === id);
-        return hero && C.heroLevelForXp((hero.xp || 0) + (gainsHeroes[index] || 0)) > (preLevels.get(id) || hero.level);
+        const hero = [...(state.heroes || []), ...(state.bench || [])].find((entry) => heroId(entry) === id);
+        if (!hero) return false;
+        if (hero.cls) return C.heroLevelForXp((hero.xp || 0) + (gainsHeroes[index] || 0)) > hero.level;
+        return (stagedClasslessById.get(id)?.progression?.level || hero.progression?.level || 1) > (hero.progression?.level || 1);
       }).length,
     },
   };

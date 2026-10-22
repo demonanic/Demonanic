@@ -9,7 +9,7 @@ import * as C from "../game/config";
 import {
   heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero,
 } from "../game/logic";
-import { purchaseClasslessNode } from "../game/classlessProgression";
+import { allocateClasslessStat, purchaseClasslessNode } from "../game/classlessProgression";
 import ClasslessPerkTree from "../components/ClasslessPerkTree";
 
 export default function Roster() {
@@ -35,6 +35,18 @@ export default function Roster() {
     }
     target.progression = result.progression;
     toast.success(`${nodeId} purchased`);
+  });
+  const allocateClasslessPoint = (stat) => mutate((s) => {
+    const target = [...(s.heroes || []), ...(s.bench || [])]
+      .find((item) => !item.cls && item.combat && item.identity?.id === progressionHeroId);
+    const result = allocateClasslessStat(target, stat);
+    if (!result.ok) return;
+    const index = (s.heroes || []).findIndex((item) => item.identity?.id === progressionHeroId);
+    if (index >= 0) s.heroes[index] = result.hero;
+    else {
+      const benchIndex = (s.bench || []).findIndex((item) => item.identity?.id === progressionHeroId);
+      if (benchIndex >= 0) s.bench[benchIndex] = result.hero;
+    }
   });
 
   const startEdit = (key, cur) => { setEditing(key); setNameVal(cur); };
@@ -154,7 +166,8 @@ export default function Roster() {
           onConfig={(cfg) => mutate((s) => { const t = open.list === "squad" ? s.heroes[open.idx] : s.bench[open.idx]; t.attackConfig = cfg; })}
           onClose={() => setOpen(null)} />
       )}
-      {progressionHero && <ClasslessPerkTree hero={progressionHero} onPurchase={purchaseClasslessPerk} onClose={() => setProgressionHeroId(null)} />}
+      {progressionHero && <ClasslessPerkTree hero={progressionHero} onPurchase={purchaseClasslessPerk}
+        onAllocate={allocateClasslessPoint} onClose={() => setProgressionHeroId(null)} />}
     </div>
   );
 }

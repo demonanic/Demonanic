@@ -1,4 +1,4 @@
-import { CANONICAL_NODES, getCanonicalNode, purchaseClasslessNode, purchaseNode } from "./classlessProgression";
+import { allocateClasslessStat, awardClasslessXp, CANONICAL_NODES, getCanonicalNode, purchaseClasslessNode, purchaseNode } from "./classlessProgression";
 import { createHero } from "./logic";
 
 const CANONICAL_IDS = [
@@ -96,5 +96,33 @@ describe("purchaseNode", () => {
 
   test("rejects legacy heroes at the classless adapter boundary", () => {
     expect(purchaseClasslessNode(createHero("knight"), "V1")).toEqual({ ok: false, reason: "not_classless_hero" });
+  });
+
+  test("does not spend AP on a node whose combat effect is not implemented", () => {
+    const hero = createHero();
+    hero.progression.ap = 1;
+    const before = JSON.stringify(hero);
+    expect(purchaseClasslessNode(hero, "H1")).toEqual({ ok: false, reason: "effect_pending" });
+    expect(JSON.stringify(hero)).toBe(before);
+  });
+
+  test("classless battle XP awards use the shared threshold curve and grant AP/SP per level", () => {
+    const start = { level: 1, xp: 0, ap: 0, sp: 0, ownedNodeIds: [] };
+    expect(awardClasslessXp(start, 700)).toEqual({
+      ok: true, progression: { level: 4, xp: 700, ap: 3, sp: 3, ownedNodeIds: [] },
+    });
+    expect(start).toEqual({ level: 1, xp: 0, ap: 0, sp: 0, ownedNodeIds: [] });
+  });
+
+  test("classless stat allocation spends one SP on one combat attribute atomically", () => {
+    const hero = createHero();
+    hero.progression.sp = 1;
+    const result = allocateClasslessStat(hero, "attack");
+    expect(result.ok).toBe(true);
+    expect(result.hero.combat.stats.attack).toBe(11);
+    expect(result.hero.progression.sp).toBe(0);
+    expect(hero.combat.stats.attack).toBe(10);
+    expect(hero.progression.sp).toBe(1);
+    expect(allocateClasslessStat(result.hero, "bogus").ok).toBe(false);
   });
 });

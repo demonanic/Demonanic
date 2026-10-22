@@ -1,5 +1,7 @@
-// Bible v1.0 purchase metadata only. Effect execution belongs to combat
-// systems and is intentionally not represented in this module.
+import * as C from "./config";
+import { IMPLEMENTED_CLASSLESS_PASSIVES } from "./classlessCombatEffects";
+
+// Bible v1.0 purchase metadata. Effect execution is owned by combat consumers.
 const BRANCHES = [
   ["Vanguard", [["V1", 1], ["V2", 2], ["V2a", 2], ["V3", 3], ["V3a", 3]]],
   ["Warden", [["W1", 1], ["W2", 2], ["W2a", 2], ["W3", 3], ["W3a", 3]]],
@@ -95,7 +97,6 @@ export function purchaseNode(progression, nodeId) {
     return { ok: false, reason: "tier_iii_mastery_cap" };
   }
   if (progression.ap < node.apCost) return { ok: false, reason: "insufficient_ap" };
-
   return {
     ok: true,
     progression: {
@@ -115,5 +116,48 @@ export function purchaseClasslessNode(hero, nodeId) {
     return { ok: false, reason: "not_classless_hero" };
   }
   const result = purchaseNode(hero.progression, nodeId);
-  return result.ok ? { ok: true, progression: result.progression } : result;
+  if (!result.ok) return result;
+  if (!IMPLEMENTED_CLASSLESS_PASSIVES.includes(nodeId)) return { ok: false, reason: "effect_pending" };
+  return result;
+}
+// The legacy progression curve is the only approved XP threshold schedule in
+// the repository. Classless heroes use it without legacy class perks/fields.
+export function awardClasslessXp(progression, amount) {
+  if (!progression || !Number.isInteger(progression.level) || progression.level < 1 ||
+    progression.level > C.HERO_XP.length || !Number.isFinite(progression.xp) || progression.xp < 0 ||
+    !Number.isInteger(progression.ap) || progression.ap < 0 ||
+    !Number.isInteger(progression.sp) || progression.sp < 0 ||
+    !Array.isArray(progression.ownedNodeIds) || !Number.isFinite(amount) || amount < 0) {
+    return { ok: false, reason: "invalid_progression_or_xp" };
+  }
+  const xp = progression.xp + amount;
+  const level = Math.max(progression.level, C.heroLevelForXp(xp));
+  const gainedLevels = level - progression.level;
+  return {
+    ok: true,
+    progression: {
+      ...progression,
+      xp,
+      level,
+      ap: progression.ap + gainedLevels,
+      sp: progression.sp + gainedLevels,
+    },
+  };
+}
+
+// SP modifies the stored classless base attributes once; combat consumers read
+// combat.stats, so saves/reloads cannot compound a derived bonus.
+export function allocateClasslessStat(hero, stat) {
+  if (!hero || typeof hero !== "object" || hero.cls || !hero.identity?.id ||
+    !hero.combat?.stats || !hero.progression || !Number.isInteger(hero.progression.sp) ||
+    hero.progression.sp <= 0 || !["attack", "defense", "agility", "intelligence"].includes(stat) ||
+    !Number.isInteger(hero.combat.stats[stat])) return { ok: false, reason: "invalid_allocation" };
+  return {
+    ok: true,
+    hero: {
+      ...hero,
+      combat: { ...hero.combat, stats: { ...hero.combat.stats, [stat]: hero.combat.stats[stat] + 1 } },
+      progression: { ...hero.progression, sp: hero.progression.sp - 1 },
+    },
+  };
 }
