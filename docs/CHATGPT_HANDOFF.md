@@ -598,3 +598,37 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - `git diff --check`: PASS. No broader tests, build, mobile/device check, or profile integration were run; none are needed for this isolated harness. No gameplay source, design bible, profile, or sprite changed.
 - Owner approval required before implementation: approve or revise the shared baseline table, especially 300 HP, 16 basic damage, 1.05s interval, 220 range, 5% starting dodge, and Shared Strike's 24 raw damage at this proposed weapon baseline. Decide if wave-5 three-hero 2/5 typical clears are acceptable; the numbers are not tuned to guarantee victory. Once approved, implement behind an isolated classless model and focused tests; do not start integration before that approval.
 - Handoff records this audit, exact validation results, and the verified publication above. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
+## 11. Milestone 3 — Approved Hero Baseline and Creation Model — 2026-10-22
+
+### Repository checkpoint and scope
+
+- Owner-approved baseline from Milestone 2 was implemented as a classless model contract. This milestone does not claim that the game is fully classless.
+- Started on `review/mobile-working-copy`, HEAD `11f9773ea2c4fcfb9212ee926935bfd6df3bba57`; fetched origin and confirmed 0 ahead / 0 behind before edits. Stayed on this branch. Implementation commit `1db2245` (`Add approved classless hero creation model`) contains only the model, adapter, and focused tests; a separate handoff-only commit follows. Publication verification is pending.
+- Pre-existing user changes preserved and not staged: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`; untracked `frontend/src/components/PerkTree.test.jsx`.
+- No production profile, account, API, backend, MongoDB, sprite, or canonical bible data was changed. Tests use local in-memory state.
+
+### Implementation
+
+- Added `frontend/src/game/heroModel.js` as the authoritative baseline/model module. `HERO_BASELINE` contains the approved 300 HP, four base stats at 10, 16 damage / 1.05s / 220 range / `midline` / 155 movement, nearest-valid retain/reacquire policy with stable spawn-order tie-break, 5% crit chance, 150% crit damage, and 5% dodge. Shared Strike is represented as a single-valid-target weapon capability at 150% damage, 12s cooldown, zero resource cost, and explicit false values for prohibited effects. At the approved baseline its raw damage is 24.
+- Hero model separates `identity`, configurable `appearance`, `combat`, and `progression`; it has no `cls` or class eligibility field. Appearance defaults to unset (`null`) so no sprite/default was chosen. `withHeroAppearance` is a pure update that preserves combat/progression and rejects invalid inputs without mutating the input.
+- `frontend/src/game/logic.js` now routes `createHero()` with no class key to the classless model and exports `createClasslessHero(options)`. `recruitHero(state)` with no class key uses that model while preserving existing gold affordability behavior. Calls with an explicit legacy class remain unchanged for compatibility.
+- The current fresh-profile path still creates an empty shared economy state and routes through the existing class-selecting `SquadSelect`; `setSquad` and Tavern UI still pass explicit class keys. This live UI path was intentionally not redirected because roster/preparation/rendering, `normalizeState`, and the battle engine require class-keyed fields. The model/recruitment API is implemented, but classless hero persistence through normalization and live profile-to-squad integration are not complete.
+- No engine attack execution was added. `Engine` uses class-derived `heroDerived`, class-specific damage types/target validity, and `range < 130` checks across automatic targeting, tactical targeting, interaction, and ranged UI. Safe classless basic attack/Shared Strike execution requires a separate engine adapter with explicit `rangeMode`, plus classless rendering/state handling. Shared Strike here is only a tested capability/data contract; cooldown enforcement and prohibited-effect behavior in battle are not yet executable/tested.
+- The classless progression validator remains disconnected. No PerkTree, signature, Phase 1.5, Phase 2, or gated content integration occurred.
+
+### Tests and actual results
+
+- Added `frontend/src/game/heroModel.test.js`: shared baseline, no-class identity, approved values, 24-damage Shared Strike calculation/restrictions, appearance independence, unknown/absent legacy class-field handling, and failure immutability.
+- Added `frontend/src/game/logic.classlessHero.test.js`: no-argument classless creation, classless no-key recruitment, new-state economy/castle preservation, failed recruitment atomicity, and explicit legacy class factory compatibility.
+- Focused command `CI=true npm --prefix frontend test -- --watchAll=false --runInBand src/game/heroModel.test.js src/game/logic.classlessHero.test.js src/game/logic.economy.test.js src/game/logic.tavern.test.js` — PASS, 4 suites / 15 tests.
+- Regression command `CI=true npm --prefix frontend test -- --watchAll=false --runInBand src/game/logic.progression.test.js src/game/logic.wave-composition.test.js src/game/engine.targeting.test.js src/context/GameProvider.test.jsx` — PASS, 4 suites / 34 tests. Provider tests emitted expected mocked network-error logs; no real profile/network operation occurred.
+- Build `npm --prefix frontend run build` — PASS, optimized build compiled successfully. Node emitted a deprecation warning for `fs.F_OK`; it did not fail the build.
+- `git diff --check` — PASS after implementation and handoff edits. No full frontend suite, device test, or live profile integration test was run.
+
+### Remaining boundary and next step
+
+- Implemented and tested: class-independent model, approved starting profile data, no-class creation API, no-class recruitment API, independent appearance data, progression placeholder fields, Shared Strike descriptor, legacy explicit-class compatibility.
+- Not integrated: current new-game squad selection flow, roster/preparation/profile visuals for classless heroes, `GameProvider.normalizeState` and save round-trip for the new model, `heroDerived`, basic attack execution, Shared Strike cooldown/damage resolution, class-neutral enemy-validity handling, and live combat. Route no-class creation into the app only after these consumers have a tested adapter; otherwise a classless hero cannot safely enter current combat.
+- Next step: design a bounded classless persistence/rendering adapter and add normalization/save round-trip tests using disposable local state, then separately implement explicit-range basic attack and Shared Strike execution in the engine. Do not claim full classless gameplay until both integration layers are verified.
+- The handoff records this implementation, test/build results, and the remaining engine/UI boundary. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
