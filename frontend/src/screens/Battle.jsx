@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import { TIME } from "../game/config";
 import * as C from "../game/config";
 import {
-  chargeUpkeep, buildWave, completeWave, addHeroXp, addTowerXp, makeSingleEnemy,
+  chargeUpkeep, buildWave, makeSingleEnemy,
   activateGuildBlockade, guildBlockadeStatus,
 } from "../game/logic";
-import { mergeClasslessBattleResults } from "../game/classlessBattleResults";
+import { stageBattleCompletion } from "../game/battleCompletion";
 
 export default function Battle() {
   const { state, mutate, setScreen, setLastResult } = useGame();
@@ -126,97 +126,15 @@ export default function Battle() {
     setShowRevivalOffer(false);
     forceTick((t) => t + 1);
     const sim = simRef.current;
-
-    // Re-check defeat conditions at the React boundary. This prevents a
-    // stale/incorrect engine result from ever being displayed as a clear.
-    const anyHeroAlive = (sim?.heroes || []).some((h) => h.hp > 0);
-    const castleEscapeLimit = Math.floor((res.total || 0) / 2) + 1;
-    const breach = Number(res.castleEscaped || 0) >= castleEscapeLimit;
-    let finalVictory = !!res.victory;
-    let finalReason = res.reason || (finalVictory ? "cleared" : "castle");
-
-    if (!anyHeroAlive) {
-      finalVictory = false;
-      finalReason = "heroes";
-    } else if (sim && sim.castleHp <= 0) {
-      finalVictory = false;
-      finalReason = "castle";
-    } else if (breach) {
-      finalVictory = false;
-      finalReason = "breach";
-    }
-    const gainsHeroes = { ...res.xpGains.heroes };
-    const gainsTowers = { ...res.xpGains.towers };
-    const hasClasslessRoster = [...(state.heroes || []), ...(state.bench || [])]
-      .some((hero) => !hero.cls && hero.combat);
-    const stagedClasslessResults = hasClasslessRoster ? mergeClasslessBattleResults(state, {
+    const completion = stageBattleCompletion({
+      state,
+      sim,
+      result: res,
       heroIds: battleHeroIds.current,
-      runtimeHeroes: sim.heroes || [],
-      xpGains: gainsHeroes,
-    }) : null;
-    const preLevels = new Map((state.heroes || []).map((h) => [h.id, h.level]));
-    mutate((s) => {
-      s.gold = sim.gold; s.metal = sim.metal; s.stone = sim.stone;
-      s.morale = sim.morale; s.castleHp = sim.castleHp; s.kills = sim.kills;
-      s.vault = sim.vault || s.vault || [];
-      s.buildings = structuredClone(sim.buildings || s.buildings || {});
-      s.barricades = structuredClone(sim.barricades || s.barricades || []);
-      s.shoppe = sim.shoppe || s.shoppe;
-      s.guildBlockadeLevel = sim.guildBlockadeLevel || 0;
-      s.guildBlockadeActiveUntil = sim.guildBlockadeActiveUntil || 0;
-      s.guildBlockadeCooldownUntil = sim.guildBlockadeCooldownUntil || 0;
-      // The completion prompt may change the saved lineup during combat. Merge
-      // runtime results by stable hero ID so the current wave cannot corrupt swaps.
-      const simHeroesById = new Map((sim.heroes || []).map((hero) => [hero.cls ? hero.id : hero.identity?.id, hero]));
-      for (const h of [...(s.heroes || []), ...(s.bench || [])]) {
-        const heroId = h.cls ? h.id : h.identity?.id;
-        const runtime = simHeroesById.get(heroId);
-        if (!runtime) continue;
-        if (h.cls) {
-          h.hp = runtime.hp;
-          h.manual = !!runtime.manual;
-          h.attackConfig = runtime.attackConfig;
-        } else if (stagedClasslessResults) {
-          const completed = [...(stagedClasslessResults.heroes || []), ...(stagedClasslessResults.bench || [])]
-            .find((candidate) => candidate.identity?.id === heroId);
-          if (completed) {
-            h.combat = structuredClone(completed.combat);
-            h.progression = structuredClone(completed.progression);
-          }
-        }
-      }
-      s.towers.forEach((t, i) => {
-        if (!t || !sim.towers[i]) return;
-        t.hp = sim.towers[i].hp;
-        t.ammo = sim.towers[i].ammo;
-        t.mana = sim.towers[i].mana;
-        t.maxAmmo = sim.towers[i].maxAmmo;
-        t.maxMana = sim.towers[i].maxMana;
-      });
-      for (const i in gainsHeroes) {
-        const heroId = battleHeroIds.current[Number(i)];
-        const hero = [...(s.heroes || []), ...(s.bench || [])].find((item) => (item.cls ? item.id : item.identity?.id) === heroId);
-        if (hero?.cls) addHeroXp(hero, gainsHeroes[i]);
-      }
-      for (const slot in gainsTowers) if (s.towers[slot]) addTowerXp(s.towers[slot], gainsTowers[slot]);
-      s.towers = s.towers.filter((t) => t.hp > 0); // destroyed towers free their capacity
-      s.bests.totalKills = Math.max(s.bests.totalKills || 0, s.kills.total);
-      if (finalVictory) completeWave(s, waveNum.current);
+      waveNumber: waveNum.current,
     });
-    const totalXp = Object.values(gainsHeroes).reduce((a, b) => a + b, 0) + Object.values(gainsTowers).reduce((a, b) => a + b, 0);
-    setLastResult({
-      victory: finalVictory,
-      reason: finalReason,
-      wave: waveNum.current, killed: res.killed,
-      totalXp: Math.round(totalXp),
-      goldAfter: Math.round(sim.gold), metalAfter: Math.round(sim.metal || 0), stoneAfter: Math.round(sim.stone),
-      morale: Math.round(sim.morale), castleHp: Math.round(sim.castleHp),
-      gearDrops: Math.max(0, (sim.vault || []).length - (state.vault || []).length),
-      leveledUp: battleHeroIds.current.filter((id, i) => {
-        const hero = state.heroes.find((item) => item.id === id);
-        return hero && C.heroLevelForXp((hero.xp || 0) + (gainsHeroes[i] || 0)) > (preLevels.get(id) || hero.level);
-      }).length,
-    });
+    mutate(completion.applyToDraft);
+    setLastResult(completion.lastResult);
     setScreen("results");
   };
 
