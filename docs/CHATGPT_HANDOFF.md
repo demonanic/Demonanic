@@ -666,6 +666,6 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 
 ### Publication and next step
 
-- Milestone code/test commit `87e21d8` (`Add classless profile persistence adapter`) contains only the seven files listed in this section. The handoff will be published in its own handoff-only commit. The four pre-existing user changes above remain unstaged and uncommitted.
+- Milestone code/test commit `87e21d8` (`Add classless profile persistence adapter`) contains only the seven files listed in this section. Handoff-only commit `188da97` (`Record classless persistence milestone`) contains only this file. Both were pushed to `review/mobile-working-copy`; `git fetch`, local tracking ref, and `git ls-remote` verified remote SHA `188da97c66dfc551610f465580f4c55658a488c9` and 0 ahead / 0 behind at verification. The four pre-existing user changes above remain unstaged and uncommitted.
 - Next step: implement backend-compatible offline HP recovery for nested `combat.hp` only if desired, then complete a classless combat-engine adapter and targeted roster/preparation interaction tests before routing new-game heroes into battle. Do not integrate classless heroes into live combat based on this persistence milestone alone.
-- The handoff records actual results and the remaining limits. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back. Publication is not complete until the remote SHA is verified.
+- The handoff records actual results and the remaining limits. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back. The current handoff is published at the verified SHA above.
