@@ -127,6 +127,16 @@ describe("purchaseNode", () => {
     expect(JSON.stringify(hero)).toBe(before);
   });
 
+  test("permits only the newly registered Interpose and Blood Price/Covenant effects after canonical prerequisites", () => {
+    const warden = createHero();
+    warden.progression = { level: 10, xp: 0, ap: 6, sp: 0, ownedNodeIds: ["W1", "W2"] };
+    expect(purchaseClasslessNode(warden, "W3")).toMatchObject({ ok: true, progression: { ownedNodeIds: ["W1", "W2", "W3"] } });
+
+    const hemomancer = createHero();
+    hemomancer.progression = { level: 10, xp: 0, ap: 6, sp: 0, ownedNodeIds: ["H1", "H2"] };
+    expect(purchaseClasslessNode(hemomancer, "H3")).toMatchObject({ ok: true, progression: { ownedNodeIds: ["H1", "H2", "H3"] } });
+  });
+
   test("classless battle XP awards use the shared threshold curve and grant AP/SP per level", () => {
     const start = { level: 1, xp: 0, ap: 0, sp: 0, ownedNodeIds: [] };
     expect(awardClasslessXp(start, 700)).toEqual({

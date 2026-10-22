@@ -7,8 +7,8 @@ import {
 } from "./classlessAbilities";
 
 describe("canonical classless active ability definitions", () => {
-  test("exposes implemented Phase 1 Vanguard and Precision node abilities only", () => {
-    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a"]);
+  test("exposes implemented Phase 1 Warden, Vanguard, and Precision node abilities only", () => {
+    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a", "W3", "H3"]);
     expect(getClasslessAbilityDefinition("P3")).toMatchObject({
       unlockNodeId: "P3", name: "Execution", cooldownSeconds: 22, resourceCost: 0,
       targetMode: "enemy", damageMultiplier: 1.8, conditionalTargetHpBelow: 0.35, conditionalDamageBonus: 0.25,
@@ -26,6 +26,14 @@ describe("canonical classless active ability definitions", () => {
       unlockNodeId: "V3a", name: "War Cry", cooldownSeconds: 30, resourceCost: 0,
       effect: "attack_speed_aura", range: 8, durationSeconds: 6, attackSpeedBonus: 0.15,
       targetMode: null, requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("W3")).toMatchObject({
+      unlockNodeId: "W3", name: "Interpose", cooldownSeconds: 24, resourceCost: 0,
+      range: 150, durationSeconds: 5, damageReduction: 0.25, effect: "interpose", requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("H3")).toMatchObject({
+      unlockNodeId: "H3", name: "Crimson Covenant", cooldownSeconds: 30, resourceCost: 0,
+      durationSeconds: 6, effect: "crimson_covenant", requiresTarget: false,
     });
     expect(getClasslessAbilityDefinition("A3")).toBeNull();
   });

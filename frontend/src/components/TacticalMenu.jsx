@@ -17,6 +17,7 @@ const CATEGORIES = [
 const abilityReasonText = (reason) => ({
   no_target: "NO VALID TARGET",
   target_health: "TARGET HP TOO HIGH",
+  health_cost: "HEALTH TOO LOW",
   cooldown: "COOLDOWN",
   locked: "LOCKED",
   unavailable: "UNAVAILABLE",

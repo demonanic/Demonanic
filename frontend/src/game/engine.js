@@ -75,6 +75,8 @@ function classlessHeroDerived(hero) {
     lifesteal: effects.lifesteal,
     decoyChance: effects.decoyChance,
     classlessEffects: effects,
+    bloodPriceBonus: effects.bloodPriceBonus,
+    bloodPriceCost: effects.bloodPriceCost,
     color: "#22D3EE",
     classless: true,
   };
@@ -162,12 +164,16 @@ export class Engine {
         spellCooldowns: {},
         warCryUntil: 0,
         warCryAttackSpeedBonus: 0,
+        interposeUntil: 0,
+        interposeReduction: 0,
+        interposeTarget: null,
         maxMana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         mana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         currentTarget: null,
         speedRushUntil: 0,
         classlessCombatState: classless ? { lastDamageAt: 0, sustainSecond: -1, sustainRestored: 0,
-          nextRegenAt: 5, lastStandUntil: 0, lastStandReadyAt: 0, decoy: false, mirrorReadyAt: 0,
+          nextRegenAt: 5, lastStandUntil: 0, lastStandReadyAt: 0, survivalUntil: 0,
+          survivalReadyAt: 0, covenantUntil: 0, decoy: false, mirrorReadyAt: 0,
           nextDisruptAt: 0, nextRootAt: 0, lastDealtAt: 0, momentumTarget: null,
           momentumStacks: 0, ambushTargets: new Set() } : null,
       };
@@ -280,8 +286,8 @@ export class Engine {
         desc: `${baselineDamage} raw direct-hit weapon damage at baseline (150%); 12s cooldown; no resource cost.`,
         damage: baselineDamage, cooldownSeconds: capability.cooldownSeconds * h.d.cooldownMultiplier,
         resourceCost: capability.resourceCost, color: h.d.color,
-        cooldown, available: h.alive && cooldown <= 0 && !!target, targetMode: "enemy", range: h.d.range,
-        reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : target ? null : "no_target" };
+        cooldown, available: h.alive && cooldown <= 0 && !!target && this._classlessCanPayActiveCost(h), targetMode: "enemy", range: h.d.range,
+        reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : !this._classlessCanPayActiveCost(h) ? "health_cost" : target ? null : "no_target" };
       return [sharedStrike, ...getUnlockedClasslessAbilities(h.model).map((definition) => {
         const abilityCooldown = Math.max(0, h.abilityCooldowns[definition.id] || 0);
         const inRangeTargets = definition.requiresTarget
@@ -294,15 +300,18 @@ export class Engine {
           target: validationTarget, targetValid: !definition.requiresTarget || !!validationTarget });
         const cooldownSeconds = definition.cooldownSeconds * h.d.cooldownMultiplier;
         const activeRemaining = definition.effect === "attack_speed_aura"
-          ? Math.max(0, h.warCryUntil - this.time) : 0;
+          ? Math.max(0, h.warCryUntil - this.time)
+          : definition.effect === "interpose" ? Math.max(0, h.interposeTarget?.interposeUntil - this.time)
+            : definition.effect === "crimson_covenant" ? Math.max(0, h.classlessCombatState.covenantUntil - this.time) : 0;
         const damage = Number.isFinite(definition.damageMultiplier)
           ? Math.round(h.d.attack * definition.damageMultiplier) : undefined;
+        const canPayHealthCost = this._classlessCanPayActiveCost(h);
         return { id: definition.id, name: definition.name, desc: definition.description,
           cooldown: abilityCooldown, cooldownSeconds, resourceCost: definition.resourceCost,
           damage, color: h.d.color, active: activeRemaining > 0, activeRemaining,
-          available: validation.ok, targetMode: definition.targetMode,
+          available: validation.ok && canPayHealthCost, targetMode: definition.targetMode,
           range: definition.rangeMode === "hero_attack_range" ? h.d.range : definition.range,
-          radius: definition.adjacentRadius, reason: validation.reason };
+          radius: definition.adjacentRadius, reason: !canPayHealthCost ? "health_cost" : validation.reason };
       })];
     }
     return unlockedAbilities(h.ref).map((a) => {
@@ -323,6 +332,19 @@ export class Engine {
         reason: !h.alive ? "unavailable" : cooldown > 0 ? "cooldown" : hasTarget ? null : "no_target",
       };
     });
+  }
+
+  _classlessCanPayActiveCost(hero) {
+    if (!hero?.classless || !(hero.d.bloodPriceCost > 0)) return true;
+    return hero.ref.hp - hero.ref.hp * hero.d.bloodPriceCost >= 1;
+  }
+
+  _chargeClasslessActiveCost(hero, hpBefore) {
+    const cost = hero.d.bloodPriceCost > 0 ? hpBefore * hero.d.bloodPriceCost : 0;
+    if (cost > 0) {
+      hero.ref.hp = Math.max(1, hero.ref.hp - cost);
+      this._float(hero.x, hero.y - 20, `-${Math.round(cost)} HP`, "#DC2626");
+    }
   }
 
   getHeroAbilityTargets(index, abilityId) {
@@ -727,6 +749,8 @@ export class Engine {
       targetValid: !definition.requiresTarget || (!!h && this._isValidClasslessTarget(h, target)),
     });
     if (!validation.ok) return validation;
+    if (!this._classlessCanPayActiveCost(h)) return { ok: false, reason: "health_cost", abilityId };
+    const hpBeforeAbility = h.ref.hp;
 
     let affectedTargets = [];
     let killedTarget = false;
@@ -760,10 +784,30 @@ export class Engine {
         this._float(ally.x, ally.y - 20, "WAR CRY", "#F59E0B");
       }
       affectedTargets = allies;
+    } else if (definition.effect === "interpose") {
+      // The design names an in-range ally but leaves the radius unspecified.
+      // Use the Engine's established 150-unit allied-support radius.
+      const allies = this.heroes.filter((ally) => ally !== h && ally.alive &&
+        Math.hypot(ally.x - h.x, ally.y - h.y) <= definition.range);
+      const protectedHero = allies.sort((a, b) => a.ref.hp - b.ref.hp || a.i - b.i)[0] || h;
+      protectedHero.interposeUntil = this.time + definition.durationSeconds;
+      protectedHero.interposeReduction = definition.damageReduction;
+      h.interposeTarget = protectedHero;
+      this._float(protectedHero.x, protectedHero.y - 22, "INTERPOSE", "#22D3EE");
+      this.effects.push({ kind: "shield", x: protectedHero.x, y: protectedHero.y, r: 22, life: 0.5, color: "#22D3EE" });
+      affectedTargets = [protectedHero];
+    } else if (definition.effect === "crimson_covenant") {
+      const state = h.classlessCombatState;
+      state.covenantUntil = this.time + definition.durationSeconds;
+      if (state.survivalReadyAt <= this.time) state.survivalUntil = this.time + definition.durationSeconds;
+      this._float(h.x, h.y - 22, "CRIMSON COVENANT", "#DC2626");
+      this.effects.push({ kind: "shield", x: h.x, y: h.y, r: 24, life: 0.55, color: "#DC2626" });
+      affectedTargets = [h];
     } else {
       return { ok: false, reason: "unavailable", abilityId };
     }
 
+    this._chargeClasslessActiveCost(h, hpBeforeAbility);
     const cooldown = definition.refundCooldownOnKill && killedTarget ? 0 : definition.cooldownSeconds * h.d.cooldownMultiplier;
     h.abilityCooldowns[definition.id] = cooldown;
     this.actionCompletions.push({ index, result: "completed", abilityId: definition.id });
@@ -777,6 +821,8 @@ export class Engine {
     if ((h.abilityCooldowns[HERO_BASELINE.sharedStrike.id] || 0) > 0) return false;
     const target = targetOrNull || this._selectTarget(h);
     if (!this._isValidClasslessTarget(h, target)) return false;
+    if (!this._classlessCanPayActiveCost(h)) return false;
+    const hpBeforeAbility = h.ref.hp;
 
     this._applyHit({
       sourceId: `H${h.i}`,
@@ -793,6 +839,7 @@ export class Engine {
       ability: true,
       damageCategory: "weapon",
     });
+    this._chargeClasslessActiveCost(h, hpBeforeAbility);
     h.abilityCooldowns[HERO_BASELINE.sharedStrike.id] = HERO_BASELINE.sharedStrike.cooldownSeconds * h.d.cooldownMultiplier;
     this.actionCompletions.push({ index, result: "completed" });
     return true;
@@ -1561,7 +1608,7 @@ export class Engine {
           this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
           continue;
         }
-        dmg = h.classless ? this._classlessReducedDamage(h, dmg) : C.damageAfterDefense(dmg, h.d.defense);
+        dmg = h.classless ? this._classlessReducedDamage(h, dmg) : this._legacyInterposedDamage(h, dmg);
         if (h.ref.shield > 0) {
           const ab = Math.min(h.ref.shield, dmg);
           h.ref.shield -= ab;
@@ -1631,8 +1678,14 @@ export class Engine {
   _classlessReducedDamage(hero, rawDamage) {
     const state = hero.classlessCombatState;
     const lastStand = state?.lastStandUntil > this.time ? hero.d.lastStand : 0;
-    const reduction = Math.min(0.30, Math.max(0, hero.d.damageReduction + lastStand));
+    const interpose = hero.interposeUntil > this.time ? hero.interposeReduction : 0;
+    const reduction = Math.min(0.30, Math.max(0, hero.d.damageReduction + lastStand + interpose));
     return C.damageAfterDefense(rawDamage, hero.d.defense) * (1 - reduction);
+  }
+
+  _legacyInterposedDamage(hero, rawDamage) {
+    const reduction = hero?.interposeUntil > this.time ? hero.interposeReduction : 0;
+    return C.damageAfterDefense(rawDamage, hero.d.defense) * (1 - Math.min(0.30, Math.max(0, reduction)));
   }
 
   _resolveClasslessHeroDamage(hero, damage) {
@@ -1727,7 +1780,7 @@ export class Engine {
         this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
         return;
       }
-      let damage = h.classless ? this._classlessReducedDamage(h, p.dmg) : C.damageAfterDefense(p.dmg, h.d.defense);
+      let damage = h.classless ? this._classlessReducedDamage(h, p.dmg) : this._legacyInterposedDamage(h, p.dmg);
       if (h.ref.shield > 0) {
         const absorbed = Math.min(h.ref.shield, damage);
         h.ref.shield -= absorbed;
@@ -1771,7 +1824,7 @@ export class Engine {
         h.ref.shield = 0;
       }
       if (Math.random() < this._heroDodgeChance(h)) { this._float(h.x, h.y - 20, "DODGE", "#00F3FF"); return; }
-      let dmg = h.classless ? this._classlessReducedDamage(h, e.damage) : C.damageAfterDefense(e.damage, h.d.defense);
+      let dmg = h.classless ? this._classlessReducedDamage(h, e.damage) : this._legacyInterposedDamage(h, e.damage);
       if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
       if (h.classless) this._resolveClasslessHeroDamage(h, dmg);
       else h.ref.hp = Math.max(0, h.ref.hp - dmg);
@@ -1880,6 +1933,7 @@ export class Engine {
     if (p.damageCategory === "weapon") damage *= 1 + effects.weaponDamage;
     if (p.damageType === C.DAMAGE_TYPES.ARCANE) damage *= 1 + (effects.arcaneDamage || 0);
     let situationalBonus = p.situationalBonus || 0;
+    if (p.ability) situationalBonus += hero.d.bloodPriceBonus || 0;
     const state = hero.classlessCombatState;
     if (effects.followThroughDamage > 0 && target.classlessLastHitBy?.[hero.i] > this.time) {
       situationalBonus += effects.followThroughDamage;
@@ -1919,7 +1973,8 @@ export class Engine {
     this._float(target.x, target.y - 4, label, crit ? "#FFE600" : hero.d.color);
     this.effects.push({ kind: "hit", x: target.x, y: target.y, r: crit ? 15 : 10, life: 0.25, color: crit ? "#FFE600" : hero.d.color, crit });
     if (!p.ability && !p.area && hero.d.lifesteal > 0 && damage > 0) {
-      const heal = this._classlessHeal(hero, damage * hero.d.lifesteal);
+      const lifestealMultiplier = state.covenantUntil > this.time ? 2 : 1;
+      const heal = this._classlessHeal(hero, damage * hero.d.lifesteal * lifestealMultiplier);
       if (heal > 0) this._float(hero.x, hero.y - 20, `+${Math.round(heal)}`, "#39FF14");
     }
     if (p.ability) {

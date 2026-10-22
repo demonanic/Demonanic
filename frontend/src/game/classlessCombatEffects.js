@@ -18,6 +18,7 @@ const IMPLEMENTED_PASSIVES = Object.freeze({
   C1: { activeTargetDamage: 0.08 },
   W3a: { lastStand: 0.25 },
   H1: { lifesteal: 0.02 },
+  H2: { bloodPriceBonus: 0.12, bloodPriceCost: 0.05 },
   F1: { critDamage: 0.15 },
   N1: { regeneration: 0.01 },
   I1: { fullHpEvasion: 0.08 },
@@ -32,7 +33,7 @@ export function classlessCombatEffects(ownedNodeIds = []) {
     maxHp: 0, damageReduction: 0, markDamage: 0, evasion: 0, fullHpEvasion: 0,
     lastStand: 0, lifesteal: 0, regeneration: 0, regenerationBelowHalf: 0, decoyChance: 0,
     followThroughDamage: 0, momentumDamagePerStack: 0, ambushDamage: 0, disruptSlow: 0,
-    activeTargetDamage: 0, rootEverySeconds: 0 };
+    activeTargetDamage: 0, rootEverySeconds: 0, bloodPriceBonus: 0, bloodPriceCost: 0 };
   for (const id of new Set(ownedNodeIds)) {
     const effect = IMPLEMENTED_PASSIVES[id];
     if (!effect) continue;

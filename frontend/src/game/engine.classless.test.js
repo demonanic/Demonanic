@@ -130,6 +130,101 @@ describe("bounded classless combat adapter", () => {
     expect(hero.currentTarget).toBeNull();
   });
 
+  test("Interpose protects the lowest-HP nearby ally for five seconds and respects shared mitigation cap", () => {
+    const sim = createNewState();
+    const caster = createHeroModel({ id: "interpose-caster" });
+    caster.progression.ownedNodeIds = ["W3"];
+    const firstAlly = createHeroModel({ id: "interpose-first" });
+    firstAlly.progression.ownedNodeIds = ["W2"];
+    firstAlly.combat.hp = 120;
+    const secondAlly = createHeroModel({ id: "interpose-second" });
+    secondAlly.combat.hp = 200;
+    sim.heroes = [caster, firstAlly, secondAlly];
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+
+    const status = engine.getHeroAbilityStatus(0).find((ability) => ability.id === "W3");
+    expect(status).toMatchObject({ available: true, cooldownSeconds: 24, resourceCost: 0, targetMode: null });
+    const result = engine.useHeroAbility(0, "W3");
+    expect(result).toMatchObject({ ok: true, abilityId: "W3", cooldownRemaining: 24 });
+    expect(result.affectedTargets).toEqual([engine.heroes[1]]);
+    expect(engine.heroes[1].interposeUntil).toBe(5);
+    // W2 (6%) + Interpose (25%) exceeds the shared 30% cap and clamps there.
+    expect(engine._classlessReducedDamage(engine.heroes[1], 100)).toBeCloseTo(100 * (100 / 110) * 0.7);
+    expect(engine.useHeroAbility(0, "W3")).toMatchObject({ ok: false, reason: "cooldown" });
+    engine.time = 5;
+    expect(engine._classlessReducedDamage(engine.heroes[1], 100)).toBeCloseTo(100 * (100 / 110) * 0.94);
+  });
+
+  test("Interpose falls back to its caster when no other living ally is in range", () => {
+    const sim = createNewState();
+    const caster = createHeroModel({ id: "interpose-solo" });
+    caster.progression.ownedNodeIds = ["W3"];
+    const distantAlly = createHeroModel({ id: "interpose-distant" });
+    sim.heroes = [caster, distantAlly];
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+    engine.heroes[1].x = engine.heroes[0].x + 151;
+
+    const result = engine.useHeroAbility(0, "W3");
+    expect(result.ok).toBe(true);
+    expect(result.affectedTargets).toEqual([engine.heroes[0]]);
+    expect(engine.heroes[0].interposeUntil).toBe(5);
+  });
+
+  test("Blood Price charges current HP only after a successful active use and buffs its damage", () => {
+    const sim = createNewState();
+    const model = createHeroModel({ id: "blood-price" });
+    model.progression.ownedNodeIds = ["H2"];
+    sim.heroes = [model];
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+    const hero = engine.heroes[0];
+    const target = enemy("Blood Price target", hero.x + 30, hero.y, { hp: 1000, maxHp: 1000 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.99);
+
+    expect(engine.useSharedStrike(0, target)).toBe(true);
+    expect(target.hp).toBeCloseTo(1000 - 16 * 1.5 * 1.12);
+    expect(hero.ref.hp).toBe(285);
+
+    const beforeHp = hero.ref.hp;
+    const beforeTargetHp = target.hp;
+    hero.abilityCooldowns.shared_strike = 0;
+    hero.ref.hp = 1.04;
+    expect(engine.getHeroAbilityStatus(0)[0]).toMatchObject({ available: false, reason: "health_cost" });
+    expect(engine.useSharedStrike(0, target)).toBe(false);
+    expect(hero.ref.hp).toBe(1.04);
+    expect(target.hp).toBe(beforeTargetHp);
+    expect(engine.heroes[0].abilityCooldowns.shared_strike).toBe(0);
+    expect(beforeHp).toBe(285);
+    random.mockRestore();
+  });
+
+  test("Crimson Covenant doubles weapon lifesteal and permits one lethal save per 60 seconds", () => {
+    const sim = createNewState();
+    const model = createHeroModel({ id: "crimson-covenant" });
+    model.progression.ownedNodeIds = ["H1", "H3"];
+    sim.heroes = [model];
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+    const hero = engine.heroes[0];
+    expect(engine.useHeroAbility(0, "H3")).toMatchObject({ ok: true, abilityId: "H3", cooldownRemaining: 30 });
+    expect(hero.classlessCombatState.covenantUntil).toBe(6);
+    hero.ref.hp = 299;
+    const target = enemy("Covenant target", hero.x + 30, hero.y, { hp: 1000, maxHp: 1000 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.99);
+    expect(engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 16, classless: true, damageCategory: "weapon" })).toBe(true);
+    expect(hero.ref.hp).toBeCloseTo(299 + 16 * 0.04);
+
+    hero.ref.hp = 20;
+    expect(engine._resolveClasslessHeroDamage(hero, 25)).toBe(25);
+    expect(hero.ref.hp).toBe(1);
+    expect(hero.classlessCombatState.survivalReadyAt).toBe(60);
+    hero.ref.hp = 2;
+    expect(engine._resolveClasslessHeroDamage(hero, 3)).toBe(3);
+    expect(hero.ref.hp).toBe(0);
+    expect(hero.alive).toBe(false);
+    random.mockRestore();
+  });
+
   test("explicit movement uses the approved 155 world units per second", () => {
     const { engine, hero } = makeEngine();
     const startX = hero.x;

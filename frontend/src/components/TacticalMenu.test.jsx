@@ -230,6 +230,30 @@ describe("TacticalMenu mobile controls", () => {
     expect(engine.heroes[1].warCryAttackSpeedBonus).toBe(0.15);
   });
 
+  test("Interpose button reaches the Engine and applies mitigation to the lowest-HP ally", () => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: "tactical-W3", name: "Aster" });
+    hero.progression.ownedNodeIds = ["W1", "W2", "W3"];
+    const ally = createHeroModel({ id: "tactical-W3-ally", name: "Bryn" });
+    ally.combat.hp = 100;
+    state.heroes = [hero, ally];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    engine.heroes[1].x = engine.heroes[0].x + 100;
+    const onAbility = jest.fn((index, id) => engine.useHeroAbility(index, id));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}} onAbility={onAbility}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} />));
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const interpose = container.querySelector('[data-testid="tactical-ability-W3"]');
+    expect(interpose.disabled).toBe(false);
+    expect(interpose.textContent).toContain("Interpose");
+    expect(interpose.textContent).toContain("24s CD");
+    act(() => interpose.click());
+    expect(onAbility).toHaveBeenCalledWith(0, "W3");
+    expect(engine.heroes[1].interposeUntil).toBe(5);
+    expect(engine.heroes[1].interposeReduction).toBe(0.25);
+  });
+
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {
     act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
       initialCommandMode="target"
