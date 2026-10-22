@@ -669,3 +669,43 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - Milestone code/test commit `87e21d8` (`Add classless profile persistence adapter`) contains only the seven files listed in this section. Handoff-only commit `188da97` (`Record classless persistence milestone`) contains only this file. Both were pushed to `review/mobile-working-copy`; `git fetch`, local tracking ref, and `git ls-remote` verified remote SHA `188da97c66dfc551610f465580f4c55658a488c9` and 0 ahead / 0 behind at verification. The four pre-existing user changes above remain unstaged and uncommitted.
 - Next step: implement backend-compatible offline HP recovery for nested `combat.hp` only if desired, then complete a classless combat-engine adapter and targeted roster/preparation interaction tests before routing new-game heroes into battle. Do not integrate classless heroes into live combat based on this persistence milestone alone.
 - The handoff records actual results and the remaining limits. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back. The current handoff is published at the verified SHA above.
+
+## 13. Milestone 5 — Classless Combat Engine Adapter — 2026-10-22
+
+### Repository checkpoint and scope
+
+- Started on `review/mobile-working-copy`, HEAD `f6a051cd96daf6df14de4408a836d782d0a943fa`, fetched the authorized branch, and verified 0 ahead / 0 behind. No branch switch or merge occurred.
+- Preserved the pre-existing changes to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx`. These were not edited or staged. No production profile, real account, backend database record, or MongoDB data was used.
+- Read `AGENTS.md`, this handoff, and the canonical design bible. The approved baseline remains unchanged. New-game selection and live combat entry remain blocked for classless heroes.
+
+### Verified engine behavior and implementation
+
+- `Engine` previously called class-only `heroDerived` during construction. Target status, tactical targeting, auto-selection, and hit resolution inferred attacks from class and damage-type affinity; the attack loop treated `range < 130` as melee. Ordinary attacks use projectiles and `_applyHit`, which applies criticals, enemy death/rewards/XP attribution, and `_checkEnd` handles squad/castle defeat. Mage spells and legacy abilities use class eligibility and element/status handlers.
+- `frontend/src/game/engine.js` now recognizes the persisted classless model and builds a runtime-only view over nested `combat.hp`, `combat.maxHp`, identity, and progression fields. It does not add or write a class key. Derived combat values come from `combat.basicAttack` and `combat.stats`: the approved 300 HP, 16 weapon damage, 1.05s interval, 220 range, explicit `midline`, 155 movement, 10 defense/agility/intelligence, 5% crit chance, 150% crit damage, and 5% dodge.
+- Midline target eligibility checks the explicit range mode and radius. It does not use the legacy numeric range threshold and does not auto-chase; the hero holds position and fires only on valid targets within range. Explicit move/rally/retreat paths use the classless movement speed. The nearest valid target is retained while valid; when dead, removed, or out of range it is reacquired by nearest distance, with stable `active` spawn order as the equal-distance tie break.
+- Classless weapon hits are neutral and untyped: they receive no legacy class affinity, magic identity, or elemental conversion. This also means legacy enemy affinity immunities/resistances do not grant special class advantages against the shared weapon attack. Legacy class paths and damage-type rules remain unchanged.
+- `Shared Strike` is a dedicated single-target direct hit routed through `_applyHit` and the normal enemy-kill/reward path. It uses the canonical 1.5 multiplier and 12s cooldown, no mana/resource cost, and a null perk payload so legacy cleave, heal, stun, area, and conversion effects cannot leak in. It is shown by engine status APIs but was not added to tactical UI or enabled in the live Battle screen. Classless heroes cannot cast legacy class abilities or spells.
+- `Battle.jsx` retains a defensive classless gate and returns to preparation rather than instantiating the engine. Preparation already blocks the start-wave action. The engine renderer does not fall through to the legacy Archer sprite for a classless model; this milestone chooses no appearance or default sprite.
+- Existing enemy hit, nested hero HP death, enemy death, XP attribution, and wave defeat lifecycle are reused. Engine test state remains isolated and in-memory. The profile/persistence completion UI still writes legacy hero fields, so the `Battle` gate must remain until the full flow is adapted and verified.
+
+### Offline HP recovery investigation
+
+- `backend/server.py::apply_offline_accrual` recovers wounded legacy `hero.hp` toward `hero.maxHp`, capped at the existing 8%/hour and never reviving a zero-HP hero. Classless nested `combat.hp` is not currently covered.
+- A minimal nested-HP backend change and test were drafted locally, but the repository environment has neither `pytest` nor FastAPI installed: `python3 -m pytest -q tests/test_classless_offline_recovery.py tests/test_profile_creation_safety.py tests/backend_test.py` failed with `No module named pytest`, and the runtime dependency check failed with `No module named fastapi`. To avoid publishing unverified backend behavior, the draft change/test were removed. No backend file is part of this milestone. The exact blocker is the missing backend test/runtime dependencies; rerun/add nested recovery only in a configured backend test environment.
+
+### Tests and validation
+
+- Added `frontend/src/game/engine.classless.test.js` for approved runtime values, neutral 16 damage, 1.05s basic attack timing, explicit midline behavior below the old 130-unit heuristic, 155 movement, deterministic nearest/retain/reacquire selection, invalid/dead/out-of-range targets, Shared Strike 24 damage/crit/cooldown/no cost/prohibited effects, classless nested HP death, and normal enemy kill/reward/XP lifecycle.
+- Updated `frontend/src/screens/Battle.tactical-flow.test.jsx` to verify a classless profile is returned to preparation and never constructs the live engine.
+- Focused command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand src/game/engine.classless.test.js src/game/engine.targeting.test.js src/game/engine.abilities.test.js src/game/engine.defense-perks.test.js src/game/engine.perk-characterization.test.js src/screens/Battle.tactical-flow.test.jsx` — PASS, 6 suites / 90 tests.
+- Full frontend command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand` — PASS, 30 suites / 247 tests.
+- Build from `frontend/`: `npm run build` — PASS, optimized build compiled. Node emitted a non-fatal `fs.F_OK` deprecation warning.
+- Backend command and limitation are recorded above. No live API/backend/database, device, or combat-screen test was performed. No production data was touched.
+- `git diff --check` — PASS after final code and handoff review.
+
+### Limits, publication, and next step
+
+- The engine adapter is tested but is not connected to new-game selection or enabled for live battles. No attack/Shared Strike control was integrated into tactical UI. Classless hero XP progression, post-battle persistence merging, appearance rendering, recovery, perks, equipment, and class-neutral enemy AI are not complete. Do not claim the game is fully classless.
+- Backend offline HP recovery remains unimplemented until its tests can run in a configured backend environment. Next: verify the nested recovery adapter there, then add the UI/profile completion adapter and end-to-end test before removing either battle gate.
+- Code/test commit `1823cd0` (`Add bounded classless combat engine adapter`) contains only the four files listed in this milestone. A separate handoff-only commit is pending. The existing unrelated worktree changes remain unstaged. Publication SHA and remote status will be recorded after push verification.
+- The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
