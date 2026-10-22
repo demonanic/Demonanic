@@ -35,7 +35,7 @@ Recent commits observed:
 
 ### Current phase and objective
 
-The user has approved classless progression planning constraints: new heroes start unclassified on a shared-midline combat baseline, every new hero gets a shared single-target starter strike, universal progression is built before signatures, dynamic titles describe current builds and never determine eligibility, and existing heroes/progress/equipment/Academy/Mage research/accounts/profiles are preserved wherever compatible. This remains planning only; no classless implementation or data migration has begun.
+The user has approved classless progression planning constraints: seven universal branch direction with specialization-based hybrid progression and signatures added gradually; new heroes start unclassified on a shared-midline combat baseline and get one shared single-target starter strike; dynamic titles describe current builds and never determine eligibility; existing equipment and Mage Library assets/access are grandfathered; legacy progression/behavior and unrelated profile/account/economy/castle state are preserved; and conflict protection is required before automatic remote migration. Detailed nodes, balance, eligibility, and migration mechanisms remain proposals where noted. This remains planning only; no classless implementation or data migration has begun.
 
 The newest user direction supersedes earlier fixed-class hybrid/Cross-Training assumptions. Concrete branch/node values and migration mechanisms below are proposals, not approved implementation specifications, except for the decisions explicitly listed as approved in Section 5.
 
@@ -76,17 +76,18 @@ Replace the **class-bound progression subsystem**, not the entire game. Add a di
 
 Candidate shape: a versioned `hero.progression` object with stable purchased node IDs. Derive branch depth and dynamic titles rather than storing duplicate counters. A title such as Battle Mage is presentation only and must not be used as an eligibility/class key. Keep `hero.name` independent. Use explicit signature recipes and verified ability handlers; do not claim summon behavior until summon lifecycle, targeting, attribution, and cleanup are designed.
 
-Potential branch families for review: Vanguard (physical offense), Warden (defense/support), Precision (range/critical/target setup), Shadowcraft (speed/evasion), Arcana (elemental/spell/healing), Tactics (traps/control), and Conjuration (summons). Potential recipes include Battle Mage (Arcana plus Vanguard/Warden depth), Bandit (Shadowcraft plus Tactics/Precision), Pyromancer (deep Ember/Arcana plus area synergy), and Summoner (deep Conjuration plus a supporting branch). Names, costs, depth gates, and effect handlers are proposals only.
+Approved direction: seven universal branches supporting specialization-based hybrid progression, with signature builds added gradually after the universal foundation. Proposed roster: Vanguard (physical offense), Warden (defense/support), Precision (range/critical/target setup), Shadowcraft (speed/evasion), Arcana (elemental/spell/healing), Tactics (traps/control), and Conjuration (summons). The branch direction is approved; exact effects, costs, gates, and effect handlers still require final review. Candidate signature recipes include Battle Mage, Bandit, Pyromancer, and Summoner; names, recipes, effects, and rollout order remain proposals.
 
-### Legacy migration recommendation — pending approval
+### Legacy migration — approved preservation requirements; mechanisms pending approval
 
-- Do not delete `cls`, existing perk IDs, or legacy gameplay data in the first migration.
+- Preserve legacy hero stats, XP, AP/SP, perk IDs, and existing perk behavior. Do not delete `cls`, existing perk IDs, or legacy gameplay data during migration or rollback.
 - Add a versioned classless progression field and retain legacy class/perk identity as compatibility data until parity is demonstrated.
 - Preserve saved stats as-is; they already contain class stat modifiers. Capture the remaining class-derived combat inputs (base HP, range, attack rate/scaling, magic/damage behavior, attack configuration, and free starter ability entitlement) in an explicit legacy combat profile or equivalent adapter. Do not assign Knight defaults to new unclassified heroes.
-- Translate recognized legacy perk investments idempotently to equivalent branch nodes/effects without spending AP again, refunding points, or double-applying effects. Keep canonical `rouge_*` identifiers available for legacy reads and rollback. Dormant effects must remain dormant until separately specified and implemented.
-- Migrate active heroes, bench heroes, Academy-held heroes, and heroes referenced by ongoing Library research. Preserve all equipment, spellbooks, affinities, research progress, stats, AP/SP, and unrelated profile state.
+- Preserve recognized legacy perk investments and their existing behavior idempotently, without spending AP again, refunding points, or double-applying effects. Keep canonical `rouge_*` identifiers available for legacy reads and rollback. Effects without verified runtime consumers remain dormant until explicitly specified and tested; do not silently remove, activate, or invent their behavior. Maintain a dormant-effect catalog with legacy ID, description, consumer status, compatibility notes, and focused test requirement.
+- Migrate active heroes, bench heroes, Academy-held heroes, and heroes referenced by ongoing Library research. Grandfather existing equipment, equipped items, inventory, Mage spellbooks, affinities, research queues/progress, blueprints, and access. Preserve unrelated profile, account, economy, and castle state throughout migration and rollback.
 - Keep legacy class parsing/runtime adapters until each caller has moved to class-independent combat capabilities (for example melee/ranged/arcane tags or weapon/spell disciplines).
-- New heroes need a separately balanced neutral combat baseline and initial attack/appearance rules. That choice is a prerequisite to classless creation and must be approved before implementation.
+- The shared-midline concept and shared single-target starter strike are approved. Proposed numeric values are simulation starting points only; final balance requires the documented deterministic simulation and review.
+- Require profile-write conflict protection before enabling automatic remote migration. Prefer server-side revision/CAS with atomic validation and update. If that cannot be implemented safely, defer automatic remote migration.
 
 ### Classless dependency inventory — source audit completed 2026-10-22
 
@@ -243,6 +244,17 @@ No tests, build, device check, simulation, migration, gameplay edit, or profile 
 
 Times are UTC. When conversation history did not preserve an exact time, that limitation is stated rather than guessed.
 
+### 2026-10-22 06:36 UTC — Record classless safeguards and preservation decisions
+
+- **Objective:** Update the classless planning handoff with the user's newly approved decisions and remaining approval items. Documentation only.
+- **Approved decisions recorded:** Seven universal branch direction and specialization-based hybrid progression; signatures added gradually; shared-midline and common single-target strike concepts with proposed numbers used only as simulation inputs; grandfather all specified legacy equipment and Mage Library assets/access; preserve legacy hero stats/XP/AP/SP/perk IDs/behavior and unrelated profile/account/economy/castle state; unverified perk effects remain dormant; profile conflict protection required before automatic remote migration, preferably server revision/CAS.
+- **Remaining decisions recorded:** Simulation thresholds/benchmark; final node effects/costs/gates/depth/Tier III cap; newly acquired gear disciplines; new Arcana access; CAS implementation, rollback retention/conflict UX; dormant effect catalog and test process.
+- **Files changed:** docs/CHATGPT_HANDOFF.md only. No gameplay source, tests, profiles, saves, or migration code changed.
+- **Pre-existing work preserved:** Modified ROADMAP.md, frontend/src/components/PerkTree.jsx, frontend/src/game/perks.js; untracked frontend/src/components/PerkTree.test.jsx.
+- **Tests/builds/simulations:** Not run; outside this documentation-only scope. The handoff's deterministic simulation remains a future design acceptance gate.
+- **Verification/publication:** git diff --check and final diff/status review are recorded below. Handoff-only publication SHA is added after safe remote verification; unrelated files are excluded.
+- **Next decision:** Settle the listed balance and implementation safeguards before any gameplay implementation or automatic remote migration.
+
 ### 2026-10-22 04:32 UTC — Specify approved classless planning decisions
 
 - **Objective:** Continue classless progression planning on the current authorized branch and expand the living handoff into an implementation-ready proposal, while remaining strictly within documentation scope.
@@ -336,30 +348,33 @@ No tests, build, Android build, or device check were run during the handoff crea
 
 - Preserve the current branch and all existing work. No branch switching, commit, push, merge, or deploy without explicit permission.
 - Replace the fixed four-class progression model with classless, specialization-based progression. New heroes begin unclassified; titles describe builds and do not restrict them.
+- Approve the seven universal progression branch direction and specialization-based hybrid progression. Build the universal foundation first and add signature builds gradually.
 - New heroes use a shared-midline combat baseline.
 - Every new hero receives the same shared, single-target starter strike.
-- Build and balance the universal progression foundation before adding signature builds gradually.
 - Dynamic titles describe the current build and never determine eligibility.
-- Preserve existing combat, stats, equipment, Academy, Library research/spells, castle management, economy, accounts, and saved profiles wherever compatible.
-- Migrate legacy Knight, Rouge, Mage, and Archer heroes without destructively resetting investments or effects.
+- Numeric values in the baseline proposal are simulation starting values only; final balance requires the documented deterministic simulation and review.
+- Grandfather existing equipment, equipped items, inventory, Mage spellbooks, affinities, research queues/progress, blueprints, and Mage access.
+- Preserve legacy hero stats, XP, AP/SP, perk IDs, and existing perk behavior. Effects without verified runtime consumers remain dormant until explicitly specified and tested; do not silently remove, activate, or invent their effects.
+- Preserve legacy heroes and unrelated profile, account, economy, and castle state throughout migration and rollback.
+- Require profile-write conflict protection before enabling automatic remote migration. Prefer server-side revision/CAS with atomic validation and updates; if that cannot be implemented safely, defer automatic remote migration.
 - This task is planning/documentation only: do not modify gameplay source, tests, profiles, save data, or migrations; do not switch branches, merge, or deploy.
 
 ### Proposals, not approved decisions
 
 - The concrete values in “Concrete classless progression specification”: 250 HP, all stats 10, 1.05 s cooldown, 170 range, neutral physical type, damage formula, strike coefficient/cooldown, node IDs and effects, costs, gates, depth rule, two Tier III cap, signatures, and title tie-break.
-- The distinct progression subsystem/module split, versioned migration schema, combat/equipment capability representation, Library access rule, server revision/CAS, rollback window, and migration safety gate.
+- The distinct progression subsystem/module split, final versioned migration schema, combat capability representation, new-hero equipment discipline rules, new Arcana/Library access, CAS implementation details, rollback retention, and migration safety gate.
 - The proposed simulation thresholds and the use of legacy class squads as the benchmark.
 - The previous fixed-class Cross-Training whitelist/cost proposal; superseded by the classless direction.
 
 ### Unresolved approval items
 
-- Review and approve/revise the proposed numeric baseline and starter strike (including cosmetic policy) and simulation thresholds/benchmark.
-- Approve/revise the seven branch catalog, exact node IDs/effects, AP costs, level gates, branch depth, two-Tier-III cap, and first signature recipes.
-- Decide signature rollout order; recommend defer Summoner until lifecycle/cleanup is implemented.
-- Approve/revise new Arcana Library eligibility while grandfathering existing Mage research and spell records.
-- Decide how new equipment disciplines are granted while preserving currently equipped gear.
-- Choose revision/CAS versus single-writer migration gate, rollback window, and conflict UX.
-- Decide disposition of legacy perks without verified consumers: preserve dormant, implement consumers, or defer/reword.
+- Approve exact balance thresholds and whether legacy class squads are the benchmark for the deterministic simulation.
+- Final review remains for node effects, costs, level gates, prerequisites/depth rules, and the proposed Tier III cap; the seven-branch direction itself is approved.
+- Decide signature recipes and gradual rollout order; recommend deferring Summoner until lifecycle/cleanup is designed.
+- Decide equipment discipline rules for newly acquired gear; existing items/inventory are grandfathered.
+- Decide Arcana eligibility for new heroes versus grandfathered Mage spell/research access.
+- Confirm a safe server revision/CAS implementation, rollback retention window, and conflict UX; otherwise defer automatic remote migration.
+- Approve how dormant legacy effects will be catalogued, then separately specify and test any effect before activation; none may be silently removed or enabled.
 
 ## 6. Known issues and regressions
 
@@ -392,7 +407,9 @@ No tests, build, Android build, or device check were run during the handoff crea
 
 - New heroes have no fixed class and can build through universal branches; dynamic titles follow the current build and never gate eligibility.
 - Existing classed heroes preserve AP/SP, stats, equipment, active combat behavior, class-granted baseline abilities, Academy work, Mage spellbooks/affinities/research, and unrelated profile/economy/account data.
-- Migration is idempotent and preserves legacy identifiers, including `rouge_*`; no node/effect is double-applied or silently invented.
+- Migration preserves legacy XP, stats, AP/SP, perk IDs, and behavior, including `rouge_*`; no effect is double-applied, silently invented, removed, or activated without specification and tests. Dormant effects are catalogued before implementation.
+- Existing equipment, equipped items, inventory, Mage spellbooks, affinities, research queues/progress, blueprints, and access remain grandfathered.
+- Unrelated profile/account/economy/castle data survives migration and rollback. Automatic remote migration is disabled until profile writes have safe conflict protection; prefer atomic server revision/CAS.
 - Branch depth and signature combinations reject unknown IDs, missing prerequisites, duplicates, overspending, invalid ranks, and invalid combinations without partial mutation.
 - Every live effect has an explicit consumer and focused tests. Combat uses the established target/range/immunity/cooldown/action lifecycle.
 - Existing profiles load and save round-trip; rollback retains original fields until parity and device verification are accepted.
@@ -401,4 +418,4 @@ No step above has been started as implementation in the current task.
 
 ## 8. Handoff summary
 
-At the 2026-10-22 04:32 UTC planning checkpoint, Demonanic remains on `review/mobile-working-copy`; starting HEAD was `8940a3a`. The approved constraints and detailed proposal are documented in Sections 2 and 5. Only `docs/CHATGPT_HANDOFF.md` was changed for this task; the pre-existing modified files `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx` were preserved. No tests, builds, device checks, simulations, migrations, gameplay edits, or profile writes were run. `git diff --check` passed before publication. Handoff-only commit `6df1d3b5f2ebf8e556deeef74de625eaa41e2fab` was pushed; `git ls-remote` verified `origin/review/mobile-working-copy` at that SHA. A handoff-only follow-up records this publication verification; its SHA is the current HEAD reported in the task result. No unrelated files were staged or published. Older design docs still contain permanent-class assumptions. The exact `work done` signal means ChatGPT retrieves the latest published handoff, reviews it, and reports back. Next step: approve or revise numeric baseline/strike and simulation thresholds, node catalog/costs/depth, signature recipes, Library/equipment policy, and profile conflict/rollback plan before implementation.
+At the 2026-10-22 06:36 UTC planning checkpoint, Demonanic is on `review/mobile-working-copy`, starting HEAD `25661b6`, synchronized with origin. The user-approved decisions and remaining proposals are recorded in Sections 2 and 5. Only `docs/CHATGPT_HANDOFF.md` is changed for this task; pre-existing changes to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx` are preserved. No tests/builds/simulations/migrations or gameplay/profile edits were run. Final diff/status review and handoff-only publication SHA are recorded in this checkpoint after verification. The exact `work done` signal means ChatGPT retrieves the latest published handoff, reviews it, and reports back. Next decisions: approve balance thresholds/benchmark, exact node/effect/cost/gate/depth/Tier III cap details, equipment discipline rules, Arcana access, CAS/rollback/conflict UX, and dormant-effect catalog/test process.
