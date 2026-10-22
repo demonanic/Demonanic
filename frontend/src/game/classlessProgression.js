@@ -1,28 +1,27 @@
 // Bible v1.0 purchase metadata only. Effect execution belongs to combat
 // systems and is intentionally not represented in this module.
 const BRANCHES = [
-  ["Vanguard", ["V1", "V2", "V2a", "V3", "V3a"]],
-  ["Warden", ["W1", "W2", "W2a", "W3", "W3a"]],
-  ["Precision", ["P1", "P2", "P2a", "P3", "P3a"]],
-  ["Shadowcraft", ["S1", "S2", "S2a", "S3", "S3a"]],
-  ["Arcana", ["A1", "A2", "A2a", "A3", "A3a"]],
-  ["Tactics", ["T1", "T2", "T2a", "T3", "T3a"]],
-  ["Conjuration", ["C1", "C2", "C2a", "C3", "C3a"]],
-  ["Hemomancy", ["H1", "H2", "H3"]],
-  ["Fortune", ["F1", "F2", "F3"]],
-  ["Wilds", ["N1", "N2", "N3"]],
-  ["Illusion", ["I1", "I2", "I3"]],
+  ["Vanguard", [["V1", 1], ["V2", 2], ["V2a", 2], ["V3", 3], ["V3a", 3]]],
+  ["Warden", [["W1", 1], ["W2", 2], ["W2a", 2], ["W3", 3], ["W3a", 3]]],
+  ["Precision", [["P1", 1], ["P2", 2], ["P2a", 2], ["P3", 3], ["P3a", 3]]],
+  ["Shadowcraft", [["S1", 1], ["S2", 2], ["S2a", 2], ["S3", 3], ["S3a", 3]]],
+  ["Arcana", [["A1", 1], ["A2", 2], ["A2a", 2], ["A3", 3], ["A3a", 3]]],
+  ["Tactics", [["T1", 1], ["T2", 2], ["T2a", 2], ["T3", 3], ["T3a", 3]]],
+  ["Conjuration", [["C1", 1], ["C2", 2], ["C2a", 2], ["C3", 3], ["C3a", 3]]],
+  ["Hemomancy", [["H1", 1], ["H2", 2], ["H3", 3]]],
+  ["Fortune", [["F1", 1], ["F2", 2], ["F3", 3]]],
+  ["Wilds", [["N1", 1], ["N2", 2], ["N3", 3]]],
+  ["Illusion", [["I1", 1], ["I2", 2], ["I3", 3]]],
 ];
 
 const PHASE_2_NODES = new Set(["C3", "C3a", "N3"]);
 
-export const CANONICAL_NODES = Object.freeze(BRANCHES.flatMap(([branch, ids]) => ids.map((id, index) => {
-  const tier = index === 0 ? 1 : index <= 2 ? 2 : 3;
-  const tierTwoIds = ids.filter((_, nodeIndex) => nodeIndex === 1 || nodeIndex === 2);
+export const CANONICAL_NODES = Object.freeze(BRANCHES.flatMap(([branch, entries]) => entries.map(([id, tier]) => {
+  const tierTwoIds = entries.filter(([, nodeTier]) => nodeTier === 2).map(([nodeId]) => nodeId);
   const prerequisites = tier === 1
     ? []
     : tier === 2
-      ? [ids[0]]
+      ? [entries[0][0]]
       : tierTwoIds;
 
   return Object.freeze({
@@ -105,4 +104,16 @@ export function purchaseNode(progression, nodeId) {
       ownedNodeIds: [...progression.ownedNodeIds, nodeId],
     },
   };
+}
+
+// Classless purchase adapter. It returns only the replacement progression so
+// callers can install it after validation without changing identity, combat,
+// appearance, or unrelated profile fields. This records ownership only; it
+// does not activate catalog effects in combat.
+export function purchaseClasslessNode(hero, nodeId) {
+  if (!hero || typeof hero !== "object" || hero.cls || !hero.identity?.id || !hero.combat) {
+    return { ok: false, reason: "not_classless_hero" };
+  }
+  const result = purchaseNode(hero.progression, nodeId);
+  return result.ok ? { ok: true, progression: result.progression } : result;
 }

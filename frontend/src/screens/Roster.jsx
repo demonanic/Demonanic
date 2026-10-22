@@ -1,24 +1,41 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { useGame } from "@/context/GameProvider";
-import { NeonButton, SectionTitle, TopResourceHUD, StatBar } from "@/components/ui-kit";
-import { HeroCard } from "@/components/cards";
-import { Input } from "@/components/ui/input";
+import { useGame } from "../context/GameProvider";
+import { NeonButton, SectionTitle, TopResourceHUD, StatBar } from "../components/ui-kit";
+import { HeroCard } from "../components/cards";
+import { Input } from "../components/ui/input";
 import { Home as HomeIcon, Trash2, Pencil, Check } from "lucide-react";
-import * as C from "@/game/config";
+import * as C from "../game/config";
 import {
   heroDerived, allocateSp, buyPerk, swapHero, renameHero, retireHero,
-} from "@/game/logic";
+} from "../game/logic";
+import { purchaseClasslessNode } from "../game/classlessProgression";
+import ClasslessPerkTree from "../components/ClasslessPerkTree";
 
 export default function Roster() {
   const { state, mutate, setScreen } = useGame();
   const [open, setOpen] = useState(null);      // {list, idx}
+  const [progressionHeroId, setProgressionHeroId] = useState(null);
   const [editing, setEditing] = useState(null); // "list-idx"
   const [nameVal, setNameVal] = useState("");
   if (!state) return null;
   const owned = state.heroes.length + (state.bench?.length || 0);
   const act = (fn, ok, fail) => mutate((s) => { if (!fn(s)) toast.error(fail || "Invalid"); else if (ok) toast.success(ok); });
   const hero = open ? (open.list === "squad" ? state.heroes[open.idx] : state.bench[open.idx]) : null;
+  const progressionHero = [...(state.heroes || []), ...(state.bench || [])]
+    .find((item) => !item.cls && item.combat && item.identity?.id === progressionHeroId) || null;
+
+  const purchaseClasslessPerk = (nodeId) => mutate((s) => {
+    const target = [...(s.heroes || []), ...(s.bench || [])]
+      .find((item) => !item.cls && item.combat && item.identity?.id === progressionHeroId);
+    const result = purchaseClasslessNode(target, nodeId);
+    if (!result.ok) {
+      toast.error(`Perk purchase rejected: ${result.reason.replaceAll("_", " ")}`);
+      return;
+    }
+    target.progression = result.progression;
+    toast.success(`${nodeId} purchased`);
+  });
 
   const startEdit = (key, cur) => { setEditing(key); setNameVal(cur); };
   const commitEdit = (list, idx) => { act((s) => renameHero(s, list, idx, nameVal), "Renamed"); setEditing(null); };
@@ -36,6 +53,11 @@ export default function Roster() {
             <StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={3} />
           </div>
         </div>
+        <button type="button" onClick={() => setProgressionHeroId(h.identity.id)}
+          className="mt-3 min-h-10 w-full rounded border border-cyan-400/30 bg-cyan-500/5 font-mono-g text-[10px] text-cyan-100"
+          data-testid={`roster-classless-progression-${h.identity.id}`}>
+          UNIVERSAL PERKS · {h.progression?.ap || 0} AP
+        </button>
       </div>
     );
     const cls = C.HERO_CLASSES[h.cls];
@@ -132,6 +154,7 @@ export default function Roster() {
           onConfig={(cfg) => mutate((s) => { const t = open.list === "squad" ? s.heroes[open.idx] : s.bench[open.idx]; t.attackConfig = cfg; })}
           onClose={() => setOpen(null)} />
       )}
+      {progressionHero && <ClasslessPerkTree hero={progressionHero} onPurchase={purchaseClasslessPerk} onClose={() => setProgressionHeroId(null)} />}
     </div>
   );
 }

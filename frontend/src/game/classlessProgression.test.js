@@ -1,4 +1,5 @@
-import { CANONICAL_NODES, getCanonicalNode, purchaseNode } from "./classlessProgression";
+import { CANONICAL_NODES, getCanonicalNode, purchaseClasslessNode, purchaseNode } from "./classlessProgression";
+import { createHero } from "./logic";
 
 const CANONICAL_IDS = [
   "V1", "V2", "V2a", "V3", "V3a", "W1", "W2", "W2a", "W3", "W3a",
@@ -22,6 +23,12 @@ describe("classless progression catalog", () => {
     expect(getCanonicalNode("V3a")).toMatchObject({ tier: 3, apCost: 3, minLevel: 10, prerequisites: ["V2", "V2a"] });
     expect(CANONICAL_NODES.filter(({ gated }) => gated).map(({ id }) => id)).toEqual(["C3", "C3a", "N3"]);
     expect(getCanonicalNode("nope")).toBeNull();
+  });
+
+  test("maps all four expansion branches to their bible-defined Tier III node", () => {
+    for (const [nodeId, prerequisite] of [["H3", "H2"], ["F3", "F2"], ["N3", "N2"], ["I3", "I2"]]) {
+      expect(getCanonicalNode(nodeId)).toMatchObject({ tier: 3, apCost: 3, minLevel: 10, prerequisites: [prerequisite] });
+    }
   });
 });
 
@@ -60,5 +67,34 @@ describe("purchaseNode", () => {
     expect(result.ok).toBe(true);
     expect(result.progression.ownedNodeIds).toEqual(["V1", "V2a", "V3a"]);
     expect(result.progression.ap).toBe(0);
+  });
+
+  test("classless purchase adapter changes only progression after validation", () => {
+    const hero = createHero();
+    hero.progression.ap = 1;
+    const originalIdentity = hero.identity;
+    const originalCombat = hero.combat;
+    const result = purchaseClasslessNode(hero, "V1");
+    expect(result).toEqual({ ok: true, progression: { ...hero.progression, ap: 0, ownedNodeIds: ["V1"] } });
+    expect(hero.identity).toBe(originalIdentity);
+    expect(hero.combat).toBe(originalCombat);
+    expect(hero.progression).toEqual({ level: 1, xp: 0, ap: 1, sp: 0, ownedNodeIds: [] });
+  });
+
+  test.each([
+    [{ level: 1, ap: 1, ownedNodeIds: [] }, "V2", "level_required"],
+    [{ level: 1, ap: 1, ownedNodeIds: [] }, "H3", "level_required"],
+    [{ level: 1, ap: 1, ownedNodeIds: [] }, "missing-node", "unknown_node"],
+    [{ level: 10, ap: 2, ownedNodeIds: ["H1", "H2"] }, "H3", "insufficient_ap"],
+  ])("classless adapter preserves the hero when purchase is rejected", (progression, nodeId, reason) => {
+    const hero = createHero();
+    hero.progression = { ...progression };
+    const before = JSON.stringify(hero);
+    expect(purchaseClasslessNode(hero, nodeId)).toEqual({ ok: false, reason });
+    expect(JSON.stringify(hero)).toBe(before);
+  });
+
+  test("rejects legacy heroes at the classless adapter boundary", () => {
+    expect(purchaseClasslessNode(createHero("knight"), "V1")).toEqual({ ok: false, reason: "not_classless_hero" });
   });
 });
