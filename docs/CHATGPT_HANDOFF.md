@@ -419,3 +419,23 @@ No step above has been started as implementation in the current task.
 ## 8. Handoff summary
 
 At the 2026-10-22 06:36 UTC planning checkpoint, Demonanic is on `review/mobile-working-copy`; starting HEAD was `25661b6`. The user-approved decisions and remaining proposals are recorded in Sections 2 and 5. Only `docs/CHATGPT_HANDOFF.md` changed for this task; pre-existing changes to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx` were preserved. No tests/builds/simulations/migrations or gameplay/profile edits were run. `git diff --check` passed. Handoff-only commit `d0acfdb807cb0ee3c7b682a5bee72facecb188f9` was pushed and verified with `git ls-remote`; this follow-up records the publication result. No unrelated files were staged or published. The exact `work done` signal means ChatGPT retrieves the latest published handoff, reviews it, and reports back. Next decisions: approve balance thresholds/benchmark, exact node/effect/cost/gate/depth/Tier III cap details, equipment discipline rules, Arcana access, CAS/rollback/conflict UX, and dormant-effect catalog/test process.
+
+## 9. Approved canonical perk and ability bible — v1.0
+
+The approved source of truth is now committed at `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md` on `review/mobile-working-copy`.
+
+- Status: **Approved; authoritative**. It supersedes earlier perk/ability proposals and discussions wherever they conflict.
+- Structure, node IDs, prerequisites, tiers, AP costs/economy, caps, stacking rules, phase gates, and signatures are final for implementation. All numeric values remain provisional for release, locked during implementation, and require simulation evidence plus human approval before changes.
+- No perk/ability gameplay implementation is authorized by this documentation task. Do not infer unspecified behavior or build deferred systems.
+- Required preservation: existing user-owned working-tree changes, legacy profile/account/economy/castle data, and compatibility behavior.
+- Source was added from the complete bible text supplied by the user in the conversation. Markdown list/table presentation was normalized for repository readability; design statements, values, IDs, requirements, gates, and acceptance tests were carried over.
+
+### Open specification review questions — do not resolve unilaterally
+
+1. **Catalog totals:** The bible states 47 nodes, “43 Phase 1, 4 gated.” The catalog appears to list 47 nodes; explicitly gated nodes are C3, C3a, and N3 (three nodes), while Summoner and Beastmaster are deferred signature abilities. Confirm the intended count split.
+2. **Branch node count:** The progression section says “all six nodes, core and alternate” cost 11 AP. Each listed core branch appears to have five nodes (T1, two alternative T2s, two alternative T3s) whose costs total 11 AP. Confirm whether “six” is a wording error.
+3. **Loaded Dice expected value:** F2 says expected value is neutral, but 10% × 150% + 10% × 75% + 80% × 100% = 102.5%; acceptance test 7 expects +2.5%. Confirm whether the prose or numeric behavior is intended. Do not change probabilities without approval.
+4. **Sustain terminology:** Acceptance test 14 describes a combined cap on “lifesteal” from Sanguine Edge, Crimson Covenant, and Regeneration, although Regeneration is a healing-over-time effect. Confirm whether the cap applies to all progression sustain as Section 3.2 says, and whether the test wording should be clarified.
+
+These questions are flags only; the approved bible itself has not been silently corrected. Documentation-only task commit adding the bible: `fd37d2454ebdd7134a6fbaba3c9f9aaa946dfde3`. Handoff update and safe publication must be recorded in a subsequent handoff-only commit if permitted by the current branch state. The exact `work done` signal continues to mean ChatGPT retrieves the latest published handoff, reviews it, and reports back.
+
