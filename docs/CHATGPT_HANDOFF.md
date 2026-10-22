@@ -977,3 +977,38 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - Code/test commit `5ec2515fc5d5a87afa05facc1a41f4d81f9f6ce4` (`Enable classless battle screen flow`) contains only the eight task files above. It was pushed to `origin/review/mobile-working-copy`; `git fetch`, `git rev-parse`, and `git ls-remote` all verified remote SHA `5ec2515fc5d5a87afa05facc1a41f4d81f9f6ce4`. No main merge or deploy occurred.
 - Next recommended task: connect the canonical universal perk progression validator/catalog to classless hero purchases and persistence, without claiming perk effects are active until their combat handlers are implemented and tested.
 - The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
+## 23. Pass 1 combat-effect implementation review — 2026-10-22
+
+### Checkpoint and boundaries
+
+- Started on `review/mobile-working-copy`, HEAD `041486f30ebb9c158ba25cafaee6a3eed7f10f31`; fetched `origin/review/mobile-working-copy` and verified it matched. The pre-existing working-tree modifications to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`, were preserved and excluded from task staging. No production accounts, profiles, database records, services, or configuration were accessed. No main merge, deployment, release, or Android build occurred.
+- Read `AGENTS.md`, the handoff history, and the canonical design bible. No canonical rules, baseline values, open questions, or phase gates were changed.
+
+### Implemented and verified in this pass
+
+- Extended the shared classless direct-hit pipeline so ordinary `_fire` attacks are explicitly classified as weapon damage and receive the same category-based calculation as Shared Strike. Base damage remains unmodified by perk ownership; weapon, situational, elemental, and critical bonuses are applied in the hit resolver to avoid reload/render compounding.
+- Added tested engine handling for 22 passive node IDs: `V1`, `V2`, `V2a`, `W1`, `W2`, `W2a`, `P1`, `P2`, `P2a`, `S1`, `S2`, `S3`, `T1`, `T2`, `C1`, `W3a`, `H1`, `F1`, `N1`, `I1`, `I2`, and `N2`. Implemented behavior includes max HP, mitigation, low-health and out-of-combat sustain, crit/speed/CDR, mark/follow-through/momentum/ambush conditional damage, direct-only evasion, lifesteal, decoy, Disrupt slow, and Ensnaring Roots. Slow also reduces enemy attack cooldown progress; roots stop enemy movement for their specified duration. Classless HP display, heal, recovery, revive, battle result bounds, and free-life paths now use effective max HP for Vitality.
+- Classless Perk UI now renders canonical human-readable names/descriptions and lists an effect as active only when the explicit handler registry contains it. `purchaseClasslessNode` continues to reject unhandled effects and phase-gated nodes. This does not enable any legacy class-specific perk handler for a classless hero.
+- Fixed the classless evasion bonus so the purchased evasion passives do not affect area attacks. Corrected Verdant Vigor's initial wait to the specified five seconds.
+- Existing classless screen lifecycle, result/save/normalize/reload path, Shared Strike UI-to-engine route, XP/AP/SP, and legacy combat behavior were regression-tested but not redesigned in this pass.
+
+### Remaining incomplete systems and limits
+
+- This pass does **not** complete the requested classless rebuild. Classless active abilities for V3/V3a, W3, P3/P3a, S2a/S3a, A3/A3a, T2a, C2/C2a, H2/H3, F3, and I3 are not connected to the classless TacticalMenu/engine loop, and remain unpurchasable through the production adapter. Several passive nodes also remain unhandled and unpurchasable, including Arcana element selection/chaining, Tactics aura/Opening, Conjuration Echo, Fortune Loaded Dice, and Phase 1.5/Phase 2 content. The bible's mathematically inconsistent Loaded Dice expected-value note remains unresolved and unchanged.
+- The engine tests use deterministic local scenarios and the existing disposable screen integration harness; they do not verify live backend behavior, Android/device rendering, natural wave balance, or production profiles. No full frontend suite was run. Current combat effects should not be described as fully complete or release-balanced.
+- The safety gates were already removed in the previously published Milestone 4 implementation, after the screen-level disposable test; neither gate was changed during this pass.
+
+### Validation and files
+
+- Focused command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/engine.classless.test.js src/game/classlessProgression.test.js src/game/classlessBattleResults.test.js src/screens/Roster.classlessProgression.test.jsx src/game/classlessPersistence.test.js` — PASS, 5 suites / 51 tests. The first run before updating the stale C1-pending assertion failed in two assertions; the test now correctly treats C1 as active and C2 as pending.
+- Combined regression command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/screens/classlessScreen.integration.test.jsx src/context/classlessBattleCompletion.provider.test.jsx src/screens/Battle.tactical-flow.test.jsx src/components/TacticalMenu.test.jsx src/game/engine.classless.test.js src/game/engine.targeting.test.js src/game/engine.abilities.test.js src/game/classlessProgression.test.js src/game/classlessBattleResults.test.js src/game/classlessPersistence.test.js src/screens/Roster.classlessProgression.test.jsx src/game/logic.classlessHero.test.js` — PASS, 12 suites / 119 tests.
+- `npm run build` from `frontend/` — PASS, optimized production bundle compiled. Node emitted the existing non-fatal `fs.F_OK` deprecation warning.
+- `git diff --check` — PASS after implementation and handoff edit. No full frontend suite, backend/live API, production-data, Android, or device test was run.
+- Task code/test files: `frontend/src/components/ClasslessPerkTree.jsx`, `frontend/src/game/classlessBattleResults.js`, `frontend/src/game/classlessCombatEffects.js`, `frontend/src/game/classlessProgression.js`, `frontend/src/game/classlessProgression.test.js`, `frontend/src/game/engine.classless.test.js`, `frontend/src/game/engine.js`, `frontend/src/game/heroModel.js`, `frontend/src/game/logic.js`, `frontend/src/screens/Roster.classlessProgression.test.jsx`, and `frontend/src/screens/Roster.jsx`. The known user-owned files listed above are not part of this task.
+
+### Publication and next step
+
+- At this note's creation, no commit or push for this pass has been made; code and handoff changes are local. Record any later task commit and handoff-only publication commits with their actual SHA after verification.
+- Next recommended task: implement the classless active ability execution and tactical status path, beginning with one cohesive branch of canonical Phase 1 active nodes, then wire and test the remaining defined current-phase passive handlers. Do not call the classless rebuild complete until all permitted nodes and abilities have real, tested runtime consumers.
+- The exact phrase `work done` means ChatGPT should retrieve and review the latest published handoff.
