@@ -1,6 +1,7 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { createNewState } from "../game/logic";
+import { createHeroModel } from "../game/heroModel";
 import Battle from "./Battle";
 
 let mockGameContext;
@@ -141,6 +142,19 @@ describe("Battle tactical menu lifecycle", () => {
     expect(container.querySelector('[data-testid="combat-action-notice"]').textContent).toContain("ABILITY COMPLETE");
     act(() => jest.advanceTimersByTime(1500));
     expect(container.querySelector('[data-testid="combat-action-notice"]')).toBeNull();
+  });
+
+  test("keeps classless heroes out of the live battle engine", () => {
+    jest.useFakeTimers();
+    const state = createNewState();
+    state.heroes = [createHeroModel({ id: "classless-live-gate", name: "Aster" })];
+    mockGameContext = { state, mutate: jest.fn(), setScreen: jest.fn(), setLastResult: jest.fn() };
+
+    act(() => root.render(<Battle />));
+
+    expect(container.textContent).toContain("Classless heroes are not enabled in live battle yet.");
+    expect(mockEngineInstance).toBeNull();
+    expect(mockGameContext.setScreen).toHaveBeenCalledWith("prep");
   });
 
   test("keeps the five-category dock available over a visible battlefield without triggering actions", () => {

@@ -16,6 +16,7 @@ import {
 
 export default function Battle() {
   const { state, mutate, setScreen, setLastResult } = useGame();
+  const hasClasslessHeroes = state?.heroes?.some((hero) => !hero.cls && hero.combat);
   const canvasRef = useRef();
   const engineRef = useRef();
   const simRef = useRef();
@@ -56,6 +57,8 @@ export default function Battle() {
   }, []);
 
   useEffect(() => {
+    if (hasClasslessHeroes) { setScreen("prep"); return; }
+    if (!state) return;
     const sim = structuredClone(state);
     battleHeroIds.current = (sim.heroes || []).map((hero) => hero.id);
     chargeUpkeep(sim);
@@ -619,6 +622,7 @@ export default function Battle() {
   };
 
   if (!state) return null;
+  if (hasClasslessHeroes) return <div className="h-full flex items-center justify-center p-6 text-center font-mono-g text-yellow-300">Classless heroes are not enabled in live battle yet.</div>;
   const sim = simRef.current;
   const blockadeStatus = guildBlockadeStatus(sim || state, blockadeNow);
   const guild = sim?.buildings?.guild || state.buildings?.guild;
