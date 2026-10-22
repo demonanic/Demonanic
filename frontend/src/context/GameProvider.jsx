@@ -6,6 +6,7 @@ import { emptyEquipmentState } from "../game/equipment";
 import { normalizePerks } from "../game/perks";
 import { heroDerived } from "../game/logic";
 import * as C from "../game/config";
+import { normalizeClasslessHero } from "../game/heroModel";
 
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
@@ -15,8 +16,10 @@ function safeErrorDetails(error) {
 }
 
 // Backward-compat for older saves.
-function normalizeState(s) {
-  if (!s || typeof s !== "object") return s;
+export function normalizeState(s) {
+  if (!s || typeof s !== "object" || Array.isArray(s)) throw new TypeError("Invalid game state");
+  // Normalize a disposable copy so malformed input can never be half-mutated.
+  s = JSON.parse(JSON.stringify(s));
   if (!s.bench) s.bench = [];
   // One-time economy migration: convert legacy Food to Metal at 10:1, then remove Food.
   if (!Number.isFinite(Number(s.metal))) s.metal = Math.floor(Math.max(0, Number(s.food) || 0) / 10);
@@ -94,8 +97,15 @@ function normalizeState(s) {
     const maxHp = Math.max(0, Math.min(C.BARRICADE.maxHp, Number(prior.maxHp) || 0));
     return { ...prior, maxHp, hp: Math.max(0, Math.min(maxHp, Number(prior.hp) || 0)) };
   });
+  for (const roster of [s.heroes, s.bench]) {
+    if (!Array.isArray(roster)) continue;
+    roster.forEach((h, index) => {
+      if (h && !h.cls && (h.combat || h.identity)) roster[index] = normalizeClasslessHero(h);
+    });
+  }
   if (Array.isArray(s.heroes)) {
     s.heroes.forEach((h) => {
+      if (h && !h.cls && (h.combat || h.identity)) return;
       if (h && !h.id) h.id = `${h.cls || h.key}-${Math.random().toString(36).slice(2)}`;
       if (h) {
         h.perks = normalizePerks(h.cls, h.perks);
@@ -108,7 +118,7 @@ function normalizeState(s) {
       }
     });
   }
-  if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h) ensureMageSpellData(h); });
+  if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h?.cls) ensureMageSpellData(h); });
   const firstMage = [...(s.heroes || []), ...(s.bench || [])].find((h) => h?.cls === "mage");
   if (firstMage) (s.libraryBlueprints || []).forEach((blueprint) => { if (blueprint && !blueprint.mageId) { blueprint.mageId = firstMage.id; blueprint.mageName = firstMage.name; } });
   // Migrate older global Library orders to one stable mage without discarding progress.

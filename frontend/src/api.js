@@ -1,5 +1,6 @@
 import axios from "axios";
 import { resolveApiBaseUrl } from "./apiConfig";
+import { serializeGameState } from "./game/heroModel";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = resolveApiBaseUrl(BACKEND_URL);
@@ -100,11 +101,11 @@ export const gameApi = {
     client.get("/game/state"),
 
   createState: (state) =>
-    client.post("/game/state", { state }),
+    client.post("/game/state", { state: serializeGameState(state) }),
 
   saveState: (state) =>
     client.put("/game/state", {
-      state,
+      state: serializeGameState(state),
     }),
 
   reward: (

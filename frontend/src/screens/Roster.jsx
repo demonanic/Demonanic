@@ -24,6 +24,20 @@ export default function Roster() {
   const commitEdit = (list, idx) => { act((s) => renameHero(s, list, idx, nameVal), "Renamed"); setEditing(null); };
 
   const Row = ({ h, list, idx }) => {
+    if (!h.cls && h.combat) return (
+      <div className="glass-card rounded-xl p-3" data-testid={`roster-${list}-${idx}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-12 rounded shrink-0 border border-cyan-400/30 bg-black/30" aria-label={h.appearance?.id ? `Appearance ${h.appearance.id}` : "Appearance not selected"} />
+          <div className="flex-1 min-w-0">
+            <div className="font-display font-bold text-sm text-cyan-200">{h.identity?.name || "Hero"}</div>
+            <div className="font-mono-g text-[10px] text-slate-400">Classless · L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{h.combat.maxHp} HP</div>
+            <div className="font-mono-g text-[9px] text-slate-500">Appearance: {h.appearance?.id || "Unselected"}</div>
+            <div className="font-mono-g text-[9px] text-slate-500">ATK{h.combat.stats?.attack} DEF{h.combat.stats?.defense} AGL{h.combat.stats?.agility} INT{h.combat.stats?.intelligence}</div>
+            <StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={3} />
+          </div>
+        </div>
+      </div>
+    );
     const cls = C.HERO_CLASSES[h.cls];
     const d = heroDerived(h);
     const key = `${list}-${idx}`;
@@ -95,7 +109,7 @@ export default function Roster() {
       <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-4">\n        <div>
           <SectionTitle color="cyan">Active Squad</SectionTitle>
           <div className="grid gap-2.5 mt-2" data-testid="roster-squad">
-            {state.heroes.map((h, i) => <Row key={h.id} h={h} list="squad" idx={i} />)}
+            {state.heroes.map((h, i) => <Row key={h.id || h.identity?.id || i} h={h} list="squad" idx={i} />)}
           </div>
         </div>
 
@@ -103,7 +117,7 @@ export default function Roster() {
           <div>
             <SectionTitle color="yellow">Bench</SectionTitle>
             <div className="grid gap-2.5 mt-2" data-testid="roster-bench">
-              {state.bench.map((h, i) => <Row key={h.id} h={h} list="bench" idx={i} />)}
+              {state.bench.map((h, i) => <Row key={h.id || h.identity?.id || i} h={h} list="bench" idx={i} />)}
             </div>
           </div>
         )}
@@ -111,7 +125,7 @@ export default function Roster() {
 
       </div>
 
-      {hero && (
+      {hero && !(!hero.cls && hero.combat) && (
         <HeroCard hero={hero} editable
           onAlloc={(st) => mutate((s) => allocateSp(open.list === "squad" ? s.heroes[open.idx] : s.bench[open.idx], st))}
           onPerk={(p) => mutate((s) => { if (!buyPerk(open.list === "squad" ? s.heroes[open.idx] : s.bench[open.idx], p)) toast.error("Not enough AP"); })}

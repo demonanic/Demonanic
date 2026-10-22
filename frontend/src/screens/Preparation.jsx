@@ -53,7 +53,11 @@ export default function Preparation() {
     repairBarricade: (pos) => act((s) => repairBarricade(s, pos), "Repaired"),
   };
 
-  const startWave = () => { saveNow(); setScreen("battle"); };
+  const hasClasslessSquad = state.heroes.some((hero) => !hero.cls && hero.combat);
+  const startWave = () => {
+    if (hasClasslessSquad) { toast.error("Classless heroes are not yet supported by combat"); return; }
+    saveNow(); setScreen("battle");
+  };
 
   const heal = (list, idx) => act(
     (s) => healHero(s, list === "squad" ? s.heroes[idx] : s.bench[idx]),
@@ -182,12 +186,14 @@ export default function Preparation() {
                   />
                 ))}
               </div>
+              {hasClasslessSquad && <p className="mt-2 font-mono-g text-[10px] text-yellow-300" data-testid="classless-combat-notice">Classless heroes are saved and viewable, but cannot enter combat yet.</p>}
 
               {state.bench && state.bench.length > 0 && (
                 <div className="glass-card rounded-xl p-3 mt-3" data-testid="bench-panel">
                   <SectionTitle color="yellow">Bench · Swap into Squad</SectionTitle>
                   <div className="grid gap-2 mt-2">
                     {state.bench.map((h, bi) => {
+                      if (!h.cls && h.combat) return <div key={h.identity?.id || bi} className="flex items-center gap-2 p-2 rounded-lg bg-black/30 border-l-[3px] border-cyan-400/40" data-testid={`bench-hero-${bi}`}><div className="w-9 h-9 rounded border border-cyan-400/30 bg-black/30" /><span className="font-mono-g text-xs flex-1 text-cyan-200">{h.identity?.name || "Hero"} · Classless · L{h.progression?.level || 1} · Appearance: {h.appearance?.id || "Unselected"}</span></div>;
                       const c = C.HERO_CLASSES[h.cls];
                       return (
                         <div key={h.id} className="flex items-center gap-2 p-2 rounded-lg bg-black/30" style={{ borderLeft: `3px solid ${c.color}` }} data-testid={`bench-hero-${bi}`}>
@@ -260,6 +266,10 @@ export default function Preparation() {
 }
 
 function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, gold, testid }) {
+  if (!h.cls && h.combat) return <div data-testid={testid} className="glass-card rounded-xl p-3 flex items-center gap-3 border-l-[3px] border-cyan-400/40">
+    <div className="w-12 h-12 rounded border border-cyan-400/30 bg-black/30 shrink-0" aria-label={h.appearance?.id ? `Appearance ${h.appearance.id}` : "Appearance not selected"} />
+    <div className="min-w-0 flex-1"><div className="font-display font-bold text-cyan-200">{h.identity?.name || "Hero"} · Classless</div><div className="font-mono-g text-[10px] text-slate-400">L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{h.combat.maxHp} HP · Appearance: {h.appearance?.id || "Unselected"}</div><StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={4} /></div>
+  </div>;
   const d = heroDerived(h);
   const cls = C.HERO_CLASSES[h.cls];
   const wounded = h.hp > 0 && h.hp < d.maxHp;

@@ -87,3 +87,65 @@ export function withHeroAppearance(hero, appearanceId) {
     hero: { ...hero, appearance: { ...(hero.appearance || {}), id: appearanceId?.trim() || null } },
   };
 }
+
+// Persistence adapter for the pre-combat classless model. It preserves known
+// extensions while repairing malformed optional fields from the approved baseline.
+export function normalizeClasslessHero(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new TypeError("Invalid classless hero");
+  const hero = JSON.parse(JSON.stringify(input));
+  const identity = hero.identity && typeof hero.identity === "object" ? hero.identity : {};
+  const combat = hero.combat && typeof hero.combat === "object" ? hero.combat : {};
+  const progression = hero.progression && typeof hero.progression === "object" ? hero.progression : {};
+  const numeric = (value, fallback, min = 0) => value !== null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= min ? Number(value) : fallback;
+  const stats = combat.stats && typeof combat.stats === "object" ? combat.stats : {};
+  const attack = combat.basicAttack && typeof combat.basicAttack === "object" ? combat.basicAttack : {};
+  const appearance = hero.appearance && typeof hero.appearance === "object" ? hero.appearance : {};
+  hero.identity = {
+    ...identity,
+    id: typeof identity.id === "string" && identity.id.trim() ? identity.id.trim() : newHeroId(),
+    name: typeof identity.name === "string" && identity.name.trim() ? identity.name.trim() : "Hero",
+  };
+  hero.appearance = { ...appearance, id: typeof appearance.id === "string" && appearance.id.trim() ? appearance.id.trim() : null };
+  hero.combat = {
+    ...combat,
+    hp: Math.min(numeric(combat.hp, HERO_BASELINE.hp), numeric(combat.maxHp, HERO_BASELINE.hp, 1)),
+    maxHp: numeric(combat.maxHp, HERO_BASELINE.hp, 1),
+    stats: { ...stats, ...Object.fromEntries(Object.entries(HERO_BASELINE.stats).map(([key, base]) => [key, numeric(stats[key], base)])) },
+    basicAttack: {
+      ...attack,
+      damage: numeric(attack.damage, HERO_BASELINE.basicAttack.damage, 0.01),
+      intervalSeconds: numeric(attack.intervalSeconds, HERO_BASELINE.basicAttack.intervalSeconds, 0.01),
+      range: numeric(attack.range, HERO_BASELINE.basicAttack.range, 0),
+      rangeMode: typeof attack.rangeMode === "string" && attack.rangeMode ? attack.rangeMode : HERO_BASELINE.basicAttack.rangeMode,
+      movementSpeed: numeric(attack.movementSpeed, HERO_BASELINE.basicAttack.movementSpeed, 0),
+      targetPolicy: typeof attack.targetPolicy === "string" && attack.targetPolicy ? attack.targetPolicy : HERO_BASELINE.basicAttack.targetPolicy,
+      targetTieBreak: typeof attack.targetTieBreak === "string" && attack.targetTieBreak ? attack.targetTieBreak : HERO_BASELINE.basicAttack.targetTieBreak,
+      criticalChance: numeric(attack.criticalChance, HERO_BASELINE.basicAttack.criticalChance, 0),
+      criticalDamageMultiplier: numeric(attack.criticalDamageMultiplier, HERO_BASELINE.basicAttack.criticalDamageMultiplier, 1),
+      dodgeChance: numeric(attack.dodgeChance, HERO_BASELINE.basicAttack.dodgeChance, 0),
+    },
+    capabilities: {
+      ...(combat.capabilities && typeof combat.capabilities === "object" ? combat.capabilities : {}),
+      sharedStrike: {
+        ...HERO_BASELINE.sharedStrike,
+        effects: { ...HERO_BASELINE.sharedStrike.effects },
+      },
+    },
+  };
+  hero.progression = {
+    ...progression,
+    level: Math.floor(numeric(progression.level, 1, 1)),
+    xp: numeric(progression.xp, 0), ap: numeric(progression.ap, 0), sp: numeric(progression.sp, 0),
+    ownedNodeIds: Array.isArray(progression.ownedNodeIds) ? progression.ownedNodeIds.filter((id) => typeof id === "string") : [],
+  };
+  return hero;
+}
+
+// JSON-compatible snapshot for the existing profile API. JSON.stringify is
+// intentionally performed before any caller state is touched.
+export function serializeGameState(state) {
+  if (!state || typeof state !== "object" || Array.isArray(state)) throw new TypeError("Invalid game state");
+  const serialized = JSON.stringify(state);
+  if (serialized === undefined) throw new TypeError("Game state is not serializable");
+  return JSON.parse(serialized);
+}

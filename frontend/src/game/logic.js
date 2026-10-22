@@ -198,7 +198,7 @@ export function retireHero(state, benchIdx) {
 
 export function castlePower(state) {
   let cp = 0;
-  for (const h of state.heroes) cp += h.level;
+  for (const h of state.heroes) cp += h.level ?? h.progression?.level ?? 0;
   for (const t of state.towers) if (t) cp += Math.max(1, Number(t.level) || 1);
   return cp;
 }
