@@ -1009,6 +1009,6 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 
 ### Publication and next step
 
-- At this note's creation, no commit or push for this pass has been made; code and handoff changes are local. Record any later task commit and handoff-only publication commits with their actual SHA after verification.
+- Code/test commit `96e8b09` (`Implement additional classless combat passives`) and handoff-only commit `ee84251` (`Record classless combat passives implementation`) were pushed to `origin/review/mobile-working-copy`. Fetch and `git ls-remote` verified SHA `ee842514f8bb6fb955066d16f7e6e66a0b4ffe8b`, matching local HEAD at that verification. This final handoff-only note records the new resulting branch SHA in the Codex report.
 - Next recommended task: implement the classless active ability execution and tactical status path, beginning with one cohesive branch of canonical Phase 1 active nodes, then wire and test the remaining defined current-phase passive handlers. Do not call the classless rebuild complete until all permitted nodes and abilities have real, tested runtime consumers.
 - The exact phrase `work done` means ChatGPT should retrieve and review the latest published handoff.
