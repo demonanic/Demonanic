@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { useGame } from "@/context/GameProvider";
-import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "@/components/ui-kit";
-import { HeroCard, TowerCard } from "@/components/cards";
-import PrepField from "@/components/PrepField";
-import CastleBuildings from "@/components/CastleBuildings";
-import DebugPanel from "@/components/DebugPanel";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useGame } from "../context/GameProvider";
+import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } from "../components/ui-kit";
+import { HeroCard, TowerCard } from "../components/cards";
+import PrepField from "../components/PrepField";
+import CastleBuildings from "../components/CastleBuildings";
+import DebugPanel from "../components/DebugPanel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
-import * as C from "@/game/config";
-import { isRewardedAdConfirmed } from "@/game/rewards";
-import { gameApi } from "@/api";
+import * as C from "../game/config";
+import { isRewardedAdConfirmed } from "../game/rewards";
+import { gameApi } from "../api";
 import {
   castlePower, slotCap, canAfford, buildTower, dismantleTower, repairTower, upgradeTower, chooseTowerSpecialization, resupplyTower, repositionTower,
   buyBarricade, repairBarricade, buyWorker, commitHeroProgressionDraft, repairCastle,
   swapHero, heroDerived, productionRates, healHero, reviveHero,
-} from "@/game/logic";
+} from "../game/logic";
 
 export default function Preparation() {
   const { state, mutate, setScreen, saveNow, offlineGains } = useGame();
