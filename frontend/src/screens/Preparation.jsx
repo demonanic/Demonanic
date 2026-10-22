@@ -175,7 +175,7 @@ export default function Preparation() {
               <div className="grid gap-2.5" data-testid="hero-list">
                 {state.heroes.map((h, i) => (
                   <HeroRow
-                    key={h.id}
+                    key={h.id || h.identity?.id || i}
                     h={h}
                     onClick={() => setOpenHero({ list: "squad", idx: i })}
                     onHeal={() => heal("squad", i)}
