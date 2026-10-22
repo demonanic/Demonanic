@@ -14,11 +14,26 @@ const REASONS = {
 
 const EFFECT_LABELS = {
   V1: "+8% direct weapon damage (active)",
+  V2: "+10% follow-through damage (active)",
+  V2a: "+4% consecutive-hit damage per stack (active)",
+  W1: "+8% maximum HP (active)",
+  W2: "−6% incoming damage (active)",
+  W2a: "1.5% maximum HP per second below half HP (active)",
   P1: "+8 percentage points critical chance (active)",
   P2a: "+20 percentage points critical damage (active)",
   S1: "+5% attack speed (active)",
+  S2: "8% direct-attack evasion (active)",
+  S3: "+25% first hit after 3 seconds idle (active)",
+  W3a: "25% damage reduction below 25% HP (active)",
   T1: "+5% active cooldown reduction (active)",
+  T2: "15% slow on first hit every 8 seconds (active)",
+  C1: "+8% damage to targets hit by an active ability (active)",
+  H1: "2% direct-hit lifesteal (active)",
   F1: "+15 percentage points critical damage (active)",
+  N1: "1% maximum HP regeneration every 3s after 5s without damage (active)",
+  I1: "8% evasion at full HP (active)",
+  I2: "15% chance to create a one-hit decoy (active)",
+  N2: "Root the next target every 12 seconds (active)",
 };
 
 export default function ClasslessPerkTree({ hero, onPurchase, onAllocate, onClose }) {
@@ -66,13 +81,13 @@ export default function ClasslessPerkTree({ hero, onPurchase, onAllocate, onClos
                   return (
                     <div key={node.id} className="flex items-center gap-2 rounded border border-white/10 bg-white/[0.025] p-2" data-testid={`classless-node-${node.id}`}>
                       <div className="min-w-0 flex-1">
-                        <div className="font-mono-g text-xs font-bold text-slate-100">{node.id} · Tier {node.tier}</div>
+                        <div className="font-mono-g text-xs font-bold text-slate-100">{node.name} · {node.id} · Tier {node.tier}</div>
                         <div className="font-mono-g text-[9px] text-slate-400">
                           {node.apCost} AP · Level {node.minLevel}
                           {node.prerequisites.length ? ` · Requires ${node.prerequisites.join(" or ")}` : " · No prerequisite"}
                         </div>
                         <div className={`font-mono-g text-[9px] ${EFFECT_LABELS[node.id] ? "text-emerald-300" : "text-amber-300"}`}>
-                          {EFFECT_LABELS[node.id] || "Effect pending — ownership only"}
+                          {EFFECT_LABELS[node.id] ? node.description : `Effect pending — ${node.description}`}
                         </div>
                         {node.gated && <div className="font-mono-g text-[9px] text-yellow-300">Unavailable — system pending</div>}
                       </div>

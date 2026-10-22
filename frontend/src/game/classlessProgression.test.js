@@ -100,9 +100,9 @@ describe("purchaseNode", () => {
 
   test("does not spend AP on a node whose combat effect is not implemented", () => {
     const hero = createHero();
-    hero.progression.ap = 1;
+    hero.progression = { level: 5, xp: 0, ap: 2, sp: 4, ownedNodeIds: ["C1"] };
     const before = JSON.stringify(hero);
-    expect(purchaseClasslessNode(hero, "H1")).toEqual({ ok: false, reason: "effect_pending" });
+    expect(purchaseClasslessNode(hero, "C2")).toEqual({ ok: false, reason: "effect_pending" });
     expect(JSON.stringify(hero)).toBe(before);
   });
 

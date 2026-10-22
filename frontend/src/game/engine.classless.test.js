@@ -55,15 +55,64 @@ describe("bounded classless combat adapter", () => {
     expect(refreshed.heroes[0].d.dodge).toBeCloseTo(0.06);
   });
 
-  test("implemented universal passive nodes change derived combat and Shared Strike cooldown", () => {
+  test("implemented universal passive nodes change hits, crits, attack speed, and Shared Strike cooldown", () => {
     const hero = createHeroModel({ id: "passive-build" });
     hero.progression.ownedNodeIds = ["V1", "P1", "P2a", "S1", "T1", "F1"];
     const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
-    expect(engine.heroes[0].d.attack).toBeCloseTo(16 * 1.08);
+    expect(engine.heroes[0].d.attack).toBe(16);
     expect(engine.heroes[0].d.rate).toBeCloseTo(1.05 / 1.05);
     expect(engine.heroes[0].d.critChance).toBeCloseTo(0.13);
     expect(engine.heroes[0].d.critMult).toBeCloseTo(1.85);
     expect(engine.getHeroAbilityStatus(0)[0].cooldownSeconds).toBeCloseTo(11.4);
+    const target = enemy("training target", engine.heroes[0].x + 40, engine.heroes[0].y, { hp: 100, maxHp: 100 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    expect(engine._applyHit({ sourceId: "H0", target, dmg: 16, damageCategory: "weapon", classless: true, heroIndex: 0 })).toBe(true);
+    expect(target.hp).toBeCloseTo(100 - 16 * 1.08);
+    random.mockRestore();
+  });
+
+  test("conditional damage passives apply once through the shared direct-hit pipeline", () => {
+    const hero = createHeroModel({ id: "conditional-build" });
+    hero.progression.ownedNodeIds = ["V2", "V2a", "P2", "S3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const target = enemy("conditional target", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 1000, maxHp: 1000 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    const hit = () => engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 16, classless: true, damageCategory: "weapon" });
+
+    engine.time = 3;
+    hit(); // first hit marks and receives Ambush; Momentum starts at zero
+    expect(target.hp).toBeCloseTo(1000 - 16 * 1.25);
+    engine.time = 3.1;
+    hit(); // Follow-Through, Mark and one Momentum stack
+    expect(target.hp).toBeCloseTo(1000 - 20 - 16 * (1 + 0.10 + 0.10 + 0.04));
+    expect(target.classlessMarks[0].expiresAt).toBe(8);
+    random.mockRestore();
+  });
+
+  test("control passives apply documented slow/root cadence and boss duration", () => {
+    const hero = createHeroModel({ id: "control-build" });
+    hero.progression.ownedNodeIds = ["T1", "T2", "N1", "N2"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const target = enemy("boss", engine.heroes[0].x + 30, engine.heroes[0].y, { boss: true });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 16, classless: true, damageCategory: "weapon" });
+    expect(target.slowUntil).toBe(3);
+    expect(target.slowMultiplier).toBeCloseTo(0.95);
+    expect(target.attackSlowMultiplier).toBeCloseTo(0.95);
+    expect(target.rootUntil).toBe(0.5);
+    random.mockRestore();
+  });
+
+  test("classless evasion perks do not evade area attacks", () => {
+    const hero = createHeroModel({ id: "evasion-build" });
+    hero.progression.ownedNodeIds = ["S1", "S2", "I1"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtime = engine.heroes[0];
+    expect(engine._heroDodgeChance(runtime, true)).toBeCloseTo(runtime.d.dodge);
+    expect(engine._heroDodgeChance(runtime, false)).toBeCloseTo(runtime.d.dodge + 0.16);
   });
 
   test("midline uses its explicit mode even below the legacy numeric threshold and holds position", () => {

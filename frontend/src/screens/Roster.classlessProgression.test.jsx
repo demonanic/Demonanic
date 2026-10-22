@@ -92,8 +92,9 @@ describe("classless perk purchase through roster and profile persistence", () =>
     expect(container.querySelector('[data-testid="classless-node-purchase-V1"]').disabled).toBe(false);
     expect(container.querySelector('[data-testid="classless-node-purchase-V2"]').disabled).toBe(true);
     expect(container.querySelector('[data-testid="classless-node-purchase-C3"]').disabled).toBe(true);
-    expect(container.querySelector('[data-testid="classless-node-purchase-H1"]').disabled).toBe(true);
-    expect(container.querySelector('[data-testid="classless-node-purchase-H1"]').textContent).toContain("effect pending");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C1"]').disabled).toBe(false);
+    expect(container.querySelector('[data-testid="classless-node-C1"]').textContent).toContain("active");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C2"]').disabled).toBe(true);
 
     await click("classless-node-purchase-V1");
     expect(container.querySelector('[data-testid="classless-node-purchase-V1"]').textContent).toBe("OWNED");

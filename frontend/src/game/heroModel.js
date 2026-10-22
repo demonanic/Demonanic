@@ -1,3 +1,5 @@
+import { classlessMaxHp } from "./classlessCombatEffects";
+
 // Authoritative starting combat profile for newly created classless heroes.
 // Appearance and progression are deliberately separate from combat identity.
 export const HERO_BASELINE = Object.freeze({
@@ -100,6 +102,7 @@ export function normalizeClasslessHero(input) {
   const stats = combat.stats && typeof combat.stats === "object" ? combat.stats : {};
   const attack = combat.basicAttack && typeof combat.basicAttack === "object" ? combat.basicAttack : {};
   const appearance = hero.appearance && typeof hero.appearance === "object" ? hero.appearance : {};
+  const baseMaxHp = numeric(combat.maxHp, HERO_BASELINE.hp, 1);
   hero.identity = {
     ...identity,
     id: typeof identity.id === "string" && identity.id.trim() ? identity.id.trim() : newHeroId(),
@@ -108,8 +111,8 @@ export function normalizeClasslessHero(input) {
   hero.appearance = { ...appearance, id: typeof appearance.id === "string" && appearance.id.trim() ? appearance.id.trim() : null };
   hero.combat = {
     ...combat,
-    hp: Math.min(numeric(combat.hp, HERO_BASELINE.hp), numeric(combat.maxHp, HERO_BASELINE.hp, 1)),
-    maxHp: numeric(combat.maxHp, HERO_BASELINE.hp, 1),
+    hp: Math.min(numeric(combat.hp, HERO_BASELINE.hp), classlessMaxHp({ combat: { maxHp: baseMaxHp }, progression })),
+    maxHp: baseMaxHp,
     stats: { ...stats, ...Object.fromEntries(Object.entries(HERO_BASELINE.stats).map(([key, base]) => [key, numeric(stats[key], base)])) },
     basicAttack: {
       ...attack,

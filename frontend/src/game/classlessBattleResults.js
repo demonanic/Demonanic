@@ -1,5 +1,6 @@
 import { serializeGameState } from "./heroModel";
 import { awardClasslessXp } from "./classlessProgression";
+import { classlessMaxHp } from "./classlessCombatEffects";
 
 const classlessId = (hero) => !hero?.cls && hero?.combat && typeof hero.identity?.id === "string"
   ? hero.identity.id
@@ -19,8 +20,8 @@ export function mergeClasslessBattleResults(state, { heroIds, runtimeHeroes, xpG
     if (!hero) continue;
     const runtime = runtimeHeroes[index];
     if (!runtime || !runtime.combat || !Number.isFinite(runtime.combat.hp) ||
-        !Number.isFinite(hero.combat.maxHp) || hero.combat.maxHp <= 0 ||
-        runtime.combat.hp < 0 || runtime.combat.hp > hero.combat.maxHp ||
+        !Number.isFinite(hero.combat.maxHp) || classlessMaxHp(hero) <= 0 ||
+        runtime.combat.hp < 0 || runtime.combat.hp > classlessMaxHp(hero) ||
         !hero.progression || !Number.isFinite(hero.progression.xp) || hero.progression.xp < 0) {
       throw new TypeError("Invalid classless runtime HP");
     }

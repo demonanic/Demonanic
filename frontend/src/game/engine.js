@@ -8,7 +8,7 @@ import { rollEquipmentDrop } from "./equipment";
 import { unlockedAbilities, getAbility, MAGE_SPELLS } from "./perks";
 import { logicalTowerPosition } from "./towerPlacement";
 import { HERO_BASELINE } from "./heroModel";
-import { classlessCombatEffects } from "./classlessCombatEffects";
+import { classlessCombatEffects, classlessMaxHp } from "./classlessCombatEffects";
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -41,9 +41,9 @@ function classlessHeroDerived(hero) {
   const attack = combat.basicAttack;
   const stats = combat.stats;
   const effects = classlessCombatEffects(hero.progression?.ownedNodeIds);
-  const attackDamage = (attack.damage + ((Number(stats.attack) || 10) - HERO_BASELINE.stats.attack)) * (1 + effects.weaponDamage);
+  const attackDamage = attack.damage + ((Number(stats.attack) || 10) - HERO_BASELINE.stats.attack);
   return {
-    maxHp: combat.maxHp,
+    maxHp: classlessMaxHp(hero),
     // Baseline attack stat 10 maps to the approved 16 weapon damage; each
     // allocated Attack point adds one weapon damage, matching legacy stat scaling.
     attack: attackDamage,
@@ -65,6 +65,15 @@ function classlessHeroDerived(hero) {
     abilityDamageMultiplier: 1,
     perkEffects: {},
     cooldownMultiplier: 1 - effects.cooldownReduction,
+    damageReduction: effects.damageReduction,
+    regeneration: effects.regeneration,
+    regenerationBelowHalf: effects.regenerationBelowHalf,
+    evasion: effects.evasion,
+    fullHpEvasion: effects.fullHpEvasion,
+    lastStand: effects.lastStand,
+    lifesteal: effects.lifesteal,
+    decoyChance: effects.decoyChance,
+    classlessEffects: effects,
     color: "#22D3EE",
     classless: true,
   };
@@ -153,6 +162,10 @@ export class Engine {
         mana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         currentTarget: null,
         speedRushUntil: 0,
+        classlessCombatState: classless ? { lastDamageAt: 0, sustainSecond: -1, sustainRestored: 0,
+          nextRegenAt: 5, lastStandUntil: 0, lastStandReadyAt: 0, decoy: false, mirrorReadyAt: 0,
+          nextDisruptAt: 0, nextRootAt: 0, lastDealtAt: 0, momentumTarget: null,
+          momentumStacks: 0, ambushTargets: new Set() } : null,
       };
     });
 
@@ -258,7 +271,7 @@ export class Engine {
       const capability = HERO_BASELINE.sharedStrike;
       const cooldown = Math.max(0, h.abilityCooldowns[capability.id] || 0);
       const target = this._selectTarget(h);
-      const baselineDamage = Math.round(h.d.attack * capability.damageMultiplier);
+      const baselineDamage = Math.round(h.d.attack * capability.damageMultiplier * (1 + h.d.classlessEffects.weaponDamage));
       return [{ id: capability.id, name: "Shared Strike",
         desc: `${baselineDamage} raw direct-hit weapon damage at baseline (150%); 12s cooldown; no resource cost.`,
         damage: baselineDamage, cooldownSeconds: capability.cooldownSeconds * h.d.cooldownMultiplier,
@@ -681,6 +694,10 @@ export class Engine {
       critMult: h.d.critMult,
       perkData: null,
       sharedStrike: true,
+      classless: true,
+      heroIndex: h.i,
+      ability: true,
+      damageCategory: "weapon",
     });
     h.abilityCooldowns[HERO_BASELINE.sharedStrike.id] = HERO_BASELINE.sharedStrike.cooldownSeconds * h.d.cooldownMultiplier;
     this.actionCompletions.push({ index, result: "completed" });
@@ -1009,6 +1026,7 @@ export class Engine {
       }
       if (h.protect > 0) { h.protect -= dt; continue; }
       for (const id of Object.keys(h.abilityCooldowns)) h.abilityCooldowns[id] = Math.max(0, h.abilityCooldowns[id] - dt);
+      this._tickClasslessSustain(h, dt);
       for (const id of Object.keys(h.spellCooldowns)) h.spellCooldowns[id] = Math.max(0, h.spellCooldowns[id] - dt);
       h.mana = Math.min(h.maxMana, h.mana + (2 + Math.max(0, h.d.intelligence || 0) * 0.04) * dt);
       h.cd -= dt;
@@ -1214,7 +1232,7 @@ export class Engine {
   }
 
   _updateEnemy(e, dt) {
-    e.atkCd -= dt;
+    e.atkCd -= dt * (e.attackSlowUntil > this.time ? (e.attackSlowMultiplier || 1) : 1);
     if (e.stunUntil && e.stunUntil > this.time) return;
     const laneBarricade = this.barricades[e.lane];
     if (Number(this.sim.guildBlockadeActiveUntil) > Date.now() &&
@@ -1285,6 +1303,7 @@ export class Engine {
       e.type === "slime" ? e.speed * 0.92 * commanderBoost :
       e.type === "reaper" ? e.speed * 1.05 * commanderBoost :
       e.speed * commanderBoost;
+    if (e.rootUntil > this.time) return;
     const moveSpeed = baseMoveSpeed * (e.slowUntil > this.time ? (e.slowMultiplier || 1) : 1);
 
     // Floating enemies bypass barricades, preserving their distinct identity.
@@ -1440,19 +1459,20 @@ export class Engine {
       let dmg = p.dmg * falloff;
       if (v.kind === "hero") {
         const h = v.obj;
-        if (Math.random() < this._heroDodgeChance(h)) {
+        if (Math.random() < this._heroDodgeChance(h, true)) {
           this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
           continue;
         }
-        dmg = C.damageAfterDefense(dmg, h.d.defense);
+        dmg = h.classless ? this._classlessReducedDamage(h, dmg) : C.damageAfterDefense(dmg, h.d.defense);
         if (h.ref.shield > 0) {
           const ab = Math.min(h.ref.shield, dmg);
           h.ref.shield -= ab;
           dmg -= ab;
         }
-        h.ref.hp = Math.max(0, h.ref.hp - dmg);
+        if (h.classless) this._resolveClasslessHeroDamage(h, dmg);
+        else h.ref.hp = Math.max(0, h.ref.hp - dmg);
         this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF6600");
-        if (h.ref.hp <= 0 && h.alive) {
+        if (!h.classless && h.ref.hp <= 0 && h.alive) {
           h.alive = false;
           this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
         }
@@ -1496,7 +1516,7 @@ export class Engine {
     }
   }
 
-  _heroDodgeChance(hero) {
+  _heroDodgeChance(hero, area = false) {
     const derived = hero?.d;
     if (!derived || !Number.isFinite(derived.maxHp) || derived.maxHp <= 0) return 0;
     const hpRatio = hero.ref.hp / derived.maxHp;
@@ -1504,7 +1524,78 @@ export class Engine {
       ? derived.lowHpDodge
       : 0;
     const baseDodge = Number.isFinite(derived.dodge) ? derived.dodge : 0;
-    return Math.min(0.5, Math.max(0, baseDodge + lowHpBonus));
+    const classlessBonus = hero.classless && !area
+      ? derived.evasion + (hpRatio >= 1 && derived.fullHpEvasion ? derived.fullHpEvasion : 0)
+      : 0;
+    return Math.min(0.5, Math.max(0, baseDodge + lowHpBonus + classlessBonus));
+  }
+
+  _classlessReducedDamage(hero, rawDamage) {
+    const state = hero.classlessCombatState;
+    const lastStand = state?.lastStandUntil > this.time ? hero.d.lastStand : 0;
+    const reduction = Math.min(0.30, Math.max(0, hero.d.damageReduction + lastStand));
+    return C.damageAfterDefense(rawDamage, hero.d.defense) * (1 - reduction);
+  }
+
+  _resolveClasslessHeroDamage(hero, damage) {
+    const state = hero.classlessCombatState;
+    if (state?.decoy) {
+      state.decoy = false;
+      this._float(hero.x, hero.y - 20, "DECOY", "#A78BFA");
+      return 0;
+    }
+    const remaining = Math.max(0, damage);
+    if (remaining > 0 && hero.d.decoyChance > 0 && state.mirrorReadyAt <= this.time && Math.random() < hero.d.decoyChance) {
+      state.decoy = true;
+      state.mirrorReadyAt = this.time + 15;
+      this.effects.push({ kind: "shield", x: hero.x, y: hero.y, r: 18, life: 0.45, color: "#A78BFA" });
+    }
+    hero.ref.hp = Math.max(0, hero.ref.hp - remaining);
+    if (remaining > 0) {
+      state.lastDamageAt = this.time;
+      state.nextRegenAt = this.time + 5;
+    }
+    if (hero.ref.hp / Math.max(1, hero.d.maxHp) < 0.25 && state.lastStandReadyAt <= this.time && hero.d.lastStand > 0) {
+      state.lastStandUntil = this.time + 5;
+      state.lastStandReadyAt = this.time + 60;
+    }
+    if (hero.ref.hp <= 0 && state.survivalUntil > this.time && state.survivalReadyAt <= this.time) {
+      hero.ref.hp = 1;
+      state.survivalReadyAt = this.time + 60;
+      this._float(hero.x, hero.y - 22, "SURVIVE", "#DC2626");
+    }
+    if (hero.ref.hp <= 0 && hero.alive) {
+      hero.alive = false;
+      this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
+    }
+    return remaining;
+  }
+
+  _classlessHeal(hero, requested) {
+    const state = hero.classlessCombatState;
+    const second = Math.floor(this.time);
+    if (state.sustainSecond !== second) {
+      state.sustainSecond = second;
+      state.sustainRestored = 0;
+    }
+    const cap = hero.d.maxHp * 0.04;
+    const amount = Math.max(0, Math.min(requested, cap - state.sustainRestored, hero.d.maxHp - hero.ref.hp));
+    if (amount <= 0) return 0;
+    state.sustainRestored += amount;
+    hero.ref.hp += amount;
+    return amount;
+  }
+
+  _tickClasslessSustain(hero, dt) {
+    if (!hero.classless || !hero.alive) return;
+    const state = hero.classlessCombatState;
+    if (hero.d.regenerationBelowHalf && hero.ref.hp / hero.d.maxHp < 0.5) {
+      this._classlessHeal(hero, hero.d.maxHp * hero.d.regenerationBelowHalf * dt);
+    }
+    if (hero.d.regeneration && this.time - state.lastDamageAt >= 5 && this.time >= state.nextRegenAt) {
+      this._classlessHeal(hero, hero.d.maxHp * hero.d.regeneration);
+      state.nextRegenAt = this.time + 3;
+    }
   }
 
   _throwEnemyBolt(e, target, damage, color, magic = false) {
@@ -1538,16 +1629,17 @@ export class Engine {
         this._float(h.x, h.y - 20, "DODGE", "#00F3FF");
         return;
       }
-      let damage = C.damageAfterDefense(p.dmg, h.d.defense);
+      let damage = h.classless ? this._classlessReducedDamage(h, p.dmg) : C.damageAfterDefense(p.dmg, h.d.defense);
       if (h.ref.shield > 0) {
         const absorbed = Math.min(h.ref.shield, damage);
         h.ref.shield -= absorbed;
         damage -= absorbed;
       }
-      h.ref.hp = Math.max(0, h.ref.hp - damage);
+      if (h.classless) this._resolveClasslessHeroDamage(h, damage);
+      else h.ref.hp = Math.max(0, h.ref.hp - damage);
       this._float(h.x, h.y - 20, "-" + Math.round(damage), p.color);
       if (damage > 0) this._triggerHeroReaction(h, "ally");
-      if (h.ref.hp <= 0 && h.alive) {
+      if (!h.classless && h.ref.hp <= 0 && h.alive) {
         h.alive = false;
         this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
       }
@@ -1581,13 +1673,14 @@ export class Engine {
         h.ref.shield = 0;
       }
       if (Math.random() < this._heroDodgeChance(h)) { this._float(h.x, h.y - 20, "DODGE", "#00F3FF"); return; }
-      let dmg = C.damageAfterDefense(e.damage, h.d.defense);
+      let dmg = h.classless ? this._classlessReducedDamage(h, e.damage) : C.damageAfterDefense(e.damage, h.d.defense);
       if (h.ref.shield > 0) { const ab = Math.min(h.ref.shield, dmg); h.ref.shield -= ab; dmg -= ab; }
-      h.ref.hp = Math.max(0, h.ref.hp - dmg);
+      if (h.classless) this._resolveClasslessHeroDamage(h, dmg);
+      else h.ref.hp = Math.max(0, h.ref.hp - dmg);
       if (dmg > 0) this._triggerHeroReaction(h, "ally");
       if (e.boss) e.hp = Math.min(e.maxHp, e.hp + dmg * 0.5); // Demon Lord lifesteal
       this._float(h.x, h.y - 20, "-" + Math.round(dmg), "#FF3366");
-      if (h.ref.hp <= 0 && h.alive) {
+      if (!h.classless && h.ref.hp <= 0 && h.alive) {
         h.alive = false;
         this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
       }
@@ -1602,6 +1695,9 @@ export class Engine {
       critChance: isHero ? (d.critChance ?? C.BASE_CRIT) : C.BASE_CRIT,
       critMult: isHero ? (d.critMult ?? C.CRIT_MULT) : C.CRIT_MULT,
       perkData: isHero && !src.classless ? d : null,
+      classless: isHero && !!src.classless,
+      heroIndex: isHero && src.classless ? src.i : null,
+      damageCategory: isHero && src.classless ? "weapon" : null,
       damageType: Object.prototype.hasOwnProperty.call(d, "damageType") ? d.damageType : (src.ref?.cls === "knight" ? C.DAMAGE_TYPES.KNIGHT_MELEE
         : src.ref?.cls === "rouge" ? C.DAMAGE_TYPES.ROUGE_MELEE
         : src.ref?.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED
@@ -1612,6 +1708,7 @@ export class Engine {
   }
 
   _applyHit(p) {
+    if (p.classless) return this._applyClasslessHit(p);
     const e = p.target;
     const affinity = C.affinityMultiplier(e, p.damageType);
     if (affinity <= 0 || (p.magic && e.magicImmune)) {
@@ -1669,6 +1766,83 @@ export class Engine {
       }
     }
     if (e.hp <= 0) this._killEnemy(e, p.sourceId);
+  }
+
+  _applyClasslessHit(p) {
+    const target = p.target;
+    const hero = this.heroes[p.heroIndex];
+    if (!target || target.hp <= 0 || !hero?.classless || !this._isValidClasslessTarget(hero, target)) return false;
+    const effects = hero.d.classlessEffects;
+    const affinity = p.damageType ? C.affinityMultiplier(target, p.damageType) : 1;
+    if (affinity <= 0 || (p.magic && target.magicImmune)) {
+      this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
+      return false;
+    }
+    let damage = p.dmg * affinity;
+    if (p.damageCategory === "weapon") damage *= 1 + effects.weaponDamage;
+    if (p.damageType === C.DAMAGE_TYPES.ARCANE) damage *= 1 + (effects.arcaneDamage || 0);
+    let situationalBonus = p.situationalBonus || 0;
+    const state = hero.classlessCombatState;
+    if (effects.followThroughDamage > 0 && target.classlessLastHitBy?.[hero.i] > this.time) {
+      situationalBonus += effects.followThroughDamage;
+    }
+    if (p.damageCategory === "weapon" && effects.markDamage > 0) {
+      target.classlessMarks ||= {};
+      const mark = target.classlessMarks[hero.i];
+      if (mark?.expiresAt > this.time) situationalBonus += effects.markDamage;
+      else target.classlessMarks[hero.i] = { expiresAt: this.time + 5, source: hero.i };
+    }
+    if (effects.activeTargetDamage > 0 && target.classlessActiveHitUntil > this.time &&
+      target.classlessActiveHitBy === hero.i) situationalBonus += effects.activeTargetDamage;
+    if (p.damageCategory === "weapon" && effects.momentumDamagePerStack > 0) {
+      if (state.momentumTarget !== target || this.time - state.lastDealtAt > 4) {
+        state.momentumTarget = target;
+        state.momentumStacks = 0;
+      }
+      situationalBonus += state.momentumStacks * effects.momentumDamagePerStack;
+    }
+    if (p.damageCategory === "weapon" && effects.ambushDamage > 0 && this.time - state.lastDealtAt >= 3 &&
+      !state.ambushTargets.has(target)) situationalBonus += effects.ambushDamage;
+    damage *= 1 + Math.min(0.5, situationalBonus);
+    if (p.elementalBonus) damage *= 1 + Math.min(0.5, p.elementalBonus);
+    const crit = p.guaranteedCrit || Math.random() < hero.d.critChance;
+    if (crit) damage *= hero.d.critMult;
+    target.hp = Math.max(0, target.hp - damage);
+    target.dmgBy[p.sourceId] = (target.dmgBy[p.sourceId] || 0) + damage;
+    target.classlessLastHitBy ||= {};
+    target.classlessLastHitBy[hero.i] = this.time + 4;
+    state.lastDealtAt = this.time;
+    if (p.damageCategory === "weapon" && effects.momentumDamagePerStack > 0) {
+      state.momentumStacks = Math.min(5, state.momentumStacks + 1);
+      state.momentumTarget = target;
+    }
+    if (p.damageCategory === "weapon" && effects.ambushDamage > 0) state.ambushTargets.add(target);
+    const label = crit ? `CRIT ${Math.round(damage)}` : `${Math.round(damage)}`;
+    this._float(target.x, target.y - 4, label, crit ? "#FFE600" : hero.d.color);
+    this.effects.push({ kind: "hit", x: target.x, y: target.y, r: crit ? 15 : 10, life: 0.25, color: crit ? "#FFE600" : hero.d.color, crit });
+    if (!p.ability && !p.area && hero.d.lifesteal > 0 && damage > 0) {
+      const heal = this._classlessHeal(hero, damage * hero.d.lifesteal);
+      if (heal > 0) this._float(hero.x, hero.y - 20, `+${Math.round(heal)}`, "#39FF14");
+    }
+    if (p.ability) {
+      target.classlessActiveHitUntil = Math.max(target.classlessActiveHitUntil || 0, this.time + 4);
+      target.classlessActiveHitBy = hero.i;
+    }
+    if (p.damageCategory === "weapon" && effects.disruptSlow > 0 && state.nextDisruptAt <= this.time) {
+      const slow = target.boss ? effects.disruptSlow / 3 : effects.disruptSlow;
+      target.slowUntil = Math.max(target.slowUntil || 0, this.time + 3);
+      target.slowMultiplier = Math.min(target.slowMultiplier || 1, 1 - slow);
+      target.attackSlowUntil = Math.max(target.attackSlowUntil || 0, this.time + 3);
+      target.attackSlowMultiplier = Math.min(target.attackSlowMultiplier || 1, 1 - slow);
+      state.nextDisruptAt = this.time + 8;
+    }
+    if (p.damageCategory === "weapon" && effects.rootEverySeconds > 0 && state.nextRootAt <= this.time) {
+      target.rootUntil = Math.max(target.rootUntil || 0, this.time + (target.boss ? 0.5 : 1.5));
+      target.rootedBy = hero.i;
+      state.nextRootAt = this.time + effects.rootEverySeconds;
+    }
+    if (target.hp <= 0) this._killEnemy(target, p.sourceId);
+    return true;
   }
 
   _multiTargetTargets(target, multiTarget) {

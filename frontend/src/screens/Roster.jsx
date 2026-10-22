@@ -11,6 +11,7 @@ import {
 } from "../game/logic";
 import { allocateClasslessStat, purchaseClasslessNode } from "../game/classlessProgression";
 import ClasslessPerkTree from "../components/ClasslessPerkTree";
+import { classlessMaxHp } from "../game/classlessCombatEffects";
 
 export default function Roster() {
   const { state, mutate, setScreen } = useGame();
@@ -53,16 +54,18 @@ export default function Roster() {
   const commitEdit = (list, idx) => { act((s) => renameHero(s, list, idx, nameVal), "Renamed"); setEditing(null); };
 
   const Row = ({ h, list, idx }) => {
-    if (!h.cls && h.combat) return (
+    if (!h.cls && h.combat) {
+      const maxHp = classlessMaxHp(h);
+      return (
       <div className="glass-card rounded-xl p-3" data-testid={`roster-${list}-${idx}`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-12 rounded shrink-0 border border-cyan-400/30 bg-black/30" aria-label={h.appearance?.id ? `Appearance ${h.appearance.id}` : "Appearance not selected"} />
           <div className="flex-1 min-w-0">
             <div className="font-display font-bold text-sm text-cyan-200">{h.identity?.name || "Hero"}</div>
-            <div className="font-mono-g text-[10px] text-slate-400">Classless · L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{h.combat.maxHp} HP</div>
+            <div className="font-mono-g text-[10px] text-slate-400">Classless · L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{maxHp} HP</div>
             <div className="font-mono-g text-[9px] text-slate-500">Appearance: {h.appearance?.id || "Unselected"}</div>
             <div className="font-mono-g text-[9px] text-slate-500">ATK{h.combat.stats?.attack} DEF{h.combat.stats?.defense} AGL{h.combat.stats?.agility} INT{h.combat.stats?.intelligence}</div>
-            <StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={3} />
+            <StatBar frac={h.combat.hp / maxHp} color="#22D3EE" height={3} />
           </div>
         </div>
         <button type="button" onClick={() => setProgressionHeroId(h.identity.id)}
@@ -71,7 +74,8 @@ export default function Roster() {
           UNIVERSAL PERKS · {h.progression?.ap || 0} AP
         </button>
       </div>
-    );
+      );
+    }
     const cls = C.HERO_CLASSES[h.cls];
     const d = heroDerived(h);
     const key = `${list}-${idx}`;
