@@ -17,7 +17,6 @@ import { stageBattleCompletion } from "../game/battleCompletion";
 
 export default function Battle() {
   const { state, mutate, setScreen, setLastResult } = useGame();
-  const hasClasslessHeroes = state?.heroes?.some((hero) => !hero.cls && hero.combat);
   const canvasRef = useRef();
   const engineRef = useRef();
   const simRef = useRef();
@@ -58,7 +57,6 @@ export default function Battle() {
   }, []);
 
   useEffect(() => {
-    if (hasClasslessHeroes) { setScreen("prep"); return; }
     if (!state) return;
     const sim = structuredClone(state);
     battleHeroIds.current = (sim.heroes || []).map((hero) => hero.cls ? hero.id : hero.identity?.id);
@@ -275,7 +273,9 @@ export default function Battle() {
       announceAction("HERO REVIVED");
       const revived = simRef.current?.heroes?.[i];
       if (revived) {
-        state.heroes[i].hp = revived.hp;
+        const hero = state.heroes[i];
+        if (hero?.cls) hero.hp = revived.hp;
+        else if (hero?.combat && revived.combat) hero.combat.hp = revived.combat.hp;
         state.heroes[i].manual = false;
         state.gold = simRef.current.gold;
       }
@@ -353,9 +353,13 @@ export default function Battle() {
     mutate((saved) => {
       saved.gold = sim.gold;
       for (const hero of saved.heroes || []) {
-        if (!revivedIds.has(hero.id)) continue;
-        const runtime = sim.heroes.find((item) => item.id === hero.id);
-        if (runtime) { hero.hp = runtime.hp; hero.manual = false; }
+        const id = hero.cls ? hero.id : hero.identity?.id;
+        if (!revivedIds.has(id)) continue;
+        const runtime = sim.heroes.find((item) => (item.cls ? item.id : item.identity?.id) === id);
+        if (!runtime) continue;
+        if (hero.cls) hero.hp = runtime.hp;
+        else if (hero.combat && runtime.combat) hero.combat.hp = runtime.combat.hp;
+        hero.manual = false;
       }
     });
     revivalDismissedRef.current = false;
@@ -558,7 +562,6 @@ export default function Battle() {
   };
 
   if (!state) return null;
-  if (hasClasslessHeroes) return <div className="h-full flex items-center justify-center p-6 text-center font-mono-g text-yellow-300">Classless heroes are not enabled in live battle yet.</div>;
   const sim = simRef.current;
   const blockadeStatus = guildBlockadeStatus(sim || state, blockadeNow);
   const guild = sim?.buildings?.guild || state.buildings?.guild;

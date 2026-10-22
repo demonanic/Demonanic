@@ -1,7 +1,7 @@
 import { toast } from "sonner";
-import { useGame } from "@/context/GameProvider";
-import { NeonButton } from "@/components/ui-kit";
-import { freeLife, surrender } from "@/game/logic";
+import { useGame } from "../context/GameProvider";
+import { NeonButton } from "../components/ui-kit";
+import { freeLife, surrender } from "../game/logic";
 import { Trophy, Skull, Coins, Pickaxe, Mountain, Zap, Swords, Backpack } from "lucide-react";
 
 export default function Results() {

@@ -239,13 +239,23 @@ export function recoverOverTime(state, dtSeconds) {
   // the player explicitly revives them. This preserves a meaningful prep decision.
   const hpFrac = (C.RECOVERY.heroHpPercentPerHour / 100) * hours;
   for (const h of state.heroes || []) {
-    const maxHp = heroDerived(h).maxHp;
-    if (h.hp > 0 && h.hp < maxHp) h.hp = Math.min(maxHp, h.hp + maxHp * hpFrac);
+    const classless = !h.cls && h.combat;
+    const hp = classless ? h.combat.hp : h.hp;
+    const maxHp = classless ? h.combat.maxHp : heroDerived(h).maxHp;
+    if (hp > 0 && hp < maxHp) {
+      if (classless) h.combat.hp = Math.min(maxHp, hp + maxHp * hpFrac);
+      else h.hp = Math.min(maxHp, hp + maxHp * hpFrac);
+    }
   }
   for (const h of state.bench || []) {
-    const maxHp = heroDerived(h).maxHp;
-    if (h.hp > 0 && h.hp < maxHp) h.hp = Math.min(maxHp, h.hp + maxHp * hpFrac);
-    if (Number.isFinite(Number(h.maxMana)) && Number(h.maxMana) > 0) {
+    const classless = !h.cls && h.combat;
+    const hp = classless ? h.combat.hp : h.hp;
+    const maxHp = classless ? h.combat.maxHp : heroDerived(h).maxHp;
+    if (hp > 0 && hp < maxHp) {
+      if (classless) h.combat.hp = Math.min(maxHp, hp + maxHp * hpFrac);
+      else h.hp = Math.min(maxHp, hp + maxHp * hpFrac);
+    }
+    if (!classless && Number.isFinite(Number(h.maxMana)) && Number(h.maxMana) > 0) {
       const manaFrac = (C.RECOVERY.heroHpPercentPerHour / 100) * hours;
       h.mana = Math.min(Number(h.maxMana), Math.max(0, Number(h.mana) || 0) + Number(h.maxMana) * manaFrac);
     }
@@ -816,24 +826,31 @@ export function hostTavernFeast(state) {
 }
 
 export function healHero(state, hero) {
-  if (!hero || hero.hp <= 0) return false;
-  const maxHp = heroDerived(hero).maxHp;
-  const missing = maxHp - hero.hp;
+  const classless = !!hero && !hero.cls && !!hero.combat;
+  const hp = classless ? hero.combat.hp : hero?.hp;
+  if (!hero || hp <= 0) return false;
+  const maxHp = classless ? hero.combat.maxHp : heroDerived(hero).maxHp;
+  const missing = maxHp - hp;
   if (missing <= 0) return false;
   const cost = Math.ceil(missing / 10) * C.HERO_HEAL_GOLD_PER_10HP;
   if (state.gold < cost) return false;
   state.gold -= cost;
-  hero.hp = maxHp;
+  if (classless) hero.combat.hp = maxHp;
+  else hero.hp = maxHp;
   return true;
 }
 
 export function reviveHero(state, hero) {
-  if (!hero || hero.hp > 0) return false;
-  const cost = C.paidRevivalCost(hero.level);
+  const classless = !!hero && !hero.cls && !!hero.combat;
+  const hp = classless ? hero.combat.hp : hero?.hp;
+  if (!hero || hp > 0) return false;
+  const cost = C.paidRevivalCost(classless ? hero.progression?.level : hero.level);
   if (state.gold < cost) return false;
-  const maxHp = heroDerived(hero).maxHp;
+  const maxHp = classless ? hero.combat.maxHp : heroDerived(hero).maxHp;
   state.gold -= cost;
-  hero.hp = Math.max(1, Math.round(maxHp * (C.RECOVERY.reviveHpPercent / 100)));
+  const revivedHp = Math.max(1, Math.round(maxHp * (C.RECOVERY.reviveHpPercent / 100)));
+  if (classless) hero.combat.hp = revivedHp;
+  else hero.hp = revivedHp;
   return true;
 }
 
@@ -977,7 +994,10 @@ export function freeLife(state) {
   deductGoldLoss(state, exposedGold - Math.floor(exposedGold * C.FREE_LIFE.keepResourceFrac), !vaultProtected);
   state.stone = Math.floor(state.stone * C.FREE_LIFE.keepResourceFrac);
   state.metal = Math.floor((Number(state.metal) || 0) * C.FREE_LIFE.keepResourceFrac);
-  for (const h of state.heroes) { const d = heroDerived(h); h.hp = d.maxHp; }
+  for (const h of state.heroes) {
+    if (!h.cls && h.combat) h.combat.hp = h.combat.maxHp;
+    else { const d = heroDerived(h); h.hp = d.maxHp; }
+  }
   for (const t of state.towers) if (t) {
     const d = towerDerived(t);
     t.hp = d.maxHp;

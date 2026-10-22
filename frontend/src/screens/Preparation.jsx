@@ -53,9 +53,7 @@ export default function Preparation() {
     repairBarricade: (pos) => act((s) => repairBarricade(s, pos), "Repaired"),
   };
 
-  const hasClasslessSquad = state.heroes.some((hero) => !hero.cls && hero.combat);
   const startWave = () => {
-    if (hasClasslessSquad) { toast.error("Classless heroes are not yet supported by combat"); return; }
     saveNow(); setScreen("battle");
   };
 
@@ -186,8 +184,6 @@ export default function Preparation() {
                   />
                 ))}
               </div>
-              {hasClasslessSquad && <p className="mt-2 font-mono-g text-[10px] text-yellow-300" data-testid="classless-combat-notice">Classless heroes are saved and viewable, but cannot enter combat yet.</p>}
-
               {state.bench && state.bench.length > 0 && (
                 <div className="glass-card rounded-xl p-3 mt-3" data-testid="bench-panel">
                   <SectionTitle color="yellow">Bench · Swap into Squad</SectionTitle>

@@ -1,4 +1,4 @@
-import { createHero, createNewState, recruitHero, setClasslessSquad } from "./logic";
+import { createHero, createNewState, freeLife, healHero, recruitHero, recoverOverTime, reviveHero, setClasslessSquad } from "./logic";
 
 describe("classless hero creation adapter", () => {
   test("no-argument hero creation returns the classless baseline", () => {
@@ -56,5 +56,39 @@ describe("classless hero creation adapter", () => {
     const before = JSON.stringify(state);
     expect(setClasslessSquad(state)).toBe(false);
     expect(JSON.stringify(state)).toBe(before);
+  });
+
+  test("classless healing, revival, and defeat free-life actions update nested HP", () => {
+    const state = createNewState();
+    const hero = createHero();
+    state.heroes = [hero];
+    hero.combat.hp = 250;
+    expect(healHero(state, hero)).toBe(true);
+    expect(hero.combat.hp).toBe(300);
+    expect(hero.hp).toBeUndefined();
+
+    hero.combat.hp = 0;
+    expect(reviveHero(state, hero)).toBe(true);
+    expect(hero.combat.hp).toBeGreaterThan(0);
+    expect(hero.hp).toBeUndefined();
+
+    hero.combat.hp = 10;
+    expect(freeLife(state)).toBe(true);
+    expect(hero.combat.hp).toBe(300);
+    expect(hero.hp).toBeUndefined();
+  });
+
+  test("preparation recovery heals wounded nested HP without reviving the dead", () => {
+    const state = createNewState();
+    const wounded = createHero();
+    const dead = createHero();
+    wounded.combat.hp = 150;
+    dead.combat.hp = 0;
+    state.heroes = [wounded, dead];
+    recoverOverTime(state, 3600);
+    expect(wounded.combat.hp).toBe(174);
+    expect(dead.combat.hp).toBe(0);
+    expect(wounded.hp).toBeUndefined();
+    expect(dead.hp).toBeUndefined();
   });
 });

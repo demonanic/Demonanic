@@ -26,7 +26,7 @@ jest.mock("../components/ui/tabs", () => ({
   TabsContent: ({ children }) => <div>{children}</div>,
 }));
 
-describe("classless preparation battle gate", () => {
+describe("classless preparation battle entry", () => {
   let container;
   let root;
 
@@ -51,12 +51,12 @@ describe("classless preparation battle gate", () => {
     container.remove();
   });
 
-  test("does not save or enter battle for a classless squad", () => {
+  test("saves and enters battle for a classless squad", () => {
     act(() => root.render(<Preparation />));
     act(() => container.querySelector('[data-testid="start-wave-button"]').click());
 
-    expect(container.querySelector('[data-testid="classless-combat-notice"]')).not.toBeNull();
-    expect(mockGameContext.saveNow).not.toHaveBeenCalled();
-    expect(mockGameContext.setScreen).not.toHaveBeenCalledWith("battle");
+    expect(container.querySelector('[data-testid="classless-combat-notice"]')).toBeNull();
+    expect(mockGameContext.saveNow).toHaveBeenCalledTimes(1);
+    expect(mockGameContext.setScreen).toHaveBeenCalledWith("battle");
   });
 });
