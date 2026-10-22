@@ -10,16 +10,16 @@ Demonanic is an RPG/tower-defense game. The frontend is a React application unde
 
 The game has hero XP/levels, AP perk progression, SP stat allocation, equipment, Academy stat training, Mage Library research/spellbooks, battle abilities, towers, castle buildings, and a shared Gold/Stone/Metal economy. The root `README.md` and `frontend/README.md` are Create React App boilerplate rather than current game architecture documentation.
 
-### Repository checkpoint — 2026-10-22 02:55 UTC
+### Repository checkpoint before handoff publication — 2026-10-22 03:09 UTC
 
 - Branch: `review/mobile-working-copy` (verified; no branch switch performed).
-- HEAD: `aaf672f883de3b7c01f4ad1a7371c1a5f536bad5` — `Document return-to-login recovery action`.
-- The branch tracks `origin/review/mobile-working-copy` at the inspected checkpoint.
-- Pre-existing worktree changes before this handoff file was created:
+- HEAD: `c18467c` — `Add mandatory collaboration workflow`.
+- `AGENTS.md` is committed; the local branch was one commit ahead and zero behind `origin/review/mobile-working-copy` before the handoff-only commit.
+- Pre-existing worktree changes before collaboration setup:
   - Modified: `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`.
   - Untracked: `frontend/src/components/PerkTree.test.jsx`.
 - The changes add themed labels for the existing class-root branches and focused component coverage; the roadmap also records that work. They are user-owned, uncommitted, and were not altered by this task.
-- The handoff file did not yet exist at this checkpoint; it was created afterward in a documentation-only task. Its current staged/commit state is reflected by the repository status and history.
+- No repository-root `AGENTS.md` existed. A dependency-local `frontend/node_modules/recharts/AGENTS.md` was found and is not a repository instruction.
 
 Recent commits observed:
 
@@ -39,6 +39,8 @@ Recent commits observed:
 The user has decided to replace fixed four-class progression with a classless, specialization-based system. New heroes should begin unclassified; branch investments, depth, and combinations determine abilities and dynamic titles. The current phase is architecture and migration design, before gameplay implementation. The immediate objective is to get approval on the architecture, classless starting combat baseline, legacy migration policy, and acceptance criteria. No classless implementation or data migration has begun.
 
 The newest user direction supersedes earlier fixed-class hybrid/Cross-Training assumptions. Detailed branch examples and migration mechanisms below are recommendations from the audit, not approved implementation specifications.
+
+The current task adds the permanent repository workflow in root `AGENTS.md` and updates this handoff. It does not change gameplay. The exact phrase `work done` is the user's signal for ChatGPT to review the latest handoff. This task's changes and publication state are recorded below; preserve the pre-existing perk-tree and roadmap work.
 
 ## 2. Architecture and audits
 
@@ -95,6 +97,16 @@ The class-dependency search was not a line-by-line review of all 103 hits or all
 
 Times are UTC. When conversation history did not preserve an exact time, that limitation is stated rather than guessed.
 
+### 2026-10-22 03:07–03:09 UTC — Establish permanent Codex–ChatGPT collaboration workflow
+
+- **Objective:** Add mandatory repository-level procedures for task kickoff, preserving work, verification, handoff updates/publication, and final reporting.
+- **Files changed:** `AGENTS.md` (new) defines sections A–E, including the `work done` review signal and safe handoff-only publishing rules. `docs/CHATGPT_HANDOFF.md` updates this checkpoint and records the setup task.
+- **Important APIs/data:** Documentation only; no gameplay code, profile data, or saved data changed.
+- **Compatibility:** Pre-existing `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js` modifications and untracked `frontend/src/components/PerkTree.test.jsx` are preserved.
+- **Inspection issue:** `rg --files` was attempted but `rg` is unavailable (`/bin/sh: 1: rg: not found`). `find . -name AGENTS.md -print` located only `frontend/node_modules/recharts/AGENTS.md` before the root file was created.
+- **Tests/builds:** No tests, build, Android build, or device check were run; this is a documentation-only task. `git diff --check` passed before the AGENTS commit; it will be rerun for the final handoff diff.
+- **Commit/publication:** `AGENTS.md` committed alone as `c18467c` (`Add mandatory collaboration workflow`). This handoff update is to be committed separately with only `docs/CHATGPT_HANDOFF.md`; record the handoff SHA and remote verification in the final task report.
+
 ### 2026-10-22 02:55 UTC — Create permanent ChatGPT handoff
 
 - **Objective:** Create this living repository document from inspected repository facts and conversation context.
@@ -137,7 +149,7 @@ Verified in the prior implementation session (frontend working directory `fronte
 | `npm test -- --watchAll=false --runInBand src/components/PerkTree.test.jsx src/game/engine.perk-characterization.test.js` | Passed: 2 suites, 36 tests. |
 | `npm test -- --watchAll=false --runInBand` | Passed: 24 suites, 208 tests; no snapshots. |
 
-No tests, build, Android build, or device check were run during the current handoff-document task. No claim is made that the latest uncommitted state has been rebuilt or tested on a device. The current `ROADMAP.md` and prior session reports record earlier Android build/device statements; those are historical and must retain their evidence labels. For example, Android persistence success is user-reported in `docs/dev-sessions/2026-10-17-android-persistence-smoke-test.md`, not an independent database verification.
+No tests, build, Android build, or device check were run during the handoff creation or collaboration-procedure setup tasks. No claim is made that the current uncommitted state has been rebuilt or tested on a device. The current `ROADMAP.md` and prior session reports record earlier Android build/device statements; those are historical and must retain their evidence labels. For example, Android persistence success is user-reported in `docs/dev-sessions/2026-10-17-android-persistence-smoke-test.md`, not an independent database verification.
 
 ## 5. Decisions and requirements
 
@@ -203,4 +215,4 @@ No step above has been started as implementation in the current task.
 
 ## 8. Handoff summary
 
-At the inspected checkpoint, Demonanic is on `review/mobile-working-copy` at `aaf672f883de3b7c01f4ad1a7371c1a5f536bad5`. The worktree contains uncommitted perk-branch label/UI/test changes; preserve them. The focused perk tests passed 36 tests and the full frontend suite passed 208 tests in the prior session. The user has approved a move to classless, specialization-based heroes, but the proposed architecture details and neutral combat baseline still need review. No classless gameplay code or migration has been implemented. Use the current Git status and history for this handoff file's present publication state. The next action is architecture/design approval, then a complete class-dependency inventory and legacy-save migration specification before coding.
+At the pre-publication checkpoint, Demonanic is on `review/mobile-working-copy` at `c18467c`; the repository workflow was committed there and the handoff-only update was pending as a separate commit. The pre-existing `ROADMAP.md`, perk-tree source changes, and component test remain uncommitted and untouched. This setup changes documentation only, not gameplay or save data. No tests/builds were run; `git diff --check` passed for the workflow file, and the handoff diff is checked before commit. The prior focused perk tests passed 36 tests and the prior full frontend suite passed 208 tests. The approved classless direction still needs architecture and neutral-combat-baseline review before implementation. The exact phrase `work done` signals ChatGPT to review this handoff. The setup handoff update is intended to be published in its own handoff-only commit on this branch; check Git history/status for its final SHA and remote synchronization. Next development step: architecture approval, then a complete class-dependency inventory and legacy-save migration specification.
