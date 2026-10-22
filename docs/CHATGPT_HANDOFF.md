@@ -604,7 +604,7 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 ### Repository checkpoint and scope
 
 - Owner-approved baseline from Milestone 2 was implemented as a classless model contract. This milestone does not claim that the game is fully classless.
-- Started on `review/mobile-working-copy`, HEAD `11f9773ea2c4fcfb9212ee926935bfd6df3bba57`; fetched origin and confirmed 0 ahead / 0 behind before edits. Stayed on this branch. Implementation commit `1db2245` (`Add approved classless hero creation model`) contains only the model, adapter, and focused tests; a separate handoff-only commit follows. Publication verification is pending.
+- Started on `review/mobile-working-copy`, HEAD `11f9773ea2c4fcfb9212ee926935bfd6df3bba57`; fetched origin and confirmed 0 ahead / 0 behind before edits. Stayed on this branch. Implementation commit `1db2245` (`Add approved classless hero creation model`) contains only the model, adapter, and focused tests. Handoff-only commit `9b85b49` was pushed; post-push fetch and `git ls-remote` verified branch SHA `9b85b49892f935c37c10214b9483be5d985106e9` and local tracking at 0 ahead / 0 behind.
 - Pre-existing user changes preserved and not staged: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`; untracked `frontend/src/components/PerkTree.test.jsx`.
 - No production profile, account, API, backend, MongoDB, sprite, or canonical bible data was changed. Tests use local in-memory state.
 
