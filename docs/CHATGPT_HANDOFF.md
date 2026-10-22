@@ -1109,3 +1109,55 @@ Independently map all current-phase perks and active/signature abilities to stab
 
 - Intended implementation/test files: `frontend/src/game/classlessAbilities.js`, `frontend/src/game/classlessAbilities.test.js`, `frontend/src/game/classlessProgression.test.js`, `frontend/src/game/engine.js`, `frontend/src/game/engine.classless.test.js`, `frontend/src/components/ClasslessPerkTree.jsx`, `frontend/src/components/TacticalMenu.jsx`, `frontend/src/components/TacticalMenu.test.jsx`, `frontend/src/screens/Roster.classlessProgression.test.jsx`, `frontend/src/screens/classlessScreen.integration.test.jsx`, and this handoff. Pre-existing user files remain outside staging.
 - Code/test commit `4f8c5878abd15b3dcd6b1f5dd83e82b08ffb8ad5` (`Implement classless Vanguard abilities`) was pushed to `origin/review/mobile-working-copy` after fetching and confirming 0 behind / 1 ahead. The handoff will be published separately and the resulting branch SHA verified after that push. No main merge or deploy occurred. `work done` means ChatGPT should retrieve and review the latest published handoff and report back.
+
+## 26. Phase 1 combat continuation — Warden and Hemomancy survival actions — 2026-10-22
+
+### Starting checkpoint and scope
+
+- Started on `review/mobile-working-copy` at `fd3370d94a936ee6fa6404af9c487d91f1c1698f`; fetched `origin/review/mobile-working-copy` and verified 0 ahead / 0 behind. Preserved pre-existing user changes to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`; none are task files. No production accounts, profiles, services, or databases were accessed.
+- Read `AGENTS.md`, this handoff, and the canonical design bible. Section 25's Vanguard abilities and the 22 listed passive consumers were verified in source. No Copilot review findings were present in the handoff.
+- This is a bounded continuation, **not Phase 1 completion**. It adds Interpose (W3), Blood Price (H2), and Crimson Covenant (H3) to the existing registry/Engine. No signature, phase gate, catalog identity, baseline, design-bible text, or unrelated roadmap feature changed.
+
+### Implemented behavior
+
+- W3 is a targetless TacticalMenu action through the existing classless registry and `Engine.executeClasslessAbility`. It selects the living non-caster ally with the lowest current HP within the Engine's allied-support radius; ties use runtime hero index. It falls back to the caster if no other ally qualifies, applies 25% reduction for 5s, and starts a 24s cooldown only on successful use. The effect combines additively with Warden progression mitigation and clamps to the shared 30% cap. The effect also works for a legacy ally runtime actor without changing that hero's class or saved fields.
+- The bible says “in range” for W3 but gives no numeric radius. The implementation centralizes and displays 150 battlefield units, using the existing Engine allied-support radius as a reversible assumption. This value needs owner/design confirmation before being treated as canonical.
+- H2 is registered as an implemented classless progression handler. While owned, successful active ability uses (including Shared Strike) cost 5% of pre-action current HP and add +12% to the situational damage category for active hits. The use is rejected before effects/cooldown/resource changes if that cost would leave less than 1 HP. Healing/weapon-only rules remain separated; the +12% is not a passive basic-attack bonus.
+- H3 is registered as a targetless 30s action. For 6s it doubles H1 direct-weapon lifesteal, still subject to the existing combined 4% max-HP-per-second sustain cap, and activates the existing lethal-resolution survival clause. A lethal hit saves the hero at 1 HP once, then starts the 60s shared survival timer. H3 cooldown recovery uses the existing active-cooldown path; the 60s internal timer is not reduced by CDR. Failed use does not set the effect or cooldown.
+- TacticalMenu now reports Blood Price's health-cost failure as `HEALTH TOO LOW`. Ability ownership remains stable node IDs and temporary effect state is runtime-only. The previous classless completion/save/reload flow and legacy class ability route were not modified.
+
+### Tests and validation
+
+- Focused command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/classlessAbilities.test.js src/game/engine.classless.test.js src/game/classlessProgression.test.js src/components/TacticalMenu.test.jsx` — PASS, 4 suites / 80 tests. Covers registry/unlocks, W3 selection/fallback/duration/mitigation cap, H2 damage/cost/rejection atomicity, H3 lifesteal/lethal save/60s timer, purchase prerequisites, and TacticalMenu → Engine W3 activation.
+- Regression command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/engine.abilities.test.js src/game/engine.targeting.test.js src/screens/classlessScreen.integration.test.jsx src/screens/Battle.tactical-flow.test.jsx src/context/GameProvider.test.jsx src/context/classlessBattleCompletion.provider.test.jsx` — PASS, 6 suites / 60 tests.
+- `npm run build` from `frontend/` — PASS, optimized frontend compiled. Node emitted the existing non-fatal `fs.F_OK` deprecation warning. `git diff --check` — PASS. Android/device, live backend, production profile, and natural-wave play were not run.
+- The existing `classlessBaselineSimulation.test.js` constructs legacy archer heroes and replaces their derived stats. It is not evidence for classless Phase 1 balance. No valid classless Phase 1 balance simulation was completed in this continuation; a deterministic harness using actual `createHeroModel`, `buildWave`, and the production `Engine` remains required before balance can be claimed.
+
+### Current Phase 1 coverage and remaining gaps
+
+- Runtime node abilities currently registered: P3, P3a, V3, V3a, W3, H3. H2's active modifier is purchasable and active through the combat calculation. The prior 22 passive handlers remain, now including H2.
+- Still missing or requiring independent canonical verification: Shadowcraft Smoke Bomb (S2a) and Vanish (S3a); Arcana Arcane Spark/Elementalism/Chain Spark and Arcane Channel/Meteor (A1/A2/A2a/A3/A3a); Rally/Opening/Formation (T2a/T3/T3a); Echo/Ward (C2/C2a); Loaded Dice/Jackpot (F2/F3); Phantom Strike (I3); and all six Phase 1 signatures with shared 8s lockout. The bible's Loaded Dice expected-value note remains inconsistent and F2 stays unavailable; no interpretation was chosen. Explicit Phase 1.5 Pyromancer and Phase 2 construct/familiar/spirit-beast content remains gated.
+- Canonical Phase 1 acceptance requirements still not established include the full damage-category and critical caps, guaranteed-crit consumption, untargetability/retargeting, independent mark/Echo/root expiry, control lookback/Opening, aura and shield interactions, signature lockout, complete passive-to-runtime mapping, save/reload for all new effects, and comprehensive legacy/profile regression.
+- Accordingly, this is useful playable progress but does **not** meet the definition of done for Pass 1 and is not evidence that the game is ready for the VFX pass. Next task: finish the connected Phase 1 defensive/support/status framework and signature eligibility/lockout; then complete remaining Arcana/offense systems and run the real classless balance harness.
+
+### Updated Copilot Analyst Handoff
+
+```text
+Repository: https://github.com/demonanic/Demonanic
+Authorized branch: review/mobile-working-copy. The Warden/Hemomancy implementation commit is `fa7411fa701f77ea4e3713306461af74a15c9828`; verify the latest remote HEAD before reviewing because the handoff-only publication commit follows it.
+Read docs/CHATGPT_HANDOFF.md section 26 and docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md.
+
+Demonanic is a mobile RPG/tower-defense game. Pass 1 is the classless hero/perk/ability/combat rebuild; later passes are (2) VFX/combat feedback, (3) spells/Library/Academy, and (4) equipment/items. Before this continuation, the classless model, progression/persistence, battle route, shared Engine, 22 passive handlers, and Precision/Vanguard abilities existed. This continuation adds Warden W3 Interpose, Hemomancy H2 Blood Price, and H3 Crimson Covenant, using the existing ability registry and Engine.
+
+Perform an independent read-only review; Codex remains implementation owner. Retrieve the latest published handoff and bible, verify HEAD, and inspect actual source/tests. Do not edit or commit during this initial review. Preserve user changes, old saves, legacy heroes, and production data. Do not reinterpret canonical rules or open phase gates; if repository access fails, state the exact limitation.
+
+Trace W3/H2/H3 from canonical node purchase/unlock and ClasslessPerkTree through TacticalMenu → Engine eligibility/execution → damage/state update. Check W3 target choice, the assumed 150-unit radius, duration, cooldown, combined mitigation cap, and legacy ally behavior. Check H2's 5% current-HP cost, below-1 rejection atomicity, +12% situational active-damage bonus including Shared Strike, and interactions with other bonuses. Check H3 lifesteal multiplier/sustain cap, lethal ordering, one survival per 60s, active cooldown/CDR, repeat use, death, and cleanup. Distinguish tests/mocks from actual gameplay. Review focused tests and identify missing UI, integration, save/reload, signature, acceptance, and balance coverage with exact paths/evidence.
+
+Independently map all 43 canonical Phase 1 perk nodes, all Phase 1 active abilities, and six signatures to prerequisites/cost/phase, runtime consumer, UI, persistence, and test evidence. Report concrete prioritized defects and recommend the next cohesive Phase 1 pass. Remaining gaps are summarized in handoff section 26. Keep Pyromancer Phase 1.5 and companion content Phase 2 gated; do not enter the VFX, Library/Academy, or equipment/items passes.
+```
+
+### Publication and next step
+
+- Intended implementation files: `frontend/src/game/classlessAbilities.js`, `frontend/src/game/classlessAbilities.test.js`, `frontend/src/game/classlessCombatEffects.js`, `frontend/src/game/classlessProgression.test.js`, `frontend/src/game/engine.js`, `frontend/src/game/engine.classless.test.js`, `frontend/src/components/TacticalMenu.jsx`, and `frontend/src/components/TacticalMenu.test.jsx`. The existing user-owned changes listed above are excluded.
+- Implementation commit `fa7411fa701f77ea4e3713306461af74a15c9828` (`Implement Warden and Hemomancy combat actions`) was pushed to `origin/review/mobile-working-copy`. `git fetch`, `git rev-parse`, and `git ls-remote` verified remote SHA `fa7411fa701f77ea4e3713306461af74a15c9828`, 0 ahead / 0 behind at that checkpoint. This handoff is being published separately. No main merge, deploy, production-data access, or Android build occurred.
+- The exact phrase `work done` means ChatGPT should retrieve and review the latest published handoff and report back.
