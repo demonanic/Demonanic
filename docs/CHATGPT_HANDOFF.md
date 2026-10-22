@@ -66,6 +66,43 @@ This slice consumes a progression value with `level`, available `ap`, and `owned
 
 The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
 
+## 20. Milestone 4 — Implement Classless Battle Support — 2026-10-22
+
+### Starting point and verified path
+
+- Fetched `origin/review/mobile-working-copy` before editing. Started on that branch at `27a1e4d6eaaf1c7b06b0e71421a43246c5a7ac74`; fetched remote HEAD matched. The pre-existing user changes to `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx` were preserved and not staged. No branch switch, merge, deployment, live service, account, or production data was used.
+- Read `AGENTS.md`, this handoff, and `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md`. The approved combat baseline and bible behavior were not changed.
+- The production entry gap was exactly two gates: Preparation rejected classless squads before saving/routing to Battle, and Battle redirected a classless roster to Preparation before constructing the Engine. Removed those two gates after a focused test exercised both victory and defeat through the production screen path.
+
+### Implementation
+
+- `Preparation.jsx` now uses its existing save-and-route action for classless squads. `Battle.jsx` now constructs the existing Engine for classless profiles and retains the existing `Battle.onEnd` → `stageBattleCompletion` → provider mutation/result route. No legacy `cls` is added.
+- `TacticalMenu` and Battle's existing callback route the classless Shared Strike selection to `Engine.useHeroAbility`. The integration test clicks the real menu control, selects a test enemy, and observes the real Engine kill/reward/cooldown behavior.
+- Classless result handling continues to map runtime HP and XP by stable identity, preserve nested progression/appearance and unrelated profile data, and avoid legacy class XP/AP/SP/perk progression. The test invokes Battle's completion callback a second time and verifies the wave/reward state is not applied twice.
+- Fixed battle revival writeback to use nested classless HP and stable identity. Fixed shared preparation heal, revive, rest recovery, and defeat Free Life helpers to update nested HP without creating a top-level `hp` or invoking class-derived stats.
+- Changed `Results.jsx` imports to relative paths because Jest could not resolve the existing `@/…` aliases for the actual Results component in the screen-level harness. Results renders for both outcomes in the integration test.
+
+### Integration methodology and limitations
+
+- `frontend/src/screens/classlessScreen.integration.test.jsx` renders the actual `GameProvider`, `Preparation`, `Battle`, `TacticalMenu`, and `Results` components against a disposable serialized classless profile. The test traverses Preparation → Battle → tactical Shared Strike → victory or defeat → Results → provider autosave → serialization → a newly mounted provider and normalized reload.
+- The network API is mocked. The mock uses the production `serializeGameState` and returns that saved snapshot on reload; this verifies provider save/reload plus serialization/normalization, but not a live API or backend.
+- The real Engine constructor and action/result methods are used. Its animation-loop `start` is stubbed to avoid browser RAF/canvas requirements; the test inserts a deterministic enemy. Victory uses the Engine's `forceWin()` test/debug action after Shared Strike; defeat uses the real enemy-attack and end checks. It does not verify natural wave spawning/animation timing or device rendering.
+- The tested profile is a disposable classless profile fixture, not the `SquadSelect` creation journey. This milestone verifies the screen integration seam, not universal perk purchases/effects, natural wave balance, backend/device play, or completion of the larger classless RPG rebuild.
+
+### Validation
+
+- Initial focused test before code changes: `CI=true npm test -- --watchAll=false --runInBand src/screens/classlessScreen.integration.test.jsx` from `frontend/` — PASS, 1 suite / 1 test for the then-current safety gate.
+- Final focused/regression command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/screens/classlessScreen.integration.test.jsx src/screens/Battle.tactical-flow.test.jsx src/screens/Preparation.classless-gate.test.jsx src/components/TacticalMenu.test.jsx src/context/GameProvider.test.jsx src/context/classlessBattleCompletion.provider.test.jsx src/game/classlessBattleResults.test.js src/game/classlessPersistence.test.js src/game/classlessBattleLifecycle.integration.test.js src/game/engine.classless.test.js src/game/engine.targeting.test.js src/game/engine.abilities.test.js src/game/logic.classlessHero.test.js` — PASS, 13 suites / 102 tests.
+- Frontend build from `frontend/`: `npm run build` — PASS, optimized build compiled. Node emitted the existing non-fatal `fs.F_OK` deprecation warning.
+- `git diff --check` — PASS after the implementation and handoff review. No full frontend suite, Android build, device, backend, or live network test was run.
+
+### Publication and next step
+
+- Task implementation files: `frontend/src/screens/Preparation.jsx`, `frontend/src/screens/Battle.jsx`, `frontend/src/screens/Results.jsx`, `frontend/src/game/logic.js`, `frontend/src/game/logic.classlessHero.test.js`, `frontend/src/screens/classlessScreen.integration.test.jsx`, `frontend/src/screens/Battle.tactical-flow.test.jsx`, and `frontend/src/screens/Preparation.classless-gate.test.jsx`. Unrelated user changes remain unstaged.
+- Code/test commit `5ec2515fc5d5a87afa05facc1a41f4d81f9f6ce4` (`Enable classless battle screen flow`) contains only the eight task files above. It was pushed to `origin/review/mobile-working-copy`; `git fetch`, `git rev-parse`, and `git ls-remote` all verified remote SHA `5ec2515fc5d5a87afa05facc1a41f4d81f9f6ce4`. No main merge or deploy occurred.
+- Next recommended task: connect the canonical universal perk progression validator/catalog to classless hero purchases and persistence, without claiming perk effects are active until their combat handlers are implemented and tested.
+- The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
 ## Current owner-approved direction — fresh classless rebuild
 
 The project owner has changed the priority: preserving the old class-based gameplay architecture and existing hero progression is no longer a primary release requirement. Rebuild gameplay around `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md`, the sole authority for perk and ability behavior. New heroes are unclassified and use the bible's shared baseline and Shared Strike. Replace class-based progression and combat assumptions with its universal perk architecture, damage pipeline, caps, combat rules, canonical IDs, prerequisites, signatures, and phase gates. Use fresh disposable test profiles for gameplay validation.
