@@ -709,3 +709,36 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - Backend offline HP recovery remains unimplemented until its tests can run in a configured backend environment. Next: verify the nested recovery adapter there, then add the UI/profile completion adapter and end-to-end test before removing either battle gate.
 - Code/test commit `1823cd0` (`Add bounded classless combat engine adapter`) contains only the four files listed in this milestone. Handoff-only commit `3fe588f` (`Record classless combat adapter milestone`) contains only this handoff. Both were pushed to `review/mobile-working-copy`; `git fetch`, local tracking ref, and `git ls-remote` verified remote SHA `3fe588fec025d06eaac3a72003f558a0171dbb33`, matching local HEAD, with 0 ahead / 0 behind. The existing unrelated worktree changes remain unstaged.
 - The handoff is published at the verified SHA above. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
+## 14. Milestone 6A — Classless Recovery and End-to-End Integration Foundation — 2026-10-22
+
+### Repository checkpoint and boundaries
+
+- Started on `review/mobile-working-copy`, HEAD `bffd3427b888104875dfce460ecfe056031b55e6`; fetched `origin/review/mobile-working-copy` and confirmed 0 ahead / 0 behind. Preserved the pre-existing modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`. No edits or staging of those files.
+- Read `AGENTS.md`, this handoff, and `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md`. No production profile/account, MongoDB, backend API, merge, deploy, or `main` branch was used. The approved baseline and classless Battle safety gate remain unchanged.
+
+### Post-battle persistence foundation
+
+- Added `frontend/src/game/classlessBattleResults.js`, a pure staging adapter that JSON-clones a profile before applying valid classless runtime `combat.hp` and awarded `progression.xp` by stable identity ID. It preserves appearance, combat settings/capabilities, progression fields, economy, castle, and unrelated profile fields. It rejects invalid runtime HP / XP without mutating source state. It does not apply legacy class level-up, SP/AP, or perk rules; those are not approved classless progression rules.
+- `Battle.jsx` now uses identity IDs and stages/copies nested classless result fields in its completion callback, while retaining `addHeroXp` for legacy heroes. Legacy-only runs skip this staging adapter. This completion code is not yet reachable for classless heroes because the safety gate returns them to preparation before Engine construction. The tested adapter proves the merge/serialization/normalization seam, not a playable battle or backend save round trip.
+- Shared Strike tactical UI wiring was not added. Engine status/use APIs and the approved direct-hit behavior remain tested from Milestone 5. UI use cannot be verified through the actual Battle screen while the classless gate is active, and bypassing it would violate the milestone’s safety requirement.
+
+### Backend offline recovery blocker
+
+- Verified `backend/server.py::apply_offline_accrual` remains unchanged: it caps elapsed offline time at the configured 12 hours, recovers legacy top-level HP at 8% of max HP per hour, and skips heroes at zero HP. Nested `combat.hp` is still unsupported. No backend implementation or recovery tests were added or published because a declared-dependency test environment could not be safely provisioned here.
+- Exact backend command `python3 -m pytest -q tests/test_classless_offline_recovery.py tests/test_profile_creation_safety.py tests/backend_test.py` from `backend/` — BLOCKED immediately: `/usr/bin/python3: No module named pytest`. `python3 -c 'import fastapi'` also fails with `No module named fastapi`; Python 3.12 lacks pytest, and `python3.12 -m venv /tmp/demonanic-backend-venv` failed because `ensurepip` is unavailable. No `pip` executable is installed. The next backend step is to provide a disposable Python environment with `backend/requirements.txt` dependencies, then add and run nested wounded/full/dead/malformed/boundary and legacy recovery tests before implementing/publishing recovery.
+
+### Tests and validation
+
+- Added `frontend/src/game/classlessBattleResults.test.js`: classless HP/XP result merge followed by serialization and normalization; defeat at zero HP; preservation of identity, appearance, combat capabilities, progression fields, economy/castle/profile data; legacy state untouched by the adapter; and invalid-result atomicity.
+- Focused command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand src/game/classlessBattleResults.test.js src/game/classlessPersistence.test.js src/game/engine.classless.test.js src/screens/Battle.tactical-flow.test.jsx` — PASS, 4 suites / 39 tests. After final helper adjustments, `CI=true npm test -- --watchAll=false --runInBand src/game/classlessBattleResults.test.js src/screens/Battle.tactical-flow.test.jsx` — PASS, 2 suites / 24 tests.
+- Full frontend command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand` — PASS, 31 suites / 251 tests, including existing legacy battle, profile/provider, rewards, and classless Shared Strike engine tests.
+- `npm run build` from `frontend/` — PASS, optimized build compiled successfully; Node emitted the existing non-fatal `fs.F_OK` deprecation warning. The focused run after the final adapter edit also passed.
+- `git diff --check` — PASS after final edits. No backend tests, live end-to-end test, live API, device/Android build, or production data operation occurred.
+
+### Remaining blockers and next step
+
+- Nested offline recovery remains unimplemented pending an isolated declared-dependency backend environment. This is the primary incomplete item for Milestone 6A.
+- The result adapter is ready for a future classless battle completion path but full flow is unverified: classless creation is not wired into live new-game selection; Battle remains gated; Shared Strike is not exposed in tactical UI; recovery is missing; backend save/load and the full creation → preparation → battle → rewards → reload journey are not verified. Do not remove the gate or describe the game as fully playable/classless.
+- Code files for this milestone: `frontend/src/screens/Battle.jsx`, `frontend/src/game/classlessBattleResults.js`, and `frontend/src/game/classlessBattleResults.test.js`. No backend file changed. Milestone code/test commit `8cd1a5b` (`Add classless battle result persistence adapter`) contains only those three files. It has not yet been pushed; handoff publication follows separately.
+- The handoff must be published on `review/mobile-working-copy` when safe. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
