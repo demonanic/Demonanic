@@ -632,3 +632,40 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - Not integrated: current new-game squad selection flow, roster/preparation/profile visuals for classless heroes, `GameProvider.normalizeState` and save round-trip for the new model, `heroDerived`, basic attack execution, Shared Strike cooldown/damage resolution, class-neutral enemy-validity handling, and live combat. Route no-class creation into the app only after these consumers have a tested adapter; otherwise a classless hero cannot safely enter current combat.
 - Next step: design a bounded classless persistence/rendering adapter and add normalization/save round-trip tests using disposable local state, then separately implement explicit-range basic attack and Shared Strike execution in the engine. Do not claim full classless gameplay until both integration layers are verified.
 - The handoff records this implementation, test/build results, and the remaining engine/UI boundary. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
+## 12. Milestone 4 — Classless Persistence and Rendering Adapter — 2026-10-22
+
+### Repository checkpoint and outcome
+
+- Started on `review/mobile-working-copy`, HEAD `9b85b49892f935c37c10214b9483be5d985106e9`; branch was synchronized with origin at start. Preserved the pre-existing modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx`. These were not edited or staged.
+- Read `AGENTS.md`, this handoff, and the canonical design bible. No branch switch, merge, deployment, backend request, production profile/account modification, or MongoDB access occurred.
+- Implemented a JSON-compatible persistence and normalization adapter for the already approved classless hero data. Classless heroes render in roster and preparation using their stored identity and appearance identifier. They are explicitly blocked from starting a battle. The class-based profile path remains supported.
+
+### Verified profile paths and behavior
+
+- `GameProvider.loadGame` reads `gameApi.getState()` (`GET /game/state`), normalizes `data.state`, writes a local backup, and loads it into provider state. `startNewGame` still creates the existing empty economy/castle state; it has not been redirected to classless combat or a classless live squad flow. Local fallback also normalizes before the player chooses to continue.
+- `gameApi.createState` and `gameApi.saveState` send a JSON object under `{ state }` to `POST /game/state` and `PUT /game/state`. They now call `serializeGameState`, which returns an isolated JSON snapshot and throws on invalid/cyclic input without changing the caller's object.
+- Backend save endpoints accept the root state as a dictionary and store/return it without requiring hero `cls`; root-level legacy economy migrations remain. The existing backend offline accrual code only reads legacy top-level hero `hp`/`maxHp`, so it does not restore nested classless `combat.hp`. That backend recovery behavior remains a known limitation and was not changed in this milestone.
+- Before this change, `GameProvider.normalizeState` edited its input and passed every active hero through class-keyed perk normalization, mage setup, and `heroDerived`; those assumptions rejected the nested classless model. The normalizer now JSON-clones first and dispatches classless heroes through `normalizeClasslessHero` in both squad and bench. Legacy squad and bench normalization retain their prior paths.
+
+### Implementation and boundaries
+
+- `frontend/src/game/heroModel.js` now exports `normalizeClasslessHero` and `serializeGameState`. The normalizer preserves nested identity, appearance, combat, progression, and unknown JSON fields; it supplies safe values for absent/malformed optional identity, HP, stat, attack-setting, appearance, and progression fields. Approved Shared Strike behavior is normalized back to its canonical coefficient, cooldown, zero cost, and no prohibited effects.
+- `GameProvider.normalizeState` now works on a JSON copy, so validation/clone failures happen before mutating the supplied save. `frontend/src/api.js` serializes create/save payloads through the snapshot helper. `castlePower` reads the classless progression level as a display/economy fallback when the legacy top-level level is absent.
+- Roster and preparation show classless identity, level, HP, base stats where applicable, and appearance ID or “Unselected”, without selecting or drawing a default sprite. No new appearance picker was introduced. Classless heroes do not open legacy `HeroCard` progression or class configuration controls, and preparation refuses to enter battle while a classless hero is in the squad.
+- Live new-game selection was not redirected. Combat execution, the battle engine, classless healing/revival/recovery, and perk-tree progression remain unsupported. The adapter only makes classless records safe to normalize, JSON-save/load, and display; it does not claim full classless gameplay. Offline recovery for nested `combat.hp` is the specific backend blocker noted above.
+- No class values or combat baseline were changed, and no default sprite, ability, perk, or progression behavior was invented.
+
+### Tests and validation
+
+- Added `frontend/src/game/classlessPersistence.test.js` covering classless state save/load round-trip of identity, appearance, HP, stats, combat settings, and progression; unchanged legacy class normalization; malformed/unknown optional fields; failure atomicity for normalization and serialization; and disposable new-game economy/castle/profile fields. It uses only local data, not a production identity or service.
+- Focused command: `CI=true npm test -- --watchAll=false --runInBand src/game/classlessPersistence.test.js src/context/GameProvider.test.jsx src/game/logic.wave-composition.test.js src/components/PrepField.test.jsx` from `frontend/` — PASS, 4 suites / 24 tests.
+- Full frontend command: `CI=true npm test -- --watchAll=false --runInBand` from `frontend/` — PASS, 29 suites / 236 tests. This full run occurred before the final one-line `castlePower` fallback and display-label polish; the focused suite and build below ran afterward.
+- Build: `npm run build` from `frontend/` — PASS, optimized build compiled successfully. Node printed a non-fatal `fs.F_OK` deprecation warning.
+- `git diff --check` — PASS after final documentation/code review. No roster-specific or preparation-screen integration test existed; the existing `PrepField` regression test passed. No live API/backend, device, or combat test was run.
+
+### Publication and next step
+
+- Milestone code/test commit `87e21d8` (`Add classless profile persistence adapter`) contains only the seven files listed in this section. The handoff will be published in its own handoff-only commit. The four pre-existing user changes above remain unstaged and uncommitted.
+- Next step: implement backend-compatible offline HP recovery for nested `combat.hp` only if desired, then complete a classless combat-engine adapter and targeted roster/preparation interaction tests before routing new-game heroes into battle. Do not integrate classless heroes into live combat based on this persistence milestone alone.
+- The handoff records actual results and the remaining limits. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back. Publication is not complete until the remote SHA is verified.
