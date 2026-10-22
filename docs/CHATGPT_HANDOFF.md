@@ -10,11 +10,11 @@ Demonanic is an RPG/tower-defense game. The frontend is a React application unde
 
 The game has hero XP/levels, AP perk progression, SP stat allocation, equipment, Academy stat training, Mage Library research/spellbooks, battle abilities, towers, castle buildings, and a shared Gold/Stone/Metal economy. The root `README.md` and `frontend/README.md` are Create React App boilerplate rather than current game architecture documentation.
 
-### Repository checkpoint before handoff publication — 2026-10-22 03:09 UTC
+### Repository checkpoint before the collaboration workflow update — 2026-10-22 03:12 UTC
 
 - Branch: `review/mobile-working-copy` (verified; no branch switch performed).
-- HEAD: `c18467c` — `Add mandatory collaboration workflow`.
-- `AGENTS.md` is committed; the local branch was one commit ahead and zero behind `origin/review/mobile-working-copy` before the handoff-only commit.
+- HEAD: `e3b2803e1e47b554675639970da9ae06d9e2e542` — `Record handoff publication verification`.
+- The local branch was synchronized with `origin/review/mobile-working-copy` before this task's documentation edits.
 - Pre-existing worktree changes before collaboration setup:
   - Modified: `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`.
   - Untracked: `frontend/src/components/PerkTree.test.jsx`.
@@ -40,7 +40,7 @@ The user has decided to replace fixed four-class progression with a classless, s
 
 The newest user direction supersedes earlier fixed-class hybrid/Cross-Training assumptions. Detailed branch examples and migration mechanisms below are recommendations from the audit, not approved implementation specifications.
 
-The current task adds the permanent repository workflow in root `AGENTS.md` and updates this handoff. It does not change gameplay. The exact phrase `work done` is the user's signal for ChatGPT to review the latest handoff. This task's changes and publication state are recorded below; preserve the pre-existing perk-tree and roadmap work.
+The repository workflow is in root `AGENTS.md`. This task expands its final-report checklist to match the user's eight required items and clarifies that `work done` means ChatGPT must retrieve the latest published handoff, review it, and report back. No gameplay changes are in scope; preserve the pre-existing perk-tree and roadmap work. The documentation update and publication status are recorded below.
 
 ## 2. Architecture and audits
 
@@ -106,6 +106,15 @@ Times are UTC. When conversation history did not preserve an exact time, that li
 - **Inspection issue:** `rg --files` was attempted but `rg` is unavailable (`/bin/sh: 1: rg: not found`). `find . -name AGENTS.md -print` located only `frontend/node_modules/recharts/AGENTS.md` before the root file was created.
 - **Tests/builds:** No tests, build, Android build, or device check were run; this is a documentation-only task. `git diff --check` passed before the AGENTS commit; it will be rerun for the final handoff diff.
 - **Commits/publication:** `AGENTS.md` was committed alone as `c18467c` (`Add mandatory collaboration workflow`). The handoff was committed separately as `1c69d81477fb4e9c78cc8134f190e09a12c79c58` (`Update ChatGPT development handoff`). Both commits were pushed to `origin/review/mobile-working-copy`; `git ls-remote` independently confirmed that branch at `1c69d81477fb4e9c78cc8134f190e09a12c79c58`. This entry records the verified outcome; its final publication is a handoff-only follow-up commit.
+
+### 2026-10-22 03:12 UTC — Expand the permanent final-report requirements
+
+- **Objective:** Update the repository procedure to enumerate all eight required final-report items and make the `work done` handoff-review action explicit.
+- **Files changed:** `AGENTS.md` expands section E. `docs/CHATGPT_HANDOFF.md` updates this checkpoint and records the current task.
+- **Important APIs/data:** Documentation only; no gameplay, profile, or save data changed.
+- **Compatibility:** Existing uncommitted `ROADMAP.md`, perk-tree source changes, and untracked component test are preserved.
+- **Tests/builds:** No tests, frontend/backend suites, or builds were run for this documentation-only change. `git diff --check` passed on the worktree and staged documentation diff.
+- **Commit/publication:** `AGENTS.md` was committed alone as `ca5256b` (`Specify required final collaboration report`). The handoff is staged by itself for a separate handoff-only commit; verify the exact outgoing commit list and remote state before pushing, then record publication verification.
 
 ### 2026-10-22 02:55 UTC — Create permanent ChatGPT handoff
 
@@ -215,4 +224,4 @@ No step above has been started as implementation in the current task.
 
 ## 8. Handoff summary
 
-At the verified publication checkpoint, Demonanic is on `review/mobile-working-copy`; `AGENTS.md` is in commit `c18467c`, and handoff commit `1c69d81477fb4e9c78cc8134f190e09a12c79c58` is published on GitHub. The pre-existing `ROADMAP.md`, perk-tree source changes, and component test remain uncommitted and untouched. This setup changes documentation only, not gameplay or save data. No tests/builds were run; `git diff --check` passed. The prior focused perk tests passed 36 tests and the prior full frontend suite passed 208 tests. The approved classless direction still needs architecture and neutral-combat-baseline review before implementation. The exact phrase `work done` signals ChatGPT to review this handoff. The current setup outcome is published; check Git history/status for the newest handoff-only verification addendum. Next development step: architecture approval, then a complete class-dependency inventory and legacy-save migration specification.
+At the task-start checkpoint, Demonanic was on `review/mobile-working-copy` at `e3b2803e1e47b554675639970da9ae06d9e2e542`, synchronized with its remote before documentation changes. The workflow expansion is committed alone as `ca5256b`; the handoff update is being committed separately. Pre-existing `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js` modifications plus untracked `frontend/src/components/PerkTree.test.jsx` remain untouched. This task changes documentation only, with no gameplay or save data changes. The prior focused perk tests passed 36 tests and the full frontend suite passed 208 tests; no tests/builds were run for this documentation-only update. The `work done` signal means ChatGPT retrieves the latest published handoff, reviews it, and reports back. Before pushing, verify the only outgoing commits are the approved documentation commits; after pushing, confirm the remote branch and handoff update. Next development step remains approval of the classless architecture and neutral combat baseline, followed by the full dependency/migration design.
