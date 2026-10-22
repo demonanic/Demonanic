@@ -1,6 +1,9 @@
 import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import TacticalMenu from "./TacticalMenu";
+import { Engine } from "../game/engine";
+import { createHeroModel } from "../game/heroModel";
+import { createNewState } from "../game/logic";
 
 jest.mock("./ui-kit", () => ({
   NeonButton: ({ children, active, ...props }) => <button aria-pressed={active} {...props}>{children}</button>,
@@ -115,6 +118,29 @@ describe("TacticalMenu mobile controls", () => {
     act(() => action.click());
     expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "shared_strike");
     expect(onAbility).not.toHaveBeenCalled();
+  });
+
+  test("Shared Strike selected in the tactical menu reaches the real engine action", () => {
+    const state = createNewState();
+    state.heroes = [createHeroModel({ id: "tactical-engine-hero", name: "Aster" })];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    const target = {
+      name: "Tactical target", type: "targetDummy", hp: 500, maxHp: 500,
+      x: engine.heroes[0].x + 80, y: engine.heroes[0].y, speed: 0, lane: -1,
+      floats: true, dmgBy: {}, affinities: {},
+    };
+    engine.active = [target];
+    const onBeginAbilityTarget = jest.fn((index, id) => engine.useHeroAbility(index, id, target));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} onBeginAbilityTarget={onBeginAbilityTarget} />));
+
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    act(() => container.querySelector('[data-testid="tactical-ability-shared_strike"]').click());
+
+    expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "shared_strike");
+    expect(target.hp).toBe(476);
+    expect(engine.heroes[0].abilityCooldowns.shared_strike).toBe(12);
   });
 
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {
