@@ -710,6 +710,43 @@ Alternative conservative profile for review: 250 HP, range 170, retaining 16 dam
 - Code/test commit `1823cd0` (`Add bounded classless combat engine adapter`) contains only the four files listed in this milestone. Handoff-only commit `3fe588f` (`Record classless combat adapter milestone`) contains only this handoff. Both were pushed to `review/mobile-working-copy`; `git fetch`, local tracking ref, and `git ls-remote` verified remote SHA `3fe588fec025d06eaac3a72003f558a0171dbb33`, matching local HEAD, with 0 ahead / 0 behind. The existing unrelated worktree changes remain unstaged.
 - The handoff is published at the verified SHA above. The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
 
+## 15. Milestone 6B — Complete the Classless Flow Safely — 2026-10-22
+
+### Repository checkpoint and scope
+
+- Started on `review/mobile-working-copy`, HEAD `347601757e39a31ba8b6abd4de18840960e8ef2d`; fetched origin and confirmed 0 ahead / 0 behind. Preserved the pre-existing modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`. They were not staged. No real accounts, production profiles, MongoDB records, merge, deploy, or Android build were used.
+- Read `AGENTS.md` and this latest handoff. Kept the classless hero model authoritative and retained the Battle/Preparation safety gate.
+
+### Backend recovery
+
+- `backend/server.py::apply_offline_accrual` now recognizes nested classless records by the classless identity/combat shape and absence of a legacy `cls`. It recovers valid numeric `combat.hp` toward `combat.maxHp` at the existing 8% of maximum HP per hour, after the existing elapsed-time calculation and 12-hour cap. Zero HP remains zero. Invalid, non-finite, boolean, missing, zero-max, negative, or over-max HP is ignored. The classless branch continues before legacy recovery, preventing double recovery. Legacy top-level `hp`/`maxHp`, inferred maxima, and rate remain unchanged.
+- Dependencies were provisioned only under `/tmp/demonanic-m6b-pydeps` using `pip --python /usr/bin/python3.12 install --target /tmp/demonanic-m6b-pydeps` and the Python packages declared by `backend/requirements.txt` needed for pytest/server imports (pytest, pytest-xdist, FastAPI, Motor, PyMongo, python-dotenv, Pydantic, email-validator, PyJWT, bcrypt and transitive dependencies). No global Python packages or repo/production configuration changed.
+- Added `backend/tests/test_classless_offline_recovery.py` for wounded, full, zero HP, malformed nested values, one/twelve/over-twelve-hour and zero-elapsed boundaries, and unchanged legacy HP recovery. These tests use frozen time and disposable dictionaries. Backend API smoke tests in `backend/tests/backend_test.py` were not run because they issue HTTP requests to a configured remote service; local profile-creation safety tests use in-memory fakes.
+
+### Frontend creation, display, and action wiring
+
+- Added `setClasslessSquad` in `frontend/src/game/logic.js`; it only accepts a fresh profile with no existing squad and creates four independently identified instances of `createHeroModel`, with no `cls`, no chosen appearance, and no changes to economy/castle fields.
+- `frontend/src/screens/SquadSelect.jsx` now offers a separate explicit classless starting-squad choice, persists the result using the existing provider save path, and routes to home/preparation. Its copy clearly states combat remains gated. Class selection behavior remains available.
+- `TacticalMenu.jsx` now reads nested classless identity, HP, maximum HP, and AP/SP for its selector/status display and uses a neutral placeholder rather than rendering the legacy default class sprite. It displays Shared Strike’s baseline 24 raw damage, 12-second cooldown, and zero cost from engine ability status; the button follows the existing enemy-target selection callback. Engine `getHeroAbilityStatus` now exposes those values and the direct-hit description from `HERO_BASELINE`. Shared Strike execution remains through the already-tested engine action API.
+- Existing classless result staging (`classlessBattleResults.js`) and serialization/normalization remain in use. No live Battle gate was removed. Because that gate still stops classless heroes before Engine creation, the actual combat → result callback → provider save → remote reload journey is not end-to-end verified. UI action wiring is component-tested and engine execution is separately tested, but not exercised together in a live Battle screen.
+
+### Validation and actual outcomes
+
+- Backend: `PYTHONPATH=/tmp/demonanic-m6b-pydeps python3 -m pytest -n 0 -q tests/test_classless_offline_recovery.py tests/test_profile_creation_safety.py` from `backend/` — PASS, 9 tests, 4 FastAPI `on_event` deprecation warnings. No remote API/backend test was run.
+- Frontend focused command: `CI=true npm test -- --watchAll=false --runInBand src/game/engine.classless.test.js src/components/TacticalMenu.test.jsx src/screens/SquadSelect.classless.test.jsx src/game/logic.classlessHero.test.js src/game/classlessBattleResults.test.js src/game/classlessPersistence.test.js src/screens/Battle.tactical-flow.test.jsx` from `frontend/` — PASS, 7 suites / 59 tests.
+- After refining Shared Strike target-mode UI coverage: `CI=true npm test -- --watchAll=false --runInBand src/components/TacticalMenu.test.jsx` — PASS, 1 suite / 14 tests.
+- An earlier focused run initially had 1 test-suite setup failure (`Cannot find module '@/context/GameProvider'`) while 6 other suites passed. The new SquadSelect imports were changed to the same relative module paths used by tests; the replacement focused commands above passed.
+- `npm run build` from `frontend/` — PASS, optimized build compiled. Node emitted a non-fatal `fs.F_OK` deprecation warning. Full frontend suite and Android build were not run under the stated budget; no device check occurred.
+- `git diff --check` — PASS after code and handoff review.
+
+### Limits, publication, and next step
+
+- The creation choice now yields a classless roster that serializes and normalizes through existing adapters and can be displayed in preparation. The combat gate remains because the full runtime battle/reward/save/reload loop is not exercised end-to-end. Shared Strike UI wiring is prepared and tested, but cannot be reached through the gated live Battle route. Do not claim full classless playability.
+- Backend nested recovery and focused profile tests are verified. No changes were made to `backend/requirements.txt`, production data, `GameProvider`, the canonical design bible, perk tree, or Android project.
+- Milestone files: `backend/server.py`, `backend/tests/test_classless_offline_recovery.py`, `frontend/src/game/logic.js`, `frontend/src/game/logic.classlessHero.test.js`, `frontend/src/screens/SquadSelect.jsx`, `frontend/src/screens/SquadSelect.classless.test.jsx`, `frontend/src/components/TacticalMenu.jsx`, `frontend/src/components/TacticalMenu.test.jsx`, `frontend/src/game/engine.js`, and `frontend/src/game/engine.classless.test.js`. Code/test commit `1c85b6e` (`Complete classless creation and recovery foundation`) contains only these ten files; it is not pushed yet. This handoff-only commit will record the verified code commit and publication.
+- Next step: use a disposable test identity to verify full classless Battle completion through nested HP/XP result merge, save and normalized reload. Keep both gates until that full sequence is demonstrably safe. Then consider an Android build only when explicitly requested.
+- The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
 ## 14. Milestone 6A — Classless Recovery and End-to-End Integration Foundation — 2026-10-22
 
 ### Repository checkpoint and boundaries
