@@ -1,0 +1,64 @@
+import { CANONICAL_NODES, getCanonicalNode, purchaseNode } from "./classlessProgression";
+
+const CANONICAL_IDS = [
+  "V1", "V2", "V2a", "V3", "V3a", "W1", "W2", "W2a", "W3", "W3a",
+  "P1", "P2", "P2a", "P3", "P3a", "S1", "S2", "S2a", "S3", "S3a",
+  "A1", "A2", "A2a", "A3", "A3a", "T1", "T2", "T2a", "T3", "T3a",
+  "C1", "C2", "C2a", "C3", "C3a", "H1", "H2", "H3", "F1", "F2", "F3",
+  "N1", "N2", "N3", "I1", "I2", "I3",
+];
+
+describe("classless progression catalog", () => {
+  test("contains the 47 permanent bible IDs exactly once", () => {
+    const ids = CANONICAL_NODES.map(({ id }) => id);
+    expect(ids).toHaveLength(47);
+    expect(new Set(ids).size).toBe(47);
+    expect(ids).toEqual(CANONICAL_IDS);
+  });
+
+  test("records costs, level gates, same-branch prerequisites, and Phase 2 nodes", () => {
+    expect(getCanonicalNode("V1")).toMatchObject({ tier: 1, apCost: 1, minLevel: 1, prerequisites: [] });
+    expect(getCanonicalNode("V2a")).toMatchObject({ tier: 2, apCost: 2, minLevel: 5, prerequisites: ["V1"] });
+    expect(getCanonicalNode("V3a")).toMatchObject({ tier: 3, apCost: 3, minLevel: 10, prerequisites: ["V2", "V2a"] });
+    expect(CANONICAL_NODES.filter(({ gated }) => gated).map(({ id }) => id)).toEqual(["C3", "C3a", "N3"]);
+    expect(getCanonicalNode("nope")).toBeNull();
+  });
+});
+
+describe("purchaseNode", () => {
+  test("returns a new value and leaves the input untouched on success", () => {
+    const input = Object.freeze({ level: 1, ap: 1, ownedNodeIds: Object.freeze([]) });
+    const result = purchaseNode(input, "V1");
+
+    expect(result).toEqual({ ok: true, progression: { level: 1, ap: 0, ownedNodeIds: ["V1"] } });
+    expect(input).toEqual({ level: 1, ap: 1, ownedNodeIds: [] });
+    expect(result.progression).not.toBe(input);
+  });
+
+  test.each([
+    [{ level: 1, ap: 10, ownedNodeIds: [] }, "V2", "level_required"],
+    [{ level: 5, ap: 10, ownedNodeIds: [] }, "V2", "prerequisite_required"],
+    [{ level: 10, ap: 10, ownedNodeIds: ["V1", "W1", "W2"] }, "V3", "prerequisite_required"],
+    [{ level: 10, ap: 2, ownedNodeIds: ["V1", "V2"] }, "V3", "insufficient_ap"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["V1", "V2", "V3", "W1", "W2", "W3", "P1", "P2"] }, "P3", "tier_iii_mastery_cap"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["C1", "C2"] }, "C3", "phase_gated"],
+    [{ level: 10, ap: 3, ownedNodeIds: [] }, "unknown", "unknown_node"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["V1"] }, "V1", "already_owned"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["unknown"] }, "V1", "invalid_progression"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["C3"] }, "V1", "invalid_progression"],
+    [{ level: 10, ap: 3, ownedNodeIds: ["V1", "V2", "V3", "W1", "W2", "W3", "P1", "P2", "P3"] }, "I1", "invalid_progression"],
+  ])("refuses invalid purchase %s %s with %s", (progression, nodeId, reason) => {
+    const before = JSON.stringify(progression);
+    const result = purchaseNode(progression, nodeId);
+
+    expect(result).toEqual({ ok: false, reason });
+    expect(JSON.stringify(progression)).toBe(before);
+  });
+
+  test("allows either Tier II prerequisite to unlock a same-branch Tier III", () => {
+    const result = purchaseNode({ level: 10, ap: 3, ownedNodeIds: ["V1", "V2a"] }, "V3a");
+    expect(result.ok).toBe(true);
+    expect(result.progression.ownedNodeIds).toEqual(["V1", "V2a", "V3a"]);
+    expect(result.progression.ap).toBe(0);
+  });
+});
