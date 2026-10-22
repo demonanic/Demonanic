@@ -14,6 +14,14 @@ const CATEGORIES = [
   { id: "squad", label: "Squad", Icon: UsersRound, color: "green" },
 ];
 
+const abilityReasonText = (reason) => ({
+  no_target: "NO VALID TARGET",
+  target_health: "TARGET HP TOO HIGH",
+  cooldown: "COOLDOWN",
+  locked: "LOCKED",
+  unavailable: "UNAVAILABLE",
+}[reason] || "UNAVAILABLE");
+
 function ActionInfo({ id, description, openId, onToggle, children }) {
   const expanded = openId === id;
   return (
@@ -333,7 +341,7 @@ export default function TacticalMenu({
                               ? onBeginAbilityTarget?.(selectedHero, ability.id)
                               : onAbility?.(selectedHero, ability.id)}
                             className="min-h-12 w-full rounded border px-2 py-1 text-left font-mono-g text-[9px] disabled:opacity-45"
-                            aria-label={`${ability.name}: ${ability.cooldown > 0 ? `cooldown ${ability.cooldown.toFixed(1)} seconds` : ability.available ? "ready" : ability.reason === "no_target" ? "no valid target" : "unavailable"}`}
+                            aria-label={`${ability.name}: ${ability.cooldown > 0 ? `cooldown ${ability.cooldown.toFixed(1)} seconds` : ability.available ? "ready" : ability.reason === "target_health" ? "target above health requirement" : ability.reason === "no_target" ? "no valid target" : "unavailable"}`}
                             style={{ borderColor: `${ability.color || "#E879F9"}66`, color: ability.color || "#E879F9", background: `${ability.color || "#E879F9"}10` }}
                             data-testid={`tactical-ability-${ability.id}`}
                           >
@@ -342,7 +350,7 @@ export default function TacticalMenu({
                               {Number.isFinite(ability.damage) ? `${Math.round(ability.damage)} RAW · ` : ""}
                               {Number.isFinite(ability.cooldownSeconds) ? `${ability.cooldownSeconds}s CD · ` : ""}
                               {Number.isFinite(ability.resourceCost) ? `${ability.resourceCost} COST · ` : ""}
-                              {ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : ability.reason === "no_target" ? "NO TARGET" : "UNAVAILABLE"}
+                              {ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : abilityReasonText(ability.reason)}
                               {Number.isFinite(ability.range) ? ` · ${Math.round(ability.range)}R` : ""}
                               {ability.targetMode === "area" && Number.isFinite(ability.radius) ? ` · ${Math.round(ability.radius)}A` : ""}
                             </span>

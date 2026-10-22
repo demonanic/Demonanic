@@ -81,6 +81,16 @@ describe("purchaseNode", () => {
     expect(hero.progression).toEqual({ level: 1, xp: 0, ap: 1, sp: 0, ownedNodeIds: [] });
   });
 
+  test("Precision active nodes unlock only after their canonical purchase validates", () => {
+    const hero = createHero();
+    hero.progression = { level: 10, xp: 9000, ap: 3, sp: 9, ownedNodeIds: ["P1", "P2"] };
+    expect(purchaseClasslessNode(hero, "P3")).toMatchObject({ ok: true, progression: { ap: 0, ownedNodeIds: ["P1", "P2", "P3"] } });
+    expect(hero.progression.ownedNodeIds).toEqual(["P1", "P2"]);
+    const secondAbility = createHero();
+    secondAbility.progression = { level: 10, xp: 9000, ap: 3, sp: 9, ownedNodeIds: ["P1", "P2a"] };
+    expect(purchaseClasslessNode(secondAbility, "P3a")).toMatchObject({ ok: true, progression: { ap: 0, ownedNodeIds: ["P1", "P2a", "P3a"] } });
+  });
+
   test.each([
     [{ level: 1, ap: 1, ownedNodeIds: [] }, "V2", "level_required"],
     [{ level: 1, ap: 1, ownedNodeIds: [] }, "H3", "level_required"],

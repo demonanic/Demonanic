@@ -186,9 +186,12 @@ export default function Battle() {
     setSelectionActive(false);
     dismissActionPanels();
     announceAction(`${kind.toUpperCase()} RESOLVING`);
-    if (!execute()) {
+    const result = execute();
+    const succeeded = result === true || result?.ok === true;
+    if (!succeeded) {
       pendingActionRef.current = null;
-      announceAction(`${kind.toUpperCase()} NOT AVAILABLE`);
+      const reason = typeof result?.reason === "string" ? ` · ${result.reason.replace(/_/g, " ").toUpperCase()}` : "";
+      announceAction(`${kind.toUpperCase()} NOT AVAILABLE${reason}`);
       return false;
     }
     forceTick((t) => t + 1);

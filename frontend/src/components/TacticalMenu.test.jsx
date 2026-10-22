@@ -83,7 +83,7 @@ describe("TacticalMenu mobile controls", () => {
     act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
     const button = container.querySelector('[data-testid="tactical-ability-knight_shield_bash"]');
     expect(button.disabled).toBe(true);
-    expect(button.textContent).toContain("NO TARGET");
+    expect(button.textContent).toContain("NO VALID TARGET");
     expect(button.getAttribute("aria-label")).toContain("no valid target");
   });
 
@@ -121,6 +121,7 @@ describe("TacticalMenu mobile controls", () => {
   });
 
   test("Shared Strike selected in the tactical menu reaches the real engine action", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
     const state = createNewState();
     state.heroes = [createHeroModel({ id: "tactical-engine-hero", name: "Aster" })];
     const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
@@ -141,6 +142,39 @@ describe("TacticalMenu mobile controls", () => {
     expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "shared_strike");
     expect(target.hp).toBe(476);
     expect(engine.heroes[0].abilityCooldowns.shared_strike).toBe(12);
+    random.mockRestore();
+  });
+
+  test.each([
+    ["P3", 150, 500, 16 * 1.8 * 1.25, 22],
+    ["P3a", 190, 500, 16 * 2, 18],
+  ])("Precision ability %s is selected in TacticalMenu and executed by the real engine", (abilityId, hp, maxHp, expectedDamage, cooldown) => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: `tactical-${abilityId}`, name: "Aster" });
+    hero.progression.ownedNodeIds = ["P1", abilityId === "P3" ? "P2" : "P2a", abilityId];
+    state.heroes = [hero];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    const target = { name: "Tactical target", type: "targetDummy", hp, maxHp,
+      x: engine.heroes[0].x + 80, y: engine.heroes[0].y, speed: 0, lane: -1,
+      floats: true, dmgBy: {}, affinities: {} };
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    const onBeginAbilityTarget = jest.fn((index, id) => engine.useHeroAbility(index, id, target));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} onBeginAbilityTarget={onBeginAbilityTarget} />));
+
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const button = container.querySelector(`[data-testid="tactical-ability-${abilityId}"]`);
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain(abilityId === "P3" ? "Execution" : "Killshot");
+    act(() => button.click());
+
+    expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, abilityId);
+    expect(target.hp).toBeCloseTo(hp - expectedDamage);
+    expect(engine.heroes[0].abilityCooldowns[abilityId]).toBe(cooldown);
+    expect(engine.heroes[0].mana).toBe(0);
+    random.mockRestore();
   });
 
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {

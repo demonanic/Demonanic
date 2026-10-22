@@ -4,6 +4,7 @@ import { GameProvider, useGame } from "../context/GameProvider";
 import { createHeroModel, serializeGameState } from "../game/heroModel";
 import * as C from "../game/config";
 import { createNewState } from "../game/logic";
+import { purchaseClasslessNode } from "../game/classlessProgression";
 import Preparation from "./Preparation";
 import Battle from "./Battle";
 import Results from "./Results";
@@ -83,13 +84,14 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     await Promise.resolve();
   });
 
-  const enterCombat = async (hp = 300) => {
+  const enterCombat = async (hp = 300, prepareHero = null) => {
     const hero = createHeroModel({ id: "screen-stable-hero", name: "Aster", appearanceId: "approved-test-look" });
     hero.combat.hp = hp;
     hero.progression.xp = C.HERO_XP[1] - 1;
     hero.progression.ap = 4;
     hero.progression.sp = 2;
     hero.progression.ownedNodeIds = ["V1"];
+    prepareHero?.(hero);
     const profile = createNewState();
     profile.heroes = [hero];
     profile.needsSquad = false;
@@ -211,5 +213,44 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(persistedProfile.castleHp).toBe(731);
     expect(persistedProfile.marker).toBe("disposable-classless-fixture");
     expect(gameApi.getState).toHaveBeenCalledTimes(2);
+  });
+
+  test("purchased Precision Execution runs through Battle and ownership survives provider save/reload", async () => {
+    await enterCombat(300, (hero) => {
+      hero.progression = { level: 10, xp: 9000, ap: 3, sp: 9, ownedNodeIds: ["P1", "P2"] };
+      const purchase = purchaseClasslessNode(hero, "P3");
+      expect(purchase.ok).toBe(true);
+      hero.progression = purchase.progression;
+    });
+    const hero = activeEngine.heroes[0];
+    const target = { type: "precisionDummy", name: "Wounded Raider", x: hero.x + 30, y: hero.y,
+      hp: 150, maxHp: 500, tier: "basic", dmgBy: {}, boss: false };
+    activeEngine.active.push(target);
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    await act(async () => activeEngine._hud());
+    await click("tactical-category-abilities");
+    const execution = container.querySelector('[data-testid="tactical-ability-P3"]');
+    expect(execution).not.toBeNull();
+    expect(execution.disabled).toBe(false);
+    await click("tactical-ability-P3");
+    expect(container.querySelector('[data-testid="ability-target-precisionDummy"]')).not.toBeNull();
+    await click("ability-target-precisionDummy");
+    expect(target.hp).toBeCloseTo(150 - 16 * 1.8 * 1.25);
+    expect(activeEngine.heroes[0].abilityCooldowns.P3).toBe(22);
+    random.mockRestore();
+
+    await act(async () => {
+      activeEngine.forceWin();
+      activeEngine._checkEnd();
+    });
+    expect(container.querySelector('[data-testid="active-screen"]').textContent).toBe("results");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 750)); });
+    expect(persisted.heroes[0].progression.ownedNodeIds).toEqual(["P1", "P2", "P3"]);
+    await unmountProvider();
+    await mountProvider();
+    const reloaded = JSON.parse(container.querySelector('[data-testid="hero-json"]').textContent);
+    expect(reloaded.identity.id).toBe("screen-stable-hero");
+    expect(reloaded.progression.ownedNodeIds).toEqual(["P1", "P2", "P3"]);
+    expect(reloaded.cls).toBeUndefined();
   });
 });

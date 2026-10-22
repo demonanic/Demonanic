@@ -168,6 +168,58 @@ describe("bounded classless combat adapter", () => {
     expect(hero.manualTarget).toBeNull();
   });
 
+  test("classless Execution enforces unlock, range, health condition, pipeline, and cooldown", () => {
+    const hero = createHeroModel({ id: "execution-build" });
+    hero.progression.ownedNodeIds = ["P1", "P2", "P3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const target = enemy("execution target", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 170, maxHp: 500 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    expect(engine.getHeroAbilityStatus(0).find((ability) => ability.id === "P3")).toMatchObject({ available: true, cooldownSeconds: 22, resourceCost: 0, targetMode: "enemy" });
+    const used = engine.useHeroAbility(0, "P3", target);
+    expect(used).toMatchObject({ ok: true, abilityId: "P3", cooldownRemaining: 22, killedTarget: false });
+    expect(target.hp).toBeCloseTo(170 - (16 * 1.8 * 1.25));
+    expect(target.dmgBy.H0).toBeCloseTo(16 * 1.8 * 1.25);
+    expect(engine.executeClasslessAbility(0, "P3", target)).toMatchObject({ ok: false, reason: "cooldown" });
+    expect(engine.heroes[0].abilityCooldowns.P3).toBe(22);
+
+    engine.heroes[0].abilityCooldowns.P3 = 0;
+    const outside = enemy("outside", engine.heroes[0].x + 221, engine.heroes[0].y, { hp: 10, maxHp: 500 });
+    expect(engine.executeClasslessAbility(0, "P3", outside)).toMatchObject({ ok: false, reason: "no_target" });
+    random.mockRestore();
+  });
+
+  test("Killshot requires a target below 40 percent and refunds its cooldown on a kill", () => {
+    const hero = createHeroModel({ id: "killshot-build" });
+    hero.progression.ownedNodeIds = ["P1", "P2a", "P3a"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const target = enemy("killshot target", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 30, maxHp: 500 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    expect(engine.getHeroAbilityStatus(0).find((ability) => ability.id === "P3a")).toMatchObject({ available: true, damage: 32 });
+    const used = engine.executeClasslessAbility(0, "P3a", target);
+    expect(used).toMatchObject({ ok: true, cooldownRemaining: 0, killedTarget: true });
+    expect(target.hp).toBe(0);
+    expect(engine.heroes[0].abilityCooldowns.P3a).toBe(0);
+    expect(engine.executeClasslessAbility(0, "P3a", target)).toMatchObject({ ok: false, reason: "no_target" });
+    random.mockRestore();
+  });
+
+  test("classless active ability failure does not charge cooldown, HP, or resource", () => {
+    const hero = createHeroModel({ id: "failed-ability-build" });
+    hero.progression.ownedNodeIds = ["P1", "P2", "P3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const target = enemy("healthy target", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 200, maxHp: 500 });
+    engine.active = [target];
+    const result = engine.executeClasslessAbility(0, "P3", target);
+    expect(result).toMatchObject({ ok: false, reason: "target_health" });
+    expect(target.hp).toBe(200);
+    expect(engine.heroes[0].abilityCooldowns.P3).toBeUndefined();
+    expect(engine.heroes[0].ref.hp).toBe(300);
+    expect(engine.heroes[0].mana).toBe(0);
+  });
+
   test("Shared Strike deals one 24 raw neutral hit, costs no resource, and enforces 12 seconds", () => {
     const { engine, sim, hero } = makeEngine();
     const target = enemy("primary", hero.x + 80, hero.y);

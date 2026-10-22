@@ -1,5 +1,6 @@
 import * as C from "./config";
 import { IMPLEMENTED_CLASSLESS_PASSIVES } from "./classlessCombatEffects";
+import { IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS } from "./classlessAbilities";
 
 // Bible v1.0 purchase metadata. Effect execution is owned by combat consumers.
 const BRANCHES = [
@@ -157,15 +158,17 @@ export function purchaseNode(progression, nodeId) {
 
 // Classless purchase adapter. It returns only the replacement progression so
 // callers can install it after validation without changing identity, combat,
-// appearance, or unrelated profile fields. This records ownership only; it
-// does not activate catalog effects in combat.
+// appearance, or unrelated profile fields. Purchases are allowed only for
+// passive effects and active ability nodes with registered runtime consumers.
 export function purchaseClasslessNode(hero, nodeId) {
   if (!hero || typeof hero !== "object" || hero.cls || !hero.identity?.id || !hero.combat) {
     return { ok: false, reason: "not_classless_hero" };
   }
   const result = purchaseNode(hero.progression, nodeId);
   if (!result.ok) return result;
-  if (!IMPLEMENTED_CLASSLESS_PASSIVES.includes(nodeId)) return { ok: false, reason: "effect_pending" };
+  if (!IMPLEMENTED_CLASSLESS_PASSIVES.includes(nodeId) && !IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS.includes(nodeId)) {
+    return { ok: false, reason: "effect_pending" };
+  }
   return result;
 }
 // The legacy progression curve is the only approved XP threshold schedule in
