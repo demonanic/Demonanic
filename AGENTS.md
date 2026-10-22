@@ -43,7 +43,13 @@ Follow this workflow for every development task in this repository.
 
 ### E. Final Codex report
 
-- Give a concise, self-contained report of the objective completed, files changed, and material decisions or findings.
-- State exact tests/checks run and their results; identify failures and checks not run.
-- Report the final branch, relevant commit SHA(s), publication status, and remaining pre-existing/uncommitted changes.
-- State the next step and any required user approval. Do not imply a push, deployment, or other external action occurred unless verified.
+- Always provide a concise final report containing:
+  1. Objective and outcome.
+  2. Files changed.
+  3. Tests/builds run and exact results.
+  4. Known issues, failed checks, and unverified items.
+  5. Handoff file publication status and commit SHA.
+  6. Current branch and Git status, including remaining uncommitted changes.
+  7. Recommended next step and any decision needed from the user.
+  8. Confirmation that `docs/CHATGPT_HANDOFF.md` records the actual outcome and that `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+- Never imply a push, deployment, or other external action occurred unless verified.
