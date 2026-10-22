@@ -91,6 +91,33 @@ The sequence remains a recommendation beyond the isolated validator implemented 
 - **Validation/publication:** `git diff --check` passed; final review showed only this handoff as a task change, with the four listed user-owned files unchanged. No test/build command was run for this documentation-only planning edit. This handoff-only update is being prepared for publication on the authorized branch; the resulting commit and remote verification are reported at task completion.
 - The exact phrase `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
 
+## 21. Milestone 5 — Classless Perk Purchases and Persistence — 2026-10-22
+
+### Starting state and implementation
+
+- Fetched `origin/review/mobile-working-copy`; local branch and remote both started at `c3b10d81991cc47d408121645ff87fb16d56a3ac`. Worked on that branch only.
+- Pre-existing user changes preserved and excluded from staging: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`; untracked `frontend/src/components/PerkTree.test.jsx`.
+- Read `AGENTS.md`, this handoff, and the full canonical perk/ability design bible. No bible or open design question changed. The classless progression catalog remains metadata only; this milestone does not implement combat effects, SP spending, respec, or signatures.
+- Fixed a verified catalog metadata mismatch: the final node in each three-node expansion branch (`H3`, `F3`, `N3`, `I3`) is Tier III, costs 3 AP, requires level 10 and the branch's Tier II node. Previously the index-based catalog incorrectly marked those as Tier II.
+- Added `purchaseClasslessNode`, a pure adapter that delegates to the existing purchase validator and returns a replacement progression only on success. Roster installs that progression on the classless hero found by stable identity inside the provider mutation. Legacy class-based roster/perk behavior remains on its prior path.
+- Added a separate classless universal perk panel with catalog-derived IDs, tier, cost, level, prerequisites, and gating. It explicitly states that purchases record ownership/AP only and combat effects are not active. Phase 2 gated nodes remain unavailable.
+- `Roster`'s existing alias imports were converted to relative imports because this Jest setup cannot resolve those aliases for the actual screen/provider test. No profile API, production data, appearance, class assignment, or default sprite changed.
+
+### Tests and checks
+
+- Initial pre-edit progression/persistence baseline from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand src/game/classlessProgression.test.js src/game/classlessPersistence.test.js` — PASS, 2 suites / 20 tests.
+- Focused command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand src/game/classlessProgression.test.js src/screens/Roster.classlessProgression.test.jsx` — PASS, 2 suites / 23 tests. The screen/provider test uses disposable local state, actual `Roster` and `GameProvider`, mocked API IO, production serialization, and normalization on remount; it verifies purchase/reload and preservation of unrelated account/economy/castle/hero fields.
+- Regression command from `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/classlessProgression.test.js src/screens/Roster.classlessProgression.test.jsx src/game/classlessPersistence.test.js src/context/GameProvider.test.jsx src/game/logic.classlessHero.test.js src/game/logic.progression.test.js src/components/PerkTree.test.jsx src/context/classlessBattleCompletion.provider.test.jsx` — PASS, 8 suites / 57 tests.
+- `npm run build` from `frontend/` — PASS, optimized production frontend compiled. Node emitted a non-fatal `fs.F_OK` deprecation warning.
+- `git diff --check` — PASS. No full frontend suite, Android/device test, live backend, or production profile was used.
+
+### Limitations and next step
+
+- Current model starts with 0 AP and there is not yet a verified classless level-up/AP earning path. The bible says heroes gain AP and SP per level but does not provide an XP threshold curve here. This milestone intentionally does not invent a curve or award AP through legacy class progression. Purchases are therefore available only where validated classless progression already has sufficient AP. Next task should define/approve and test the classless XP-to-level/AP grant boundary before normal fresh heroes can earn purchase points.
+- Node ownership is persisted, but catalog effects remain inactive until their actual combat handlers are implemented and tested. Remaining bible wording/count questions are unchanged. This does not represent a complete perk progression/combat integration.
+- Task files: `frontend/src/game/classlessProgression.js`, `frontend/src/game/classlessProgression.test.js`, `frontend/src/components/ClasslessPerkTree.jsx`, `frontend/src/screens/Roster.jsx`, and `frontend/src/screens/Roster.classlessProgression.test.jsx`. Code/test commit `f8bfa32ddfdc1164ea868f5b3f16ce83c11e43b5` (`Connect classless perk purchases and persistence`) was pushed to `origin/review/mobile-working-copy`; fetch, local HEAD, and `git ls-remote` verified this exact remote SHA. The handoff is being published separately after this verification. Unrelated pre-existing user changes remain uncommitted and unstaged.
+- `work done` means ChatGPT should retrieve the latest published handoff, review it, and report back.
+
 ## 1. Project status
 
 ### Project and architecture
