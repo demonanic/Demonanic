@@ -43,6 +43,12 @@ The repository workflow is in root `AGENTS.md`. This audit completes the request
 
 ## 2. Architecture and audits
 
+### Current authoritative perk/ability specification — bible v1.0
+
+The approved source of truth is `docs/design/DEMONANIC_PERK_ABILITY_DESIGN_BIBLE_v1.0.md`, published on `review/mobile-working-copy` in commit `fd37d2454ebdd7134a6fbaba3c9f9aaa946dfde3` and verified from fetched remote commit `5ac34b8e653921e7ad20b01c0db2f89747215ef0`. It supersedes earlier perk/ability proposals and discussions in this handoff wherever they conflict, including the older seven-branch-only candidate list, candidate signature recipes, tier/depth ideas, and classless implementation proposals. The approved bible defines 11 branches (seven core and four expansion), all permanent node IDs and rules, nine signature definitions, shared systems, acceptance tests, and phase gates. Values are locked for implementation but provisional for release and require simulation evidence before tuning. Four internal specification questions remain open; see the 2026-10-22 07:11 audit below. The design document itself was not modified.
+
+The preceding classless architecture inventory remains useful as a compatibility/save-risk audit, not as authority for perk mechanics. The older class-bound `ROADMAP.md` and legacy source remain implementation context only; no gameplay work is approved by this documentation update.
+
 ### Files and verified findings
 
 Inspected during the classless architecture audit (2026-10-21 local date; exact UTC time was not captured in the conversation):
