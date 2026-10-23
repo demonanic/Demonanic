@@ -784,6 +784,19 @@ export class Engine {
         this._float(ally.x, ally.y - 20, "WAR CRY", "#F59E0B");
       }
       affectedTargets = allies;
+    } else if (definition.effect === "rally") {
+      const allies = this.heroes.filter((ally) => ally.alive &&
+        Math.hypot(ally.x - h.x, ally.y - h.y) <= definition.range);
+      if (!allies.includes(h)) return { ok: false, reason: "unavailable", abilityId };
+      for (const ally of allies) {
+        const maxHp = Math.max(1, ally.d.maxHp || ally.ref.maxHp || ally.ref.hp);
+        const before = ally.ref.hp;
+        ally.ref.hp = Math.min(maxHp, ally.ref.hp + maxHp * definition.healMaxHpFraction);
+        const restored = ally.ref.hp - before;
+        if (restored > 0) this._float(ally.x, ally.y - 20, `+${Math.round(restored)} HP`, "#22C55E");
+        this.effects.push({ kind: "heal", x: ally.x, y: ally.y, r: 18, life: 0.4, color: "#22C55E" });
+      }
+      affectedTargets = allies;
     } else if (definition.effect === "interpose") {
       // The design names an in-range ally but leaves the radius unspecified.
       // Use the Engine's established 150-unit allied-support radius.
