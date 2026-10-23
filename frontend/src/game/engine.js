@@ -2930,7 +2930,7 @@ export class Engine {
       if (p.vfxAssetId) {
         const image = getCombatEffectImage(p.vfxAssetId);
         if (drawCombatVfx(ctx, image, { kind: "projectile", x: p.x, y: p.y,
-          rotation: Math.atan2(p.ty - p.y, p.tx - p.x), life: 1, vfxSize: 40 }, 0.96)) {
+          rotation: Math.atan2(p.ty - p.y, p.tx - p.x), life: 1, vfxSize: 50 }, 0.96)) {
           ctx.restore();
           continue;
         }

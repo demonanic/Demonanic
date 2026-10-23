@@ -78,11 +78,11 @@ export function drawCombatVfx(ctx, image, effect, alpha = 1) {
   const aspect = image.naturalWidth / image.naturalHeight;
   const defaultSize = effect.kind === "shared_strike" ? 58
     : effect.kind === "death" ? 48
-      : effect.kind === "hit" ? (effect.crit ? 38 : 28)
-        : effect.kind === "weapon_swing" || effect.kind === "spell_area" ? 48 : 42;
+      : effect.kind === "hit" ? (effect.crit ? 60 : 46)
+        : effect.kind === "weapon_swing" || effect.kind === "spell_area" ? 52 : 46;
   const size = Math.max(1, Number(effect.vfxSize) || defaultSize);
   const fade = 1 - Math.max(0, Math.min(1, alpha));
-  const scale = 0.92 + fade * 0.12;
+  const scale = 1 + fade * 0.08;
   const width = (aspect >= 1 ? size : size * aspect) * scale;
   const height = (aspect >= 1 ? size / aspect : size) * scale;
   const x = effect.kind === "trail" && Number.isFinite(effect.toX) ? (effect.x + effect.toX) / 2 : effect.x;
@@ -91,7 +91,11 @@ export function drawCombatVfx(ctx, image, effect, alpha = 1) {
     : effect.kind === "trail" && Number.isFinite(effect.toX) && Number.isFinite(effect.toY)
       ? Math.atan2(effect.toY - effect.y, effect.toX - effect.x) : 0;
   ctx.save();
-  ctx.globalAlpha = alpha;
+  // Source-sheet glows are intentionally soft. Lift short hit cues above the
+  // original low alpha while preserving a visible fade through the Engine's
+  // existing lifetime; this adds no timers or persistent screen coverage.
+  const opacity = Math.max(0, Math.min(1, Number(alpha) || 0));
+  ctx.globalAlpha = 0.4 + opacity * 0.6;
   ctx.translate(x, y);
   ctx.rotate(rotation);
   ctx.drawImage(image, -width / 2, -height / 2, width, height);
