@@ -1452,3 +1452,32 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - The four pre-existing user changes remain local and unstaged: `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx`. Do not include them in this task's commits.
 - Recommended next task: inspect the integrated effects on an Android phone at the real battle viewport and adjust only visual size/overlap/contrast based on that evidence. Do not start an audio pass or alter combat/recruitment/economy.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
+
+## 35. Combat VFX visibility and Engine renderer coverage — 2026-10-23
+
+### Checkpoint and verified runtime findings
+
+- Continued on `review/mobile-working-copy` from synchronized published HEAD `a978981dfaeea617d0ad996b4f82f3ef5cb80afd`. The published source implementation is commit `975ef12` (`Improve combat VFX visibility and render coverage`). No branch switch, merge, deployment, production-data access, or Android build/device session occurred.
+- The active Battle screen uses the `Engine` canvas renderer in `frontend/src/game/engine.js`. Its projectile loop loads registered images from `frontend/src/game/combatVfx.js`; the combat-effects loop draws event-mapped art after the hero sprites and before damage floaters. Both paths require `image.complete` and positive `naturalWidth`/`naturalHeight`, then use `ctx.drawImage`; unavailable assets continue to use the existing canvas fallback. The fixed image cache and 180-effect cap are unchanged.
+- **Code-level visibility cause:** the supplied artwork was already connected to real Engine events, but ordinary and critical hit art defaulted to only 28 and 38 logical canvas units. At full opacity the renderer further scaled assets to 92% of that size. An ordinary hit's 0.22-second lifetime fed an initial Engine alpha of about 0.48, making the soft, transparent source-sheet impact especially faint on the narrow mobile canvas. Prior tests covered mappings and the draw helper, but did not call the full `Engine.render()` path. The phone screenshot itself was not available for pixel-level diagnosis, so this is a source-supported explanation of why the integration could be hard to see, not a claim of Android visual verification.
+- Image URLs are rooted at `PUBLIC_URL` plus `/sprites/vfx/...`; this repository build assumes `/`. The production build copied all 16 registered PNGs into `frontend/build/sprites/vfx/`. The renderer test uses a loaded-image fixture to verify the Engine passes these URL-bearing image objects into real canvas `drawImage` calls. Actual Android WebView decoding/loading remains unverified.
+
+### Changes in source commit `975ef12`
+
+- `frontend/src/game/combatVfx.js`: raised normal hit artwork from 28 to 46 logical units and critical hit artwork from 38 to 60; generic impact cues now default to 46 and slash/area cues to 52. Removed the 8% shrink at full opacity. Image opacity now maps the existing Engine fade alpha into a 0.4–1.0 visual range, improving short impact visibility while retaining fade and existing event expiry.
+- `frontend/src/game/engine.js`: enlarged supplied projectile artwork from 40 to 50 logical units. No combat damage, cooldown, target, movement, or event lifetime was changed.
+- `frontend/src/game/engine.vfx-render.test.js`: added an Engine renderer-level test with a deterministic loaded-image fixture. It generates a classless equipped-bow projectile and hit, executes Shared Strike, generates a legacy archer projectile/critical hit and a legacy Mage Fireball cast, then calls each real `Engine.render()` and asserts the supplied projectile, star, critical burst, crescent, and orbit PNGs reach `drawImage` with visible dimensions and opacity.
+
+### Validation
+
+- From `frontend/`: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/engine.vfx-render.test.js src/game/combatVfx.test.js src/game/engine.classless.test.js src/game/engine.abilities.test.js` — PASS, 4 suites / 51 tests.
+- From `frontend/`: `npm run build` — PASS; optimized bundle compiled at 221.25 kB JS and 14.06 kB CSS gzip. The existing non-fatal Node `[DEP0176] fs.F_OK` deprecation warning was printed. Verified `frontend/build/sprites/vfx/` contains 16 PNGs.
+- From repository root: `git diff --check` and `git diff --cached --check` — PASS. The staged source commit contained only the two production renderer files and the renderer-level test.
+- No Android/WebView device test, screenshot review, natural-wave play session, live backend/profile test, or low-memory performance test was run. The renderer test proves the Engine draw call using a loaded-image fixture; it does not prove image decoding or visual readability on the phone.
+
+### Publication and next step
+
+- Source commit `975ef12` was pushed to `origin/review/mobile-working-copy` after confirming the prior remote tip was `a978981dfaeea617d0ad996b4f82f3ef5cb80afd`. A separate handoff-only commit publishes this record; verify the final remote HEAD before relying on the handoff.
+- The four unrelated local user changes remain unstaged and excluded: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`; untracked `frontend/src/components/PerkTree.test.jsx`.
+- Next task: review ordinary attacks, critical impacts, spells, and classless abilities on an Android phone at the real battle viewport. Confirm WebView image decoding, scale, contrast, overlap, and frame-time behavior; adjust visuals only from that evidence.
+- The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and continue from that checkpoint.
