@@ -327,26 +327,32 @@ describe("bounded classless combat adapter", () => {
     random.mockRestore();
   });
 
-  test("Rally heals living allies within eight units for ten percent max HP and respects missing health", () => {
+  test("Rally heals living allies within eight units, clamps at max HP, and does not revive", () => {
     const hero = createHeroModel({ id: "rally-build" });
     hero.progression.ownedNodeIds = ["T1", "T2", "T2a"];
     const ally = createHeroModel({ id: "rally-ally" });
+    const nearMax = createHeroModel({ id: "rally-near-max" });
     const distant = createHeroModel({ id: "rally-distant" });
     const dead = createHeroModel({ id: "rally-dead" });
     ally.combat.hp = 200;
+    nearMax.combat.hp = 295;
     distant.combat.hp = 200;
     dead.combat.hp = 0;
-    const sim = { ...createNewState(), heroes: [hero, ally, distant, dead] };
+    const sim = { ...createNewState(), heroes: [hero, ally, nearMax, distant, dead] };
     const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
-    const [source, nearby, far, fallen] = engine.heroes;
+    const [source, nearby, almostFull, far, fallen] = engine.heroes;
     source.ref.hp = 250;
     nearby.x = source.x + 7;
+    almostFull.x = source.x + 6;
     far.x = source.x + 9;
     const result = engine.useHeroAbility(0, "T2a");
-    expect(result).toMatchObject({ ok: true, abilityId: "T2a", cooldownRemaining: 22 });
-    expect(result.affectedTargets).toEqual([source, nearby]);
+    // This build owns T1 Readiness, so its 5% active cooldown recovery changes
+    // Rally's canonical 22-second base cooldown to 20.9 seconds.
+    expect(result).toMatchObject({ ok: true, abilityId: "T2a", cooldownRemaining: 20.9 });
+    expect(result.affectedTargets).toEqual([source, nearby, almostFull]);
     expect(source.ref.hp).toBe(280);
     expect(nearby.ref.hp).toBe(230);
+    expect(almostFull.ref.hp).toBe(almostFull.d.maxHp);
     expect(far.ref.hp).toBe(200);
     expect(fallen.ref.hp).toBe(0);
     expect(engine.useHeroAbility(0, "T2a")).toMatchObject({ ok: false, reason: "cooldown" });
@@ -400,6 +406,107 @@ describe("bounded classless combat adapter", () => {
     expect(engine.heroes[0].abilityCooldowns.P3).toBeUndefined();
     expect(engine.heroes[0].ref.hp).toBe(300);
     expect(engine.heroes[0].mana).toBe(0);
+  });
+
+  test("Smoke Bomb is self-targeted, blocks direct targeting, and expires on its timer", () => {
+    const hero = createHeroModel({ id: "smoke-build" });
+    hero.progression.ownedNodeIds = ["S1", "S2", "S2a"];
+    const ally = createHeroModel({ id: "smoke-ally" });
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero, ally] }, { enemies: [], total: 1 });
+    const [smoke, other] = engine.heroes;
+    const target = enemy("direct target", smoke.x + 20, smoke.y - 30);
+    engine.active = [target];
+
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "S2a")).toMatchObject({
+      available: true, targetMode: null, cooldownSeconds: 20, active: false,
+    });
+    expect(engine.useHeroAbility(0, "S2a")).toMatchObject({ ok: true, cooldownRemaining: 20 });
+    expect(smoke.untargetableUntil).toBe(1.5);
+    expect(engine._nearestHeroEntity(target.x, target.y, 200).obj).toBe(other);
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "S2a")).toMatchObject({ active: true, activeRemaining: 1.5 });
+    engine.time = 1.51;
+    expect(engine._nearestHeroEntity(target.x, target.y, 200).obj).toBe(smoke);
+  });
+
+  test("Vanish bonus is consumed once by the next direct weapon hit and obeys the situational cap", () => {
+    const hero = createHeroModel({ id: "vanish-build" });
+    hero.progression.ownedNodeIds = ["S1", "S2", "S3", "S3a"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtimeHero = engine.heroes[0];
+    const first = enemy("first", runtimeHero.x + 30, runtimeHero.y, { hp: 500, maxHp: 500 });
+    const second = enemy("second", runtimeHero.x + 40, runtimeHero.y, { hp: 500, maxHp: 500 });
+    engine.active = [first, second];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    expect(engine.useHeroAbility(0, "S3a")).toMatchObject({ ok: true, cooldownRemaining: 25 });
+    expect(runtimeHero.untargetableUntil).toBe(3);
+    expect(engine._applyHit({ sourceId: "H0", heroIndex: 0, target: first, dmg: 16, classless: true, damageCategory: "weapon" })).toBe(true);
+    expect(first.hp).toBe(476); // +80% is constrained by the shared +50% situational cap.
+    expect(runtimeHero.classlessCombatState.vanishDamagePending).toBe(0);
+    expect(engine._applyHit({ sourceId: "H0", heroIndex: 0, target: second, dmg: 16, classless: true, damageCategory: "weapon" })).toBe(true);
+    expect(second.hp).toBe(484);
+    random.mockRestore();
+  });
+
+  test("untargetability leaves area damage active and enemy bolts retarget at impact", () => {
+    const hidden = createHeroModel({ id: "hidden" });
+    hidden.progression.ownedNodeIds = ["S1", "S2", "S2a"];
+    const visible = createHeroModel({ id: "visible" });
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hidden, visible] }, { enemies: [], total: 1 });
+    const [smoke, ally] = engine.heroes;
+    const attacker = { type: "darkElf", x: smoke.x, y: smoke.y - 40, damage: 20, attackRange: 245 };
+    engine.useHeroAbility(0, "S2a");
+    engine.active = [enemy("wave target", smoke.x + 20, smoke.y - 60)];
+    engine.spawnQueue = [];
+    const hiddenHp = smoke.ref.hp;
+    const allyHp = ally.ref.hp;
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    engine._explodeNapalm(smoke.x, smoke.y, { splash: 70, dmg: 10, sourceId: "Eboss" });
+    expect(smoke.ref.hp).toBeLessThan(hiddenHp); // AoE still lands while untargetable.
+    smoke.ref.hp = hiddenHp;
+    engine._throwEnemyBolt(attacker, { kind: "hero", obj: smoke }, 20, "#fff");
+    const bolt = engine.projectiles[0];
+    engine.update(0.01);
+    expect(bolt.target).toMatchObject({ kind: "hero", obj: ally });
+    engine._resolveEnemyBolt(bolt);
+    expect(smoke.ref.hp).toBe(hiddenHp);
+    expect(ally.ref.hp).toBeLessThan(allyHp);
+    random.mockRestore();
+  });
+
+  test("Phantom Strike teleports behind the target and uses the weapon pipeline with conditional damage", () => {
+    const hero = createHeroModel({ id: "phantom-build" });
+    hero.progression.ownedNodeIds = ["I1", "I2", "I3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtimeHero = engine.heroes[0];
+    const target = enemy("unengaged", runtimeHero.x + 60, runtimeHero.y - 20, { hp: 500, maxHp: 500 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const result = engine.useHeroAbility(0, "I3", target);
+    expect(result).toMatchObject({ ok: true, abilityId: "I3", cooldownRemaining: 22, killedTarget: false });
+    expect(runtimeHero.x).toBe(target.x);
+    expect(runtimeHero.y).toBe(target.y - 30);
+    expect(target.hp).toBe(500 - 16 * 1.5 * 1.5);
+    expect(engine.useHeroAbility(0, "I3", target)).toMatchObject({ ok: false, reason: "cooldown" });
+    random.mockRestore();
+  });
+
+  test("Phantom Strike omits its conditional bonus when the enemy is targeting the caster", () => {
+    const hero = createHeroModel({ id: "phantom-engaged-build" });
+    hero.progression.ownedNodeIds = ["I1", "I2", "I3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtimeHero = engine.heroes[0];
+    const target = enemy("engaged", runtimeHero.x + 20, runtimeHero.y - 20,
+      { type: "lieutenant", hp: 500, maxHp: 500 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    expect(engine._selectEnemyTacticalTarget(target).obj).toBe(runtimeHero);
+    expect(engine.useHeroAbility(0, "I3", target)).toMatchObject({ ok: true });
+    expect(target.hp).toBe(500 - 16 * 1.5);
+    random.mockRestore();
   });
 
   test("Shared Strike deals one 24 raw neutral hit, costs no resource, and enforces 12 seconds", () => {

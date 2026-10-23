@@ -254,6 +254,41 @@ describe("TacticalMenu mobile controls", () => {
     expect(engine.heroes[1].interposeReduction).toBe(0.25);
   });
 
+  test("Smoke Bomb self action and Phantom Strike targeting reach Engine execution", () => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: "tactical-mobility", name: "Aster" });
+    hero.progression.ownedNodeIds = ["S1", "S2", "S2a", "I1", "I2", "I3"];
+    state.heroes = [hero];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    const target = { name: "Target", type: "goblin", hp: 500, maxHp: 500,
+      x: engine.heroes[0].x + 60, y: engine.heroes[0].y - 20, speed: 0, lane: -1,
+      floats: true, dmgBy: {}, affinities: {} };
+    engine.active = [target];
+    const onAbility = jest.fn((index, id) => engine.useHeroAbility(index, id));
+    const onBeginAbilityTarget = jest.fn((index, id) => engine.useHeroAbility(index, id, target));
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
+      onAbility={onAbility} onBeginAbilityTarget={onBeginAbilityTarget}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} />));
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+
+    const smoke = container.querySelector('[data-testid="tactical-ability-S2a"]');
+    expect(smoke.disabled).toBe(false);
+    expect(smoke.textContent).toContain("Smoke Bomb");
+    act(() => smoke.click());
+    expect(onAbility).toHaveBeenCalledWith(0, "S2a");
+    expect(engine.heroes[0].untargetableUntil).toBe(1.5);
+
+    const phantom = container.querySelector('[data-testid="tactical-ability-I3"]');
+    expect(phantom.disabled).toBe(false);
+    act(() => phantom.click());
+    expect(onBeginAbilityTarget).toHaveBeenCalledWith(0, "I3");
+    expect(target.hp).toBe(500 - 16 * 1.5 * 1.5);
+    expect(engine.heroes[0].abilityCooldowns.I3).toBe(22);
+    random.mockRestore();
+  });
+
   test("shows ranged target details and returns to move mode when targeting is canceled", () => {
     act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}}
       initialCommandMode="target"

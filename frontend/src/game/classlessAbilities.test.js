@@ -7,8 +7,8 @@ import {
 } from "./classlessAbilities";
 
 describe("canonical classless active ability definitions", () => {
-  test("exposes implemented Phase 1 Warden, Vanguard, and Precision node abilities only", () => {
-    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a", "W3", "H3"]);
+  test("exposes implemented Phase 1 Warden, Vanguard, Precision, Shadowcraft, Illusion, and Hemomancy abilities", () => {
+    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a", "T2a", "W3", "S2a", "S3a", "I3", "H3"]);
     expect(getClasslessAbilityDefinition("P3")).toMatchObject({
       unlockNodeId: "P3", name: "Execution", cooldownSeconds: 22, resourceCost: 0,
       targetMode: "enemy", damageMultiplier: 1.8, conditionalTargetHpBelow: 0.35, conditionalDamageBonus: 0.25,
@@ -34,6 +34,23 @@ describe("canonical classless active ability definitions", () => {
     expect(getClasslessAbilityDefinition("H3")).toMatchObject({
       unlockNodeId: "H3", name: "Crimson Covenant", cooldownSeconds: 30, resourceCost: 0,
       durationSeconds: 6, effect: "crimson_covenant", requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("T2a")).toMatchObject({
+      unlockNodeId: "T2a", name: "Rally", cooldownSeconds: 22, resourceCost: 0,
+      range: 8, healMaxHpFraction: 0.1, effect: "rally", requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("S2a")).toMatchObject({
+      unlockNodeId: "S2a", name: "Smoke Bomb", cooldownSeconds: 20, durationSeconds: 1.5,
+      effect: "untargetable", targetMode: null, requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("S3a")).toMatchObject({
+      unlockNodeId: "S3a", name: "Vanish", cooldownSeconds: 25, durationSeconds: 3,
+      nextHitDamageBonus: 0.8, effect: "vanish", targetMode: null, requiresTarget: false,
+    });
+    expect(getClasslessAbilityDefinition("I3")).toMatchObject({
+      unlockNodeId: "I3", name: "Phantom Strike", cooldownSeconds: 22,
+      damageMultiplier: 1.5, conditionalDamageBonus: 0.5, effect: "phantom_strike",
+      targetMode: "enemy", requiresTarget: true,
     });
     expect(getClasslessAbilityDefinition("A3")).toBeNull();
   });

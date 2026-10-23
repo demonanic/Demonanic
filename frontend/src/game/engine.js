@@ -16,6 +16,9 @@ const WALL_Y = 0.30 * H;   // yellow outer boundary
 const GATE_Y = 0.60 * H;   // hot-red inner gate line
 const HERO_Y = 0.85 * H;   // heroes line
 const CASTLE_Y = H - 6;    // keep
+// The bible does not specify a Phantom Strike placement offset. Reuse the
+// existing 30-unit hero/defender interaction radius as the reversible offset.
+const PHANTOM_STRIKE_BEHIND_OFFSET = 30;
 
 function isClasslessHero(hero) {
   return !!hero && !hero.cls && !!hero.combat?.basicAttack;
@@ -167,6 +170,7 @@ export class Engine {
         interposeUntil: 0,
         interposeReduction: 0,
         interposeTarget: null,
+        untargetableUntil: 0,
         maxMana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         mana: classless ? 0 : Math.round(70 + (h.level || 1) * 5 + (d.intelligence || 10) * 1.5),
         currentTarget: null,
@@ -175,7 +179,7 @@ export class Engine {
           nextRegenAt: 5, lastStandUntil: 0, lastStandReadyAt: 0, survivalUntil: 0,
           survivalReadyAt: 0, covenantUntil: 0, decoy: false, mirrorReadyAt: 0,
           nextDisruptAt: 0, nextRootAt: 0, lastDealtAt: 0, momentumTarget: null,
-          momentumStacks: 0, ambushTargets: new Set() } : null,
+          momentumStacks: 0, ambushTargets: new Set(), vanishDamagePending: 0 } : null,
       };
     });
 
@@ -266,6 +270,10 @@ export class Engine {
       Math.hypot(enemy.x - h.x, enemy.y - h.y) <= h.d.range;
   }
 
+  _isHeroUntargetable(hero) {
+    return !!hero && hero.untargetableUntil > this.time;
+  }
+
   getRangedTargetAt(index, x, y) {
     const status = this.getRangedTargetStatus(index);
     if (!status) return null;
@@ -302,7 +310,8 @@ export class Engine {
         const activeRemaining = definition.effect === "attack_speed_aura"
           ? Math.max(0, h.warCryUntil - this.time)
           : definition.effect === "interpose" ? Math.max(0, h.interposeTarget?.interposeUntil - this.time)
-            : definition.effect === "crimson_covenant" ? Math.max(0, h.classlessCombatState.covenantUntil - this.time) : 0;
+            : definition.effect === "crimson_covenant" ? Math.max(0, h.classlessCombatState.covenantUntil - this.time)
+              : ["untargetable", "vanish"].includes(definition.effect) ? Math.max(0, h.untargetableUntil - this.time) : 0;
         const damage = Number.isFinite(definition.damageMultiplier)
           ? Math.round(h.d.attack * definition.damageMultiplier) : undefined;
         const canPayHealthCost = this._classlessCanPayActiveCost(h);
@@ -816,6 +825,34 @@ export class Engine {
       this._float(h.x, h.y - 22, "CRIMSON COVENANT", "#DC2626");
       this.effects.push({ kind: "shield", x: h.x, y: h.y, r: 24, life: 0.55, color: "#DC2626" });
       affectedTargets = [h];
+    } else if (definition.effect === "untargetable" || definition.effect === "vanish") {
+      h.untargetableUntil = Math.max(h.untargetableUntil, this.time + definition.durationSeconds);
+      if (definition.effect === "vanish") {
+        h.classlessCombatState.vanishDamagePending = definition.nextHitDamageBonus;
+      }
+      this._float(h.x, h.y - 22, definition.name.toUpperCase(), "#A78BFA");
+      this.effects.push({ kind: "shield", x: h.x, y: h.y, r: 24, life: 0.45, color: "#A78BFA" });
+      affectedTargets = [h];
+    } else if (definition.effect === "phantom_strike") {
+      const targetWasTargetingHero = this._enemyTargetsHero(target, h);
+      const previousPosition = { x: h.x, y: h.y };
+      // Enemies advance toward increasing y, so their rear is the smaller-y
+      // side. The placement distance reuses the established 30-unit body radius.
+      h.x = target.x;
+      h.y = target.y - PHANTOM_STRIKE_BEHIND_OFFSET;
+      const hit = this._applyHit({ sourceId: `H${h.i}`, target,
+        dmg: h.d.attack * definition.damageMultiplier, magic: false, damageType: null,
+        critChance: h.d.critChance, critMult: h.d.critMult, classless: true,
+        heroIndex: h.i, ability: true, damageCategory: "weapon",
+        situationalBonus: targetWasTargetingHero ? 0 : definition.conditionalDamageBonus });
+      if (!hit) {
+        h.x = previousPosition.x;
+        h.y = previousPosition.y;
+        return { ok: false, reason: "no_target", abilityId };
+      }
+      killedTarget = target.hp <= 0;
+      affectedTargets = [target];
+      this._float(h.x, h.y - 22, "PHANTOM STRIKE", "#A78BFA");
     } else {
       return { ok: false, reason: "unavailable", abilityId };
     }
@@ -1352,6 +1389,17 @@ export class Engine {
     // projectiles
     for (const p of this.projectiles) {
       p.t += dt;
+      if (p.kind === "enemyBolt" && p.targetKind === "hero" && this._isHeroUntargetable(p.target?.obj)) {
+        const replacement = this._nearestDefender(p.launchX, p.launchY, p.targetSearchRange);
+        if (!replacement) {
+          p.dead = true;
+          continue;
+        }
+        p.target = replacement;
+        p.targetKind = replacement.kind;
+        p.tx = replacement.obj.x;
+        p.ty = replacement.obj.y;
+      }
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const dist = Math.hypot(dx, dy);
       const step = p.spd * dt;
@@ -1555,7 +1603,7 @@ export class Engine {
     let best = null;
     let bd = range;
     for (const h of this.heroes) {
-      if (!h.alive) continue;
+      if (!h.alive || this._isHeroUntargetable(h)) continue;
       const d = Math.hypot(h.x - x, h.y - y);
       if (d <= bd) {
         bd = d;
@@ -1770,6 +1818,10 @@ export class Engine {
       sourceId: "E" + e.type,
       x: e.x,
       y: e.y,
+      launchX: e.x,
+      launchY: e.y,
+      targetSearchRange: e.type === "darkElf" ? 245 : e.type === "warlock" ? 225
+        : Math.hypot(obj.x - e.x, obj.y - e.y),
       tx: obj.x,
       ty: obj.y,
       target,
@@ -1784,6 +1836,14 @@ export class Engine {
   }
 
   _resolveEnemyBolt(p) {
+    if (p.targetKind === "hero" && this._isHeroUntargetable(p.target?.obj)) {
+      // A projectile already in flight retargets on impact rather than
+      // damaging a hero who became untargetable after it was launched.
+      const replacement = this._nearestDefender(p.launchX, p.launchY, p.targetSearchRange);
+      if (!replacement) return;
+      p.target = replacement;
+      p.targetKind = replacement.kind;
+    }
     const obj = p.target?.obj;
     if (!obj) return;
     if (p.targetKind === "hero") {
@@ -1822,6 +1882,13 @@ export class Engine {
   }
 
   _enemyAttack(e, blocker) {
+    if (blocker?.kind === "hero" && this._isHeroUntargetable(blocker.obj)) {
+      // Re-evaluate in the same update so a direct attack never stalls on a
+      // target that became untargetable after AI selection.
+      const attackRange = Math.hypot(blocker.obj.x - e.x, blocker.obj.y - e.y);
+      blocker = this._nearestDefender(e.x, e.y, attackRange);
+      if (!blocker) return;
+    }
     if (blocker.kind === "tower") {
       const t = blocker.obj;
       const rawDamage = e.type === "darkElf" ? e.damage * 1.15 : e.damage;
@@ -1968,11 +2035,16 @@ export class Engine {
     }
     if (p.damageCategory === "weapon" && effects.ambushDamage > 0 && this.time - state.lastDealtAt >= 3 &&
       !state.ambushTargets.has(target)) situationalBonus += effects.ambushDamage;
+    const consumesVanish = p.area !== true && p.damageOverTime !== true && state.vanishDamagePending > 0;
+    if (consumesVanish) situationalBonus += state.vanishDamagePending;
     damage *= 1 + Math.min(0.5, situationalBonus);
     if (p.elementalBonus) damage *= 1 + Math.min(0.5, p.elementalBonus);
+    // Vanish's next-hit bonus belongs to the shared situational category and
+    // therefore obeys its canonical +50% cap in the damage pipeline.
     const crit = p.guaranteedCrit || Math.random() < hero.d.critChance;
     if (crit) damage *= hero.d.critMult;
     target.hp = Math.max(0, target.hp - damage);
+    if (consumesVanish) state.vanishDamagePending = 0;
     target.dmgBy[p.sourceId] = (target.dmgBy[p.sourceId] || 0) + damage;
     target.classlessLastHitBy ||= {};
     target.classlessLastHitBy[hero.i] = this.time + 4;
@@ -2208,7 +2280,7 @@ export class Engine {
   }
   _nearestHeroEntity(x, y, r) {
     let best = null, bd = r;
-    for (const h of this.heroes) if (h.alive) {
+    for (const h of this.heroes) if (h.alive && !this._isHeroUntargetable(h)) {
       const d = Math.hypot(h.x - x, h.y - y);
       if (d <= bd) { bd = d; best = h; }
     }
@@ -2218,7 +2290,7 @@ export class Engine {
   _nearestMageEntity(x, y, r) {
     let best = null, bd = r;
     for (const h of this.heroes) {
-      if (!h.alive || h.ref?.type !== "mage") continue;
+      if (!h.alive || this._isHeroUntargetable(h) || h.ref?.type !== "mage") continue;
       const d = Math.hypot(h.x - x, h.y - y);
       if (d <= bd) { bd = d; best = h; }
     }
@@ -2229,7 +2301,7 @@ export class Engine {
     if (e.type === "reaper") {
       let best = null, worst = Infinity;
       for (const h of this.heroes) {
-        if (!h.alive) continue;
+        if (!h.alive || this._isHeroUntargetable(h)) continue;
         const d = Math.hypot(h.x - e.x, h.y - e.y);
         if (d > 260) continue;
         const frac = h.ref.hp / Math.max(1, h.d.maxHp);
@@ -2261,6 +2333,14 @@ export class Engine {
     }
 
     return null;
+  }
+
+  _enemyTargetsHero(enemy, hero) {
+    if (!enemy || !hero || this._isHeroUntargetable(hero)) return false;
+    const tactical = this._selectEnemyTacticalTarget(enemy);
+    if (tactical) return tactical.kind === "hero" && tactical.obj === hero;
+    if (enemy.boss) return this._nearestDefender(enemy.x, enemy.y, enemy.attackRange || 420)?.obj === hero;
+    return this._nearestHeroEntity(enemy.x, enemy.y, 30) === hero;
   }
 
   _resolveUnitCollisions() {
