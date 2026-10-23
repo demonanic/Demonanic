@@ -1301,3 +1301,66 @@ Independently map each of the 43 Phase 1 perk nodes, each Phase 1 active ability
 - Source/test commit `706297dc7c74432b6836f22b45b8490c82734315` (`Implement Opening, Formation, and Echo effects`) contains exactly the seven task files listed above. It was pushed to `origin/review/mobile-working-copy`; `git ls-remote` verified that exact SHA as the remote tip before the handoff-only follow-up. The four pre-existing user files listed above remain untouched and unstaged. This section is published separately after the source commit; the final handoff commit SHA and remote-head verification are included in the Codex completion report.
 - Ward’s unspecified range and Echo’s unspecified category/modifier semantics are the remaining design limitations for this batch. The entire Phase 1 combat system is not complete. Next recommended task: resolve Echo’s damage-category interaction with the canonical wording/design owner, then implement Ward once its range is specified; continue the remaining Phase 1 passive/ability/signature gaps afterward. Phase 1.5/Phase 2, VFX, Library/Academy, equipment/items, Android, and balance simulation remain untouched/unverified.
 - `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back; local-only handoff edits are not visible from GitHub.
+
+## 32. VFX, classless hero sprite, and roster progression — 2026-10-23
+
+### Repository checkpoint and rendering audit
+
+- Started on `review/mobile-working-copy` at `82fedd406efc3d82445e242bd7e36c89dfa45a09`; the fetched `origin/review/mobile-working-copy` tip matched. Source implementation commit `0ec07d1` (`Add classless hero sprite and combat feedback`) is published; this handoff section is still local pending its separate handoff-only commit. No branch switch, main merge, deploy, production profile, account, database, or live service was used.
+- The active game screen is `frontend/src/screens/Battle.jsx`; its combat visuals use the canvas renderer in `frontend/src/game/engine.js`. The requested `frontend/src/pages/Game.jsx` and `frontend/src/pages/SideViewGame.jsx` are absent from this repository. No separate active SideView renderer was found. Legacy class sprites and enemies are drawn procedurally in Engine; `frontend/public` had no hero sprite sheet.
+- Capacitor uses `webDir: 'build'` in `frontend/capacitor.config.ts`, so public SVG assets are copied into the regular web build. The SVG uses one cached browser `Image` per Engine module and a procedural classless fallback while loading or if image decoding fails. Asset loading and appearance on an actual Android WebView/device have not been checked.
+- The user-referenced image was not available as an accessible attachment or repository asset during this task. The new vector artwork was authored to the written brief (dark silhouette, cyan/magenta neon trim, top-down orientation); it is not represented as a recreation of that exact reference image.
+
+### Sprite and combat feedback implemented
+
+- Added `frontend/public/sprites/classless-hero-atlas.svg`, a transparent 144×336 SVG atlas with a consistent 3-column, 7-row grid of 48×48 frames: idle, walk, run, basic attack, Shared Strike, hit, and death. The Engine chooses the state/frame from runtime movement/action/hit/death state and rotates the figure toward its current target or movement direction. The foot anchor is shared across frames. Legacy class sprite drawing is unchanged.
+- Added `frontend/src/game/heroSprite.js` and `heroSprite.test.js` for deterministic animation/frame selection and an Engine atlas-draw test. Added `ClasslessHeroAvatar.jsx` and used the same atlas in new-game selection, roster, preparation, and tactical hero indicators. The art does not write to `appearance`, identity, equipment, stats, progression, or serialization fields; no appearance ID/default was added to saved heroes.
+- Engine feedback is event-driven: basic classless attack trail at projectile launch; confirmed hit impacts and stronger critical impacts; Shared Strike cyan/magenta arc on a confirmed hit; enemy hit flash and death burst; Rally ring/floaters only when HP was restored; Opening bonus marker on a boosted hit; Formation nearby-ally ring; Echo mark/consumption feedback; Smoke Bomb/Vanish smoke; Phantom Strike trail after successful damage; and Blood Price, Interpose/Last Stand, Crimson Covenant, survival, and hero-death cues. Existing rings/floaters continue to provide healing/shield feedback for other supported actions. Effect and floater queues are capped at 180 and 120 entries respectively and continue to expire through the normal Engine update.
+- Engine animation/effect changes are visual-only; damage, cooldowns, range, targeting, progression, and baseline combat values were not changed. The effects remain lightweight canvas drawing; no audio/SFX work or rendering dependency was added.
+
+### New-game roster and recruitment
+
+- Fresh classless profiles now start with exactly one unclassified 300-HP hero. The active squad and total-owned limit are centralized in `HERO_ROSTER` at six. Recruitment refuses atomically at the cap and counts active, benched, and Academy-training heroes. Existing saves are not rewritten or truncated; explicit legacy class creation remains supported.
+- Classless recruitment uses a separate doubled curve based on the established four-hero first recruitment price: first recruit costs 1,100 gold (the existing 550-gold reference doubled), then the existing 1.6 growth curve. A fresh profile starts with 500 gold, so the second hero cannot be recruited immediately. Legacy recruitment prices continue to use the existing formula. This is an implementation choice for the user's qualitative “a lot more difficult” request; it is not balance-tested or a claim of final economy tuning.
+- Tavern UI recruits another classless hero for classless rosters, shows the owned count and cap, and disables at six. Legacy-only profiles retain the legacy class recruitment choices. Roster promotion and Library's replacement promotion use the six-person squad cap.
+
+### Files changed for this task
+
+- `frontend/public/sprites/classless-hero-atlas.svg`
+- `frontend/src/components/CastleBuildings.jsx`
+- `frontend/src/components/CastleBuildings.recruitment.test.jsx`
+- `frontend/src/components/ClasslessHeroAvatar.jsx`
+- `frontend/src/components/TacticalMenu.jsx`
+- `frontend/src/game/config.js`
+- `frontend/src/game/engine.classless.test.js`
+- `frontend/src/game/engine.js`
+- `frontend/src/game/heroSprite.js`
+- `frontend/src/game/heroSprite.test.js`
+- `frontend/src/game/libraryResearch.js`
+- `frontend/src/game/logic.classlessHero.test.js`
+- `frontend/src/game/logic.js`
+- `frontend/src/screens/Preparation.jsx`
+- `frontend/src/screens/Roster.jsx`
+- `frontend/src/screens/SquadSelect.classless.test.jsx`
+- `frontend/src/screens/SquadSelect.jsx`
+- This handoff file.
+
+Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx`. The remaining source/test files above are this task's changes.
+
+### Validation and limitations
+
+- From `frontend/`, final focused command: `CI=true npm test -- --watchAll=false --runInBand --silent src/game/heroSprite.test.js src/game/logic.classlessHero.test.js src/game/engine.classless.test.js src/screens/SquadSelect.classless.test.jsx src/screens/classlessScreen.integration.test.jsx src/components/TacticalMenu.test.jsx src/components/CastleBuildings.recruitment.test.jsx src/screens/Battle.tactical-flow.test.jsx src/screens/Roster.classlessProgression.test.jsx src/game/engine.abilities.test.js` — PASS, 10 suites / 112 tests.
+- After the final facing-target fallback adjustment, `CI=true npm test -- --watchAll=false --runInBand --silent src/game/heroSprite.test.js src/game/engine.classless.test.js` from `frontend/` — PASS, 2 suites / 43 tests.
+- The Tavern test was first authored with a Jest-DOM matcher unavailable in this project, then its fixture was too poor to afford the fifth recruit; both test-only issues were corrected. A later case was added to check the recruit activity label with an existing reserve. The final combined command above passed all three Tavern assertions; the earlier isolated one-test result preceded that added case.
+- Exact isolated attempts: `CI=true npm test -- --watchAll=false --runInBand --silent src/components/CastleBuildings.recruitment.test.jsx` first failed because `toBeDisabled` was not installed; the next run failed because the test fixture had only 10,000 gold for five recruits. After switching to the native `.disabled` property and raising disposable test funds to 50,000, the same command passed (1 suite / 1 test). This was before the extra bench-label test; the final 10-suite command above verifies both Tavern cases in the final source state.
+- `python3 -c 'import xml.etree.ElementTree as ET; ET.parse("frontend/public/sprites/classless-hero-atlas.svg"); print("SVG XML parse: PASS")'` — PASS.
+- Final `npm run build` from `frontend/` — PASS after the final source changes; optimized production bundle compiled at 218.94 kB JS / 14.06 kB CSS gzipped. Node emitted the non-fatal `[DEP0176] fs.F_OK` deprecation warning.
+- `git diff --check` — PASS after this handoff edit. No Android build/device check, screenshot/visual inspection, performance test, live backend/profile test, natural-wave playtest, or recruitment balance simulation was run. The automated Engine draw test checks atlas source cropping, not visual quality on device. The supplied image was unavailable, as noted above.
+- The initial aggregate run before increasing only the Tavern fixture gold failed that test while the other nine suites passed (110 tests passed); the final aggregate and isolated Tavern run then passed. Record this as fixture correction, not a production behavior defect.
+
+### Publication and next work
+
+- Source commit `0ec07d1` (`Add classless hero sprite and combat feedback`) contains exactly the 17 task files listed above excluding this handoff. The push to `origin/review/mobile-working-copy` succeeded; verify its full SHA and current remote tip before publishing this handoff-only commit. Do not include the four pre-existing user files. No main merge, deploy, Android build, or production data action is authorized or performed.
+- Next VFX task: inspect the delivered atlas and event cues on representative Android viewport/device hardware, tune only visual scale/contrast after that review, and add rendering checks for any missing current-runtime events. Do not start audio/SFX or another gameplay balance change in that pass.
+- Broader roadmap remains unchanged: (1) finish classless progression/perks/abilities/combat; (2) VFX and combat feedback; (3) spells/Library/Academy; (4) equipment/items. This pass adds initial VFX/sprite support but does not close Phase 1 combat or certify device visual quality.
+- The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review the recorded implementation and evidence, and continue from that checkpoint. Local-only handoff edits are not retrievable from GitHub.
