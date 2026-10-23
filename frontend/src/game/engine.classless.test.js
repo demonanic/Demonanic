@@ -327,6 +327,31 @@ describe("bounded classless combat adapter", () => {
     random.mockRestore();
   });
 
+  test("Rally heals living allies within eight units for ten percent max HP and respects missing health", () => {
+    const hero = createHeroModel({ id: "rally-build" });
+    hero.progression.ownedNodeIds = ["T1", "T2", "T2a"];
+    const ally = createHeroModel({ id: "rally-ally" });
+    const distant = createHeroModel({ id: "rally-distant" });
+    const dead = createHeroModel({ id: "rally-dead" });
+    ally.combat.hp = 200;
+    distant.combat.hp = 200;
+    dead.combat.hp = 0;
+    const sim = { ...createNewState(), heroes: [hero, ally, distant, dead] };
+    const engine = new Engine({ getContext: () => null }, sim, { enemies: [], total: 1 });
+    const [source, nearby, far, fallen] = engine.heroes;
+    source.ref.hp = 250;
+    nearby.x = source.x + 7;
+    far.x = source.x + 9;
+    const result = engine.useHeroAbility(0, "T2a");
+    expect(result).toMatchObject({ ok: true, abilityId: "T2a", cooldownRemaining: 22 });
+    expect(result.affectedTargets).toEqual([source, nearby]);
+    expect(source.ref.hp).toBe(280);
+    expect(nearby.ref.hp).toBe(230);
+    expect(far.ref.hp).toBe(200);
+    expect(fallen.ref.hp).toBe(0);
+    expect(engine.useHeroAbility(0, "T2a")).toMatchObject({ ok: false, reason: "cooldown" });
+  });
+
   test("War Cry buffs only living allies in eight units and accelerates their basic attack cooldown", () => {
     const hero = createHeroModel({ id: "war-cry-build" });
     hero.progression.ownedNodeIds = ["V1", "V2", "V3a", "S1"];
