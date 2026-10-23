@@ -2,6 +2,7 @@ import { createHeroModel, HERO_BASELINE } from "./heroModel";
 import { createNewState } from "./logic";
 import * as C from "./config";
 import { Engine } from "./engine";
+import { combatVfxAssetId } from "./combatVfx";
 
 function makeEngine(options = {}) {
   const sim = createNewState();
@@ -712,5 +713,36 @@ describe("bounded classless combat adapter", () => {
     expect(sim.kills.total).toBe(1);
     expect(engine.xpGains.heroes[0]).toBeGreaterThan(0);
     random.mockRestore();
+  });
+
+  test("equipped bow attacks use source-bundle projectiles and source-bundle impact events", () => {
+    const { engine, hero } = makeEngine();
+    hero.model.equipment = { PrimaryWeapon: { weaponType: "bow" } };
+    const target = enemy("bow target", hero.x + 60, hero.y);
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0);
+
+    engine._fire("H0", hero, target, hero.d, true);
+    expect(engine.projectiles[0].visualType).toBe("arrow");
+    expect(engine.projectiles[0].vfxAssetId).toMatch(/^arrow0[1-4]$/);
+    engine._applyHit(engine.projectiles[0]);
+    const impact = engine.effects.find((effect) => effect.kind === "hit");
+    expect(impact.crit).toBe(true);
+    expect(combatVfxAssetId(impact)).toBe("impactBurst07");
+    random.mockRestore();
+  });
+
+  test("equipped sword swings and Shared Strike select supplied source artwork", () => {
+    const { engine, hero } = makeEngine();
+    hero.model.equipment = { PrimaryWeapon: { weaponType: "sword" } };
+    const target = enemy("sword target", hero.x + 40, hero.y);
+    engine.active = [target];
+    engine._fire("H0", hero, target, hero.d, true);
+    expect(combatVfxAssetId(engine.effects.find((effect) => effect.kind === "weapon_swing")))
+      .toBe("impactSlash04");
+
+    expect(engine.useSharedStrike(0, target)).toBe(true);
+    expect(combatVfxAssetId(engine.effects.find((effect) => effect.kind === "shared_strike")))
+      .toBe("impactCrescent08");
   });
 });

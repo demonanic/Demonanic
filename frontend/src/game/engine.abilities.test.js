@@ -1,6 +1,7 @@
 import { createNewState } from "./logic";
 import { Engine } from "./engine";
 import { unlockedAbilities } from "./perks";
+import { combatVfxAssetId } from "./combatVfx";
 
 const STARTER_ABILITIES = {
   knight: "knight_shield_bash",
@@ -100,6 +101,19 @@ describe("starter hero abilities", () => {
       reason: "unavailable",
     });
     expect(engine.useHeroAbility(0, STARTER_ABILITIES.archer)).toBe(false);
+  });
+
+  test("a successful elemental spell emits source-art cast and hit effects", () => {
+    const { engine } = makeEngine(["mage"]);
+    const enemy = makeEnemy({ x: engine.heroes[0].x + 80, y: engine.heroes[0].y });
+    engine.active = [enemy];
+
+    expect(engine.castMageSpell(0, "fireball", { enemy })).toBe(true);
+    expect(engine.effects.some((effect) => effect.kind === "spell_cast" &&
+      combatVfxAssetId(effect) === "impactOrbit05")).toBe(true);
+    expect(engine.effects.some((effect) => effect.kind === "hit" &&
+      combatVfxAssetId(effect) === "impactStar01")).toBe(true);
+    expect(enemy.hp).toBeLessThan(2000);
   });
 
   test("Speed Rush increases movement by 1.5x for five seconds without changing attack tempo", () => {

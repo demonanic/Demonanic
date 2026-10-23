@@ -13,9 +13,11 @@ import { getUnlockedClasslessAbilities, validateClasslessAbilityUse } from "./cl
 import { HERO_SPRITE_ATLAS, selectHeroSpriteFrame } from "./heroSprite";
 import { getEquippedHeroWeaponType, HERO_WEAPON_ASSETS } from "./heroWeapon";
 import { isNeonIdentityColor } from "./heroModel";
+import { combatVfxAssetId, drawCombatVfx, getCombatVfxImage, projectileVfxAssetId } from "./combatVfx";
 
 let classlessSpriteImage = null;
 const classlessWeaponImages = new Map();
+const combatVfxImages = new Map();
 function getClasslessSpriteImage() {
   if (classlessSpriteImage || typeof Image === "undefined") return classlessSpriteImage;
   classlessSpriteImage = new Image();
@@ -30,6 +32,10 @@ function getClasslessWeaponImage(type) {
   image.src = `${process.env.PUBLIC_URL || ""}${HERO_WEAPON_ASSETS[type]}`;
   classlessWeaponImages.set(type, image);
   return image;
+}
+
+function getCombatEffectImage(assetId) {
+  return getCombatVfxImage(assetId, combatVfxImages);
 }
 
 const MAX_COMBAT_EFFECTS = 180;
@@ -593,11 +599,12 @@ export class Engine {
           enemy.slowUntil = Math.max(enemy.slowUntil || 0, this.time + spell.slow);
           enemy.slowMultiplier = 0.45;
           this._float(enemy.x, enemy.y - 4, "FROST " + Math.round(damage), spell.color);
+          this.effects.push({ kind: "hit", x: enemy.x, y: enemy.y, r: 15, life: 0.38, color: spell.color, crit: false });
           if (enemy.hp <= 0) this._killEnemy(enemy, "H" + h.i);
           used = true;
         }
       }
-      if (used) this.effects.push({ x: h.x, y: h.y, r: spell.radius, life: 0.65, color: spell.color });
+      if (used) this.effects.push({ kind: "spell_area", x: h.x, y: h.y, r: spell.radius, life: 0.65, color: spell.color, vfxSize: 52 });
     } else if (spell.id === "chain_lightning") {
       let current = target;
       const hit = new Set();
@@ -611,7 +618,7 @@ export class Engine {
           if (current.hp <= 0) this._killEnemy(current, "H" + h.i);
           used = true;
         }
-        this.effects.push({ x: current.x, y: current.y, r: 19, life: 0.35, color: spell.color });
+        this.effects.push({ kind: "hit", x: current.x, y: current.y, r: 19, life: 0.35, color: spell.color, crit: false });
         const from = current;
         current = this.active.filter((enemy) => enemy.hp > 0 && !hit.has(enemy))
           .sort((a, b) => Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))
@@ -625,11 +632,12 @@ export class Engine {
         const amount = Math.round(ally.d.maxHp * Math.min(0.38, spell.power + Math.max(0, status.level - 1) * 0.008));
         ally.ref.shield = Math.min(ally.d.maxHp * 0.45, (ally.ref.shield || 0) + amount);
         this._float(ally.x, ally.y - 20, "+" + amount + " WARD", spell.color);
-        this.effects.push({ x: ally.x, y: ally.y, r: 24, life: 0.5, color: spell.color });
+        this.effects.push({ kind: "shield", x: ally.x, y: ally.y, r: 24, life: 0.5, color: spell.color });
       }
       used = true;
     }
     if (!used) return false;
+    this.effects.push({ kind: "spell_cast", x: h.x, y: h.y, life: 0.36, color: spell.color, vfxSize: 48 });
     h.mana = Math.max(0, h.mana - status.cost);
     h.spellCooldowns[spell.id] = Math.max(2, spell.cooldown * (1 - Math.min(0.2, Math.max(0, status.level - 1) * 0.008)));
     this._float(h.x, h.y - 28, spell.short, spell.color);
@@ -1931,6 +1939,8 @@ export class Engine {
       dmg: damage,
       magic,
       color,
+      visualType: magic ? "magic" : "arrow",
+      vfxAssetId: projectileVfxAssetId({ visualType: magic ? "magic" : "arrow", sourceId: `E${e.type}` }),
       t: 0,
     });
     this.effects.push({ kind: "charge", x: e.x, y: e.y, r: 12, life: 0.2, color });
@@ -2026,6 +2036,11 @@ export class Engine {
       src.visualActionUntil = this.time + 0.36;
       src.facingTarget = target;
     }
+    const weaponType = isHero && src.classless ? getEquippedHeroWeaponType(src.model) : null;
+    const visualType = isHero
+      ? (src.classless ? weaponType === "bow" ? "arrow" : weaponType === "staff" ? "magic" : null
+        : src.ref?.cls === "mage" ? "magic" : src.ref?.cls === "archer" ? "arrow" : null)
+      : null;
     this.projectiles.push({
       sourceId, x: src.x, y: src.y, tx: target.x, ty: target.y, target,
       heroActionIndex: isHero && src.pendingTacticalAction === "attack" && src.manualTarget === target ? src.i : null,
@@ -2041,9 +2056,12 @@ export class Engine {
         : src.ref?.cls === "archer" ? C.DAMAGE_TYPES.ARCHER_RANGED
         : d.magic ? C.DAMAGE_TYPES.ARCANE : C.DAMAGE_TYPES.ARCHER_RANGED),
       color: isHero ? d.color : d.color, t: 0,
+      visualType,
+      vfxAssetId: projectileVfxAssetId({ visualType, sourceId }),
     });
-    if (isHero && src.classless) {
-      this.effects.push({ kind: "weapon_swing", x: src.x, y: src.y - 7, r: 15, life: 0.22, color: "#19E8F7" });
+    if (isHero && src.classless && weaponType === "sword") {
+      this.effects.push({ kind: "weapon_swing", x: src.x, y: src.y - 7, r: 15, life: 0.22,
+        color: src.d.color, vfxSize: 48, rotation: Math.atan2(target.y - src.y, target.x - src.x) });
     }
     this.effects.push({ x: src.x, y: src.y, r: 8, life: 0.18, color: d.color, ring: true });
   }
@@ -2909,6 +2927,14 @@ export class Engine {
     // projectiles
     for (const p of this.projectiles) {
       ctx.save();
+      if (p.vfxAssetId) {
+        const image = getCombatEffectImage(p.vfxAssetId);
+        if (drawCombatVfx(ctx, image, { kind: "projectile", x: p.x, y: p.y,
+          rotation: Math.atan2(p.ty - p.y, p.tx - p.x), life: 1, vfxSize: 40 }, 0.96)) {
+          ctx.restore();
+          continue;
+        }
+      }
       if (p.kind === "napalm") {
         ctx.shadowBlur = 18; ctx.shadowColor = "#FF6600";
         ctx.fillStyle = "#FF6600";
@@ -2952,6 +2978,11 @@ export class Engine {
     for (const fx of this.effects) {
       const alpha = Math.max(0, Math.min(1, fx.life * 2.2));
       ctx.save();
+      const vfxAsset = combatVfxAssetId(fx);
+      if (vfxAsset && drawCombatVfx(ctx, getCombatEffectImage(vfxAsset), fx, alpha)) {
+        ctx.restore();
+        continue;
+      }
 
       if (fx.kind === "shared_strike") {
         const radius = fx.r + (1 - fx.life) * 26;
