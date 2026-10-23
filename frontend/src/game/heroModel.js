@@ -1,5 +1,43 @@
 import { classlessMaxHp } from "./classlessCombatEffects";
 
+export const NEON_IDENTITY_COLORS = Object.freeze([
+  "#22D3EE", "#F02DCA", "#A855F7", "#2563EB",
+  "#EF4444", "#F97316", "#22C55E", "#EAB308",
+  "#EC4899", "#14B8A6", "#A3E635", "#F8FAFC",
+]);
+
+export function isNeonIdentityColor(value) {
+  return NEON_IDENTITY_COLORS.includes(value);
+}
+
+export function randomNeonIdentityColor(rng = Math.random) {
+  const random = typeof rng === "function" ? Number(rng()) : 0;
+  const index = Math.min(NEON_IDENTITY_COLORS.length - 1,
+    Math.max(0, Math.floor((Number.isFinite(random) ? random : 0) * NEON_IDENTITY_COLORS.length)));
+  return NEON_IDENTITY_COLORS[index];
+}
+
+function migratedIdentityColor(hero) {
+  const source = hero.identity?.id || hero.id || [hero.cls || hero.key || "hero", hero.name || ""].join(":");
+  let hash = 2166136261;
+  for (const character of String(source)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return NEON_IDENTITY_COLORS[(hash >>> 0) % NEON_IDENTITY_COLORS.length];
+}
+
+// Backward-compatible visual-only migration. Returns an unchanged hero when
+// it already has a valid color. Older saves use a stable identity hash, so
+// repeated loads before the next save cannot reroll their migration color.
+export function ensureHeroIdentityColor(hero) {
+  if (!hero || typeof hero !== "object" || Array.isArray(hero)) return hero;
+  if (isNeonIdentityColor(hero.appearance?.identityColor)) return hero;
+  const appearance = hero.appearance && typeof hero.appearance === "object" && !Array.isArray(hero.appearance)
+    ? hero.appearance : {};
+  return { ...hero, appearance: { ...appearance, identityColor: migratedIdentityColor(hero) } };
+}
+
 // Authoritative starting combat profile for newly created classless heroes.
 // Appearance and progression are deliberately separate from combat identity.
 export const HERO_BASELINE = Object.freeze({
@@ -49,10 +87,13 @@ export function createHeroModel(options = {}) {
   const appearanceId = typeof options.appearanceId === "string" && options.appearanceId.trim()
     ? options.appearanceId.trim()
     : null;
+  const identityColor = isNeonIdentityColor(options.identityColor)
+    ? options.identityColor
+    : randomNeonIdentityColor(options.rng);
 
   return {
     identity: { id, name },
-    appearance: { id: appearanceId },
+    appearance: { id: appearanceId, identityColor },
     combat: {
       hp: HERO_BASELINE.hp,
       maxHp: HERO_BASELINE.hp,
@@ -108,7 +149,12 @@ export function normalizeClasslessHero(input) {
     id: typeof identity.id === "string" && identity.id.trim() ? identity.id.trim() : newHeroId(),
     name: typeof identity.name === "string" && identity.name.trim() ? identity.name.trim() : "Hero",
   };
-  hero.appearance = { ...appearance, id: typeof appearance.id === "string" && appearance.id.trim() ? appearance.id.trim() : null };
+  hero.appearance = {
+    ...appearance,
+    id: typeof appearance.id === "string" && appearance.id.trim() ? appearance.id.trim() : null,
+    identityColor: isNeonIdentityColor(appearance.identityColor)
+      ? appearance.identityColor : migratedIdentityColor(hero),
+  };
   hero.combat = {
     ...combat,
     hp: Math.min(numeric(combat.hp, HERO_BASELINE.hp), classlessMaxHp({ combat: { maxHp: baseMaxHp }, progression })),

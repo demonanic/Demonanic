@@ -2,6 +2,7 @@ import { HERO_SPRITE_ATLAS, selectHeroSpriteFrame } from "./heroSprite";
 import { Engine } from "./engine";
 import { createHeroModel } from "./heroModel";
 import { createNewState } from "./logic";
+import { HERO_WEAPON_ASSETS } from "./heroWeapon";
 
 describe("classless hero sprite animation selection", () => {
   test.each([
@@ -26,18 +27,32 @@ describe("classless hero sprite animation selection", () => {
     expect(selectHeroSpriteFrame({ alive: false }, 1).sx).toBeLessThan(144);
   });
 
-  test("Engine draws the shared transparent atlas frame for a classless hero", () => {
+  test("Engine draws the body atlas, actual equipped weapon, and persisted color accent", () => {
     const previousImage = global.Image;
-    const image = { complete: true, naturalWidth: 144, set src(value) { this.path = value; } };
-    global.Image = class { constructor() { return image; } };
-    const context = { save: jest.fn(), translate: jest.fn(), rotate: jest.fn(), drawImage: jest.fn(), restore: jest.fn() };
-    const model = createHeroModel({ id: "sprite-draw" });
+    const images = [];
+    global.Image = class {
+      constructor() {
+        this.complete = true;
+        this.naturalWidth = 144;
+        images.push(this);
+      }
+      set src(value) { this.path = value; }
+    };
+    const context = { save: jest.fn(), translate: jest.fn(), rotate: jest.fn(), drawImage: jest.fn(), fillRect: jest.fn(), restore: jest.fn() };
+    const model = createHeroModel({ id: "sprite-draw", identityColor: "#F02DCA" });
+    model.equipment = { PrimaryWeapon: { id: "bow-item", slot: "PrimaryWeapon", weaponType: "bow" } };
     const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [model] }, { enemies: [], total: 1 });
     engine.ctx = context;
     try {
       engine._drawHeroSprite(engine.heroes[0]);
-      expect(image.path).toContain(HERO_SPRITE_ATLAS.path);
-      expect(context.drawImage).toHaveBeenCalledWith(image, 0, 0, 48, 48, -24, -44, 48, 48);
+      const body = images.find((image) => image.path.includes(HERO_SPRITE_ATLAS.path));
+      const bow = images.find((image) => image.path.includes(HERO_WEAPON_ASSETS.bow));
+      expect(body).toBeTruthy();
+      expect(bow).toBeTruthy();
+      expect(context.drawImage).toHaveBeenCalledWith(body, 0, 0, 48, 48, -24, -44, 48, 48);
+      expect(context.drawImage).toHaveBeenCalledWith(bow, 0, 0, 48, 48, -24, -44, 48, 48);
+      expect(context.fillStyle).toBe("#F02DCA");
+      expect(context.fillRect).toHaveBeenCalledWith(-1.75, -34, 3.5, 3.5);
     } finally { global.Image = previousImage; }
   });
 });

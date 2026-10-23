@@ -57,16 +57,17 @@ export default function Roster() {
   const Row = ({ h, list, idx }) => {
     if (!h.cls && h.combat) {
       const maxHp = classlessMaxHp(h);
+      const identityColor = h.appearance?.identityColor || "#22D3EE";
       return (
       <div className="glass-card rounded-xl p-3" data-testid={`roster-${list}-${idx}`}>
         <div className="flex items-center gap-3">
-          <ClasslessHeroAvatar className="h-12 w-10 rounded border border-cyan-400/30 bg-black/30" label={`${h.identity?.name || "Hero"} classless sprite`} />
+          <ClasslessHeroAvatar identityColor={identityColor} className="h-12 w-10 rounded border border-cyan-400/30 bg-black/30" label={`${h.identity?.name || "Hero"} classless sprite`} />
           <div className="flex-1 min-w-0">
-            <div className="font-display font-bold text-sm text-cyan-200">{h.identity?.name || "Hero"}</div>
+            <div className="font-display font-bold text-sm" style={{ color: identityColor }}>{h.identity?.name || "Hero"}</div>
             <div className="font-mono-g text-[10px] text-slate-400">Classless · L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{maxHp} HP</div>
             <div className="font-mono-g text-[9px] text-slate-500">Appearance: {h.appearance?.id || "Unselected"}</div>
             <div className="font-mono-g text-[9px] text-slate-500">ATK{h.combat.stats?.attack} DEF{h.combat.stats?.defense} AGL{h.combat.stats?.agility} INT{h.combat.stats?.intelligence}</div>
-            <StatBar frac={h.combat.hp / maxHp} color="#22D3EE" height={3} />
+            <StatBar frac={h.combat.hp / maxHp} color={identityColor} height={3} />
           </div>
         </div>
         <button type="button" onClick={() => setProgressionHeroId(h.identity.id)}

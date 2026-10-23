@@ -11,13 +11,25 @@ import { HERO_BASELINE } from "./heroModel";
 import { classlessCombatEffects, classlessMaxHp } from "./classlessCombatEffects";
 import { getUnlockedClasslessAbilities, validateClasslessAbilityUse } from "./classlessAbilities";
 import { HERO_SPRITE_ATLAS, selectHeroSpriteFrame } from "./heroSprite";
+import { getEquippedHeroWeaponType, HERO_WEAPON_ASSETS } from "./heroWeapon";
+import { isNeonIdentityColor } from "./heroModel";
 
 let classlessSpriteImage = null;
+const classlessWeaponImages = new Map();
 function getClasslessSpriteImage() {
   if (classlessSpriteImage || typeof Image === "undefined") return classlessSpriteImage;
   classlessSpriteImage = new Image();
   classlessSpriteImage.src = `${process.env.PUBLIC_URL || ""}${HERO_SPRITE_ATLAS.path}`;
   return classlessSpriteImage;
+}
+
+function getClasslessWeaponImage(type) {
+  if (!HERO_WEAPON_ASSETS[type] || typeof Image === "undefined") return null;
+  if (classlessWeaponImages.has(type)) return classlessWeaponImages.get(type);
+  const image = new Image();
+  image.src = `${process.env.PUBLIC_URL || ""}${HERO_WEAPON_ASSETS[type]}`;
+  classlessWeaponImages.set(type, image);
+  return image;
 }
 
 const MAX_COMBAT_EFFECTS = 180;
@@ -92,7 +104,7 @@ function classlessHeroDerived(hero) {
     classlessEffects: effects,
     bloodPriceBonus: effects.bloodPriceBonus,
     bloodPriceCost: effects.bloodPriceCost,
-    color: "#22D3EE",
+    color: hero.appearance?.identityColor || "#22D3EE",
     classless: true,
   };
 }
@@ -3133,6 +3145,20 @@ export class Engine {
         ctx.strokeStyle = "#F02DCA";
         ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(11, -14); ctx.stroke();
       }
+
+      const weaponType = getEquippedHeroWeaponType(h.model);
+      const weaponImage = getClasslessWeaponImage(weaponType);
+      if (weaponImage?.complete && weaponImage.naturalWidth > 0) {
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = h.d.color;
+        ctx.drawImage(weaponImage, 0, 0, 48, 48, -24, -44, 48, 48);
+      }
+      const identityColor = isNeonIdentityColor(h.model?.appearance?.identityColor)
+        ? h.model.appearance.identityColor : "#22D3EE";
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = identityColor;
+      ctx.fillStyle = identityColor;
+      ctx.fillRect(-1.75, -34, 3.5, 3.5);
       ctx.restore();
 
       const formation = h.d.classlessEffects?.formationMitigation || 0;

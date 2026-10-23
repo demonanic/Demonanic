@@ -1,5 +1,5 @@
 export const HERO_SPRITE_ATLAS = Object.freeze({
-  path: "/sprites/classless-hero-atlas.svg",
+  path: "/sprites/classless-hero-body-atlas.svg",
   frameWidth: 48,
   frameHeight: 48,
   columns: 3,

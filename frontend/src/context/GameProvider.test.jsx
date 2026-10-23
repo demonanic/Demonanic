@@ -1,7 +1,9 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { GameProvider, useGame } from "./GameProvider";
+import { GameProvider, normalizeState, useGame } from "./GameProvider";
 import { gameApi } from "../api";
+import { createHero } from "../game/logic";
+import { NEON_IDENTITY_COLORS } from "../game/heroModel";
 
 jest.mock("../api", () => ({
   gameApi: {
@@ -77,6 +79,24 @@ describe("GameProvider saved profile startup", () => {
     const probe = container.querySelector("[data-testid='game-probe']");
     expect(Number(probe.dataset.blockadeActive) - now).toBeLessThanOrEqual(10_000);
     expect(Number(probe.dataset.blockadeCooldown) - now).toBeLessThanOrEqual(62_000);
+  });
+
+  test("migrates legacy hero color once without changing class or equipment across reload", () => {
+    const oldHero = createHero("mage");
+    delete oldHero.appearance; // shape of a pre-color legacy save
+    const oldEquipment = JSON.parse(JSON.stringify(oldHero.equipment));
+    const migrated = normalizeState({ ...savedState, heroes: [oldHero], bench: [], academyHeroes: [] });
+    const color = migrated.heroes[0].appearance.identityColor;
+
+    expect(NEON_IDENTITY_COLORS).toContain(color);
+    expect(migrated.heroes[0].cls).toBe("mage");
+    expect(migrated.heroes[0].equipment).toEqual(oldEquipment);
+    expect(oldHero).not.toHaveProperty("appearance");
+
+    const reloaded = normalizeState(JSON.parse(JSON.stringify(migrated)));
+    expect(reloaded.heroes[0].appearance.identityColor).toBe(color);
+    expect(reloaded.heroes[0].cls).toBe("mage");
+    expect(reloaded.heroes[0].equipment).toEqual(oldEquipment);
   });
 
   test("treats an explicit null as missing and waits for the player's choice", async () => {

@@ -5,6 +5,7 @@ import { createHeroModel, serializeGameState } from "../game/heroModel";
 import * as C from "../game/config";
 import { createNewState } from "../game/logic";
 import { purchaseClasslessNode } from "../game/classlessProgression";
+import { NEON_IDENTITY_COLORS } from "../game/heroModel";
 import Preparation from "./Preparation";
 import Battle from "./Battle";
 import Results from "./Results";
@@ -193,6 +194,8 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(persisted.heroes[0].progression.sp).toBe(3);
     expect(persisted.heroes[0].progression.ownedNodeIds).toEqual(["V1"]);
     expect(persisted.heroes[0].appearance.id).toBe("approved-test-look");
+    const identityColor = persisted.heroes[0].appearance.identityColor;
+    expect(NEON_IDENTITY_COLORS).toContain(identityColor);
     expect(persisted.testProfileMarker).toBe("disposable-classless-fixture");
     expect(persisted.gold).toBe(activeEngine.sim.gold);
 
@@ -208,6 +211,7 @@ describe("classless preparation, Battle, completion, and provider persistence", 
     expect(reloaded.progression.ap).toBe(5);
     expect(reloaded.progression.sp).toBe(3);
     expect(reloaded.appearance.id).toBe("approved-test-look");
+    expect(reloaded.appearance.identityColor).toBe(identityColor);
     expect(reloaded.progression.ownedNodeIds).toEqual(["V1"]);
     expect(persistedProfile.gold).toBeGreaterThanOrEqual(222);
     expect(persistedProfile.castleHp).toBe(731);

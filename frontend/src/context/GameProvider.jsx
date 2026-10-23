@@ -6,7 +6,7 @@ import { emptyEquipmentState } from "../game/equipment";
 import { normalizePerks } from "../game/perks";
 import { heroDerived } from "../game/logic";
 import * as C from "../game/config";
-import { normalizeClasslessHero } from "../game/heroModel";
+import { ensureHeroIdentityColor, normalizeClasslessHero } from "../game/heroModel";
 
 const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
@@ -116,6 +116,14 @@ export function normalizeState(s) {
         h.mana = Math.max(0, Math.min(h.maxMana, Number.isFinite(Number(h.mana)) ? Number(h.mana) : h.maxMana));
         if (h.hp > 0) h.hp = Math.min(h.hp, h.maxHp);
       }
+    });
+  }
+  // Add the visual-only identity color to old class and classless saves once.
+  // Normalization already runs against a copy; the saved source is untouched.
+  for (const roster of [s.heroes, s.bench, s.academyHeroes]) {
+    if (!Array.isArray(roster)) continue;
+    roster.forEach((hero, index) => {
+      if (hero && typeof hero === "object") roster[index] = ensureHeroIdentityColor(hero);
     });
   }
   if (Array.isArray(s.bench)) s.bench.forEach((h) => { if (h?.cls) ensureMageSpellData(h); });

@@ -217,6 +217,11 @@ export function createEquipmentItem(scenario, slot, rng = Math.random, source = 
   const baseName = slot === "SecondaryWeapon"
     ? `Void ${secondaryNames[resolvedSecondaryType] || "Secondary"}`
     : randomChoice(SLOT_NAMES[slot] || ["Unknown Gear"], rng);
+  const primaryWeaponType = {
+    "Neon Blade": "sword",
+    "Void Weapon": "bow",
+    "Demonforged Weapon": "staff",
+  }[baseName];
   const prefix = rarity.name === "Common" ? "" : `${rarity.name} `;
   const sellValue = EQUIPMENT_ECONOMY.sellValue[rarityKey];
 
@@ -226,6 +231,7 @@ export function createEquipmentItem(scenario, slot, rng = Math.random, source = 
     rarityName: rarity.name,
     slot,
     name: `${prefix}${baseName}`,
+    ...(primaryWeaponType ? { weaponType: primaryWeaponType } : {}),
     ...(resolvedSecondaryType ? { secondaryType: resolvedSecondaryType } : {}),
     stats: { ...stats },
     sellValue,

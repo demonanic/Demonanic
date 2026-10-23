@@ -1,4 +1,4 @@
-import { createHeroModel, HERO_BASELINE, withHeroAppearance } from "./heroModel";
+import { createHeroModel, HERO_BASELINE, NEON_IDENTITY_COLORS, normalizeClasslessHero, serializeGameState, withHeroAppearance } from "./heroModel";
 
 describe("classless hero model", () => {
   test("creates a stable identity without a permanent class and shares the approved baseline", () => {
@@ -44,6 +44,26 @@ describe("classless hero model", () => {
       },
     });
     expect(first.combat.capabilities.sharedStrike.damageMultiplier * first.combat.basicAttack.damage).toBe(24);
+  });
+
+  test("chooses a neon identity color once and retains it through serialization and normalization", () => {
+    const created = createHeroModel({ id: "color-persist", rng: () => 0.51 });
+    expect(NEON_IDENTITY_COLORS).toContain(created.appearance.identityColor);
+    const saved = serializeGameState({ heroes: [created] });
+    const loaded = normalizeClasslessHero(saved.heroes[0]);
+    expect(loaded.appearance.identityColor).toBe(created.appearance.identityColor);
+    expect(normalizeClasslessHero(loaded).appearance.identityColor).toBe(created.appearance.identityColor);
+  });
+
+  test("adds a color to a pre-color classless save without replacing existing visual fields", () => {
+    const prior = createHeroModel({ id: "old-color-save", rng: () => 0 });
+    delete prior.appearance.identityColor;
+    prior.appearance.id = "existing-look";
+    const migrated = normalizeClasslessHero(prior);
+    expect(NEON_IDENTITY_COLORS).toContain(migrated.appearance.identityColor);
+    expect(migrated.appearance.id).toBe("existing-look");
+    expect(normalizeClasslessHero(prior).appearance.identityColor).toBe(migrated.appearance.identityColor);
+    expect(prior.appearance).not.toHaveProperty("identityColor");
   });
 
   test("appearance changes do not affect combat or progression", () => {

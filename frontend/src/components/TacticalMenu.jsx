@@ -103,7 +103,7 @@ export default function TacticalMenu({
           <div className="flex min-h-12 items-center gap-2 border-b border-white/10 px-2">
             {selected && (
               selectedClassless
-                ? <ClasslessHeroAvatar className="h-8 w-8 rounded border border-cyan-400/30 bg-black/30" label={`${selectedName} classless sprite`} />
+                ? <ClasslessHeroAvatar identityColor={selected.appearance?.identityColor} className="h-8 w-8 rounded border border-cyan-400/30 bg-black/30" label={`${selectedName} classless sprite`} />
                 : <HeroMiniSprite cls={selected.cls} color={cls?.color} size="sm" dead={selectedDead} />
             )}
             <div className="min-w-0 flex-1">
@@ -421,7 +421,7 @@ export default function TacticalMenu({
           const maxHp = Math.max(1, Number(status?.maxHp ?? hero.combat?.maxHp ?? hero.maxHp) || 1);
           const alive = status?.alive ?? hp > 0;
           const name = classless ? hero.identity?.name || "Classless Hero" : heroClass?.name || hero.cls;
-          const color = classless ? "#22D3EE" : heroClass?.color;
+          const color = classless ? (hero.appearance?.identityColor || "#22D3EE") : heroClass?.color;
           return (
             <button
               key={hero.id || index}
@@ -437,7 +437,7 @@ export default function TacticalMenu({
             >
               <span className="flex items-center gap-1">
                 {classless
-                  ? <ClasslessHeroAvatar className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" label={`${name} classless sprite`} />
+                  ? <ClasslessHeroAvatar identityColor={hero.appearance?.identityColor} className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" label={`${name} classless sprite`} />
                   : <HeroMiniSprite cls={hero.cls} color={color} size="sm" dead={!alive} />}
                 <span className="font-mono-g text-[8px] font-bold" style={{ color }}>{name}</span>
               </span>

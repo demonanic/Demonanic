@@ -3,7 +3,7 @@ import * as C from "./config";
 import { aggregateEquipmentStats, emptyEquipmentState, equipItem as equipStoredItem, unequipItem as unequipStoredItem } from "./equipment";
 import { getPerk, getPerkTree, normalizePerks, canUnlockPerk, perkEffects } from "./perks";
 import { advanceLibraryResearch, ensureMageSpellData } from "./libraryResearch";
-import { createHeroModel } from "./heroModel";
+import { createHeroModel, ensureHeroIdentityColor, randomNeonIdentityColor } from "./heroModel";
 import { classlessMaxHp } from "./classlessCombatEffects";
 
 let _heroSeq = 0;
@@ -21,12 +21,13 @@ export function createHero(classKey) {
     level: 1, xp: 0, sp: 0, ap: 0,
     stats, perks: [], abilityCooldowns: {}, attackConfig: C.ATTACK_CONFIGS[classKey][0],
     equipment: {},
+    appearance: { identityColor: randomNeonIdentityColor() },
     quickSlots: [null, null, null],
     hp: maxHp, maxHp,
     maxMana: 100 + stats.intelligence * 5, mana: 100 + stats.intelligence * 5,
   };
   ensureMageSpellData(hero);
-  return hero;
+  return ensureHeroIdentityColor(hero);
 }
 
 export function createClasslessHero(options = {}) {
@@ -78,7 +79,7 @@ export function heroDerived(hero) {
     cooldownMultiplier: Math.max(0.5, 1 - perks.cooldownPct),
     multiTarget: perks.multiTarget,
     perkEffects: perks,
-    color: cls.color,
+    color: hero.appearance?.identityColor || cls.color,
     gear,
   };
 }
