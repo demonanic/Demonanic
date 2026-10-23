@@ -10,6 +10,18 @@ import { logicalTowerPosition } from "./towerPlacement";
 import { HERO_BASELINE } from "./heroModel";
 import { classlessCombatEffects, classlessMaxHp } from "./classlessCombatEffects";
 import { getUnlockedClasslessAbilities, validateClasslessAbilityUse } from "./classlessAbilities";
+import { HERO_SPRITE_ATLAS, selectHeroSpriteFrame } from "./heroSprite";
+
+let classlessSpriteImage = null;
+function getClasslessSpriteImage() {
+  if (classlessSpriteImage || typeof Image === "undefined") return classlessSpriteImage;
+  classlessSpriteImage = new Image();
+  classlessSpriteImage.src = `${process.env.PUBLIC_URL || ""}${HERO_SPRITE_ATLAS.path}`;
+  return classlessSpriteImage;
+}
+
+const MAX_COMBAT_EFFECTS = 180;
+const MAX_COMBAT_FLOATERS = 120;
 
 export const W = 420, H = 760;
 const WALL_Y = 0.30 * H;   // yellow outer boundary
@@ -165,6 +177,11 @@ export class Engine {
         reactiveReason: null,
         abilityCooldowns: {},
         spellCooldowns: {},
+        visualActionKind: null,
+        visualActionStartedAt: 0,
+        visualActionUntil: 0,
+        hitUntil: 0,
+        lastDrawPosition: { x, y: HERO_Y },
         warCryUntil: 0,
         warCryAttackSpeedBonus: 0,
         interposeUntil: 0,
@@ -354,6 +371,7 @@ export class Engine {
     if (cost > 0) {
       hero.ref.hp = Math.max(1, hero.ref.hp - cost);
       this._float(hero.x, hero.y - 20, `-${Math.round(cost)} HP`, "#DC2626");
+      this.effects.push({ kind: "blood_price", x: hero.x, y: hero.y, r: 20, life: 0.42, color: "#DC2626" });
     }
   }
 
@@ -803,8 +821,10 @@ export class Engine {
         const before = ally.ref.hp;
         ally.ref.hp = Math.min(maxHp, ally.ref.hp + maxHp * definition.healMaxHpFraction);
         const restored = ally.ref.hp - before;
-        if (restored > 0) this._float(ally.x, ally.y - 20, `+${Math.round(restored)} HP`, "#22C55E");
-        this.effects.push({ kind: "heal", x: ally.x, y: ally.y, r: 18, life: 0.4, color: "#22C55E" });
+        if (restored > 0) {
+          this._float(ally.x, ally.y - 20, `+${Math.round(restored)} HP`, "#22C55E");
+          this.effects.push({ kind: "heal", x: ally.x, y: ally.y, r: 18, life: 0.4, color: "#22C55E" });
+        }
       }
       affectedTargets = allies;
     } else if (definition.effect === "interpose") {
@@ -824,7 +844,7 @@ export class Engine {
       state.covenantUntil = this.time + definition.durationSeconds;
       if (state.survivalReadyAt <= this.time) state.survivalUntil = this.time + definition.durationSeconds;
       this._float(h.x, h.y - 22, "CRIMSON COVENANT", "#DC2626");
-      this.effects.push({ kind: "shield", x: h.x, y: h.y, r: 24, life: 0.55, color: "#DC2626" });
+      this.effects.push({ kind: "covenant", x: h.x, y: h.y, r: 24, life: 0.55, color: "#DC2626" });
       affectedTargets = [h];
     } else if (definition.effect === "untargetable" || definition.effect === "vanish") {
       h.untargetableUntil = Math.max(h.untargetableUntil, this.time + definition.durationSeconds);
@@ -832,7 +852,7 @@ export class Engine {
         h.classlessCombatState.vanishDamagePending = definition.nextHitDamageBonus;
       }
       this._float(h.x, h.y - 22, definition.name.toUpperCase(), "#A78BFA");
-      this.effects.push({ kind: "shield", x: h.x, y: h.y, r: 24, life: 0.45, color: "#A78BFA" });
+      this.effects.push({ kind: "smoke", x: h.x, y: h.y, r: 16, life: 0.6, color: "#A78BFA" });
       affectedTargets = [h];
     } else if (definition.effect === "phantom_strike") {
       const targetWasTargetingHero = this._enemyTargetsHero(target, h);
@@ -851,6 +871,7 @@ export class Engine {
         h.y = previousPosition.y;
         return { ok: false, reason: "no_target", abilityId };
       }
+      this.effects.push({ kind: "trail", x: previousPosition.x, y: previousPosition.y, toX: h.x, toY: h.y, r: 10, life: 0.38, color: "#22D3EE" });
       killedTarget = target.hp <= 0;
       affectedTargets = [target];
       this._float(h.x, h.y - 22, "PHANTOM STRIKE", "#A78BFA");
@@ -861,6 +882,9 @@ export class Engine {
     this._chargeClasslessActiveCost(h, hpBeforeAbility);
     const cooldown = definition.refundCooldownOnKill && killedTarget ? 0 : definition.cooldownSeconds * h.d.cooldownMultiplier;
     h.abilityCooldowns[definition.id] = cooldown;
+    h.visualActionKind = definition.effect === "weapon_strike" || definition.effect === "weapon_cleave" || definition.effect === "phantom_strike" ? "attack" : null;
+    h.visualActionStartedAt = this.time;
+    h.visualActionUntil = this.time + 0.42;
     this.actionCompletions.push({ index, result: "completed", abilityId: definition.id });
     return { ok: true, reason: null, abilityId: definition.id, target, affectedTargets,
       cooldownRemaining: cooldown, killedTarget };
@@ -1441,6 +1465,8 @@ export class Engine {
     this.floaters = this.floaters.filter((f) => f.life > 0);
     for (const fx of this.effects) fx.life -= dt;
     this.effects = this.effects.filter((f) => f.life > 0);
+    if (this.floaters.length > MAX_COMBAT_FLOATERS) this.floaters.splice(0, this.floaters.length - MAX_COMBAT_FLOATERS);
+    if (this.effects.length > MAX_COMBAT_EFFECTS) this.effects.splice(0, this.effects.length - MAX_COMBAT_EFFECTS);
 
     this._hud();
     this._checkEnd();
@@ -1816,6 +1842,7 @@ export class Engine {
       return 0;
     }
     const remaining = Math.max(0, damage);
+    if (remaining > 0) hero.hitUntil = this.time + 0.24;
     if (remaining > 0 && hero.d.decoyChance > 0 && state.mirrorReadyAt <= this.time && Math.random() < hero.d.decoyChance) {
       state.decoy = true;
       state.mirrorReadyAt = this.time + 15;
@@ -1829,14 +1856,17 @@ export class Engine {
     if (hero.ref.hp / Math.max(1, hero.d.maxHp) < 0.25 && state.lastStandReadyAt <= this.time && hero.d.lastStand > 0) {
       state.lastStandUntil = this.time + 5;
       state.lastStandReadyAt = this.time + 60;
+      this.effects.push({ kind: "guard", x: hero.x, y: hero.y, r: 22, life: 0.45, color: "#F59E0B" });
     }
     if (hero.ref.hp <= 0 && state.survivalUntil > this.time && state.survivalReadyAt <= this.time) {
       hero.ref.hp = 1;
       state.survivalReadyAt = this.time + 60;
       this._float(hero.x, hero.y - 22, "SURVIVE", "#DC2626");
+      this.effects.push({ kind: "guard", x: hero.x, y: hero.y, r: 26, life: 0.65, color: "#DC2626" });
     }
     if (hero.ref.hp <= 0 && hero.alive) {
       hero.alive = false;
+      this.effects.push({ kind: "death", x: hero.x, y: hero.y, r: 12, life: 0.55, color: "#F02DCA" });
       this.sim.morale = clamp(this.sim.morale + C.MORALE.heroDefeat);
     }
     return remaining;
@@ -1978,6 +2008,12 @@ export class Engine {
   }
 
   _fire(sourceId, src, target, d, isHero) {
+    if (isHero && src.classless) {
+      src.visualActionKind = "attack";
+      src.visualActionStartedAt = this.time;
+      src.visualActionUntil = this.time + 0.36;
+      src.facingTarget = target;
+    }
     this.projectiles.push({
       sourceId, x: src.x, y: src.y, tx: target.x, ty: target.y, target,
       heroActionIndex: isHero && src.pendingTacticalAction === "attack" && src.manualTarget === target ? src.i : null,
@@ -1994,6 +2030,9 @@ export class Engine {
         : d.magic ? C.DAMAGE_TYPES.ARCANE : C.DAMAGE_TYPES.ARCHER_RANGED),
       color: isHero ? d.color : d.color, t: 0,
     });
+    if (isHero && src.classless) {
+      this.effects.push({ kind: "weapon_swing", x: src.x, y: src.y - 7, r: 15, life: 0.22, color: "#19E8F7" });
+    }
     this.effects.push({ x: src.x, y: src.y, r: 8, life: 0.18, color: d.color, ring: true });
   }
 
@@ -2006,10 +2045,15 @@ export class Engine {
       this.effects.push({ kind: "immune", x: e.x, y: e.y, r: 12, life: 0.32, color: "#39FF14" });
       return;
     }
+    e.hitUntil = this.time + 0.18;
 
     const echoMarks = this._takeClasslessEchoMarks(e, p.sourceId);
     let dmg = p.dmg * affinity;
-    if (/^H\d+$/.test(String(p.sourceId || ""))) dmg *= 1 + this._classlessOpeningBonus(e);
+    const openingBonus = /^H\d+$/.test(String(p.sourceId || "")) ? this._classlessOpeningBonus(e) : 0;
+    if (openingBonus > 0) {
+      dmg *= 1 + openingBonus;
+      this.effects.push({ kind: "opening", x: e.x, y: e.y, r: 18, life: 0.32, color: "#F59E0B" });
+    }
     if (String(p.sourceId || "").startsWith("T")) {
       const slot = Number(String(p.sourceId).slice(1));
       const tower = this.towers.find((item) => item.slot === slot);
@@ -2077,6 +2121,7 @@ export class Engine {
       this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
       return false;
     }
+    target.hitUntil = this.time + 0.18;
     const echoMarks = this._takeClasslessEchoMarks(target, p.sourceId);
     let damage = p.dmg * affinity;
     if (p.damageCategory === "weapon") damage *= 1 + effects.weaponDamage;
@@ -2095,7 +2140,8 @@ export class Engine {
     }
     if (effects.activeTargetDamage > 0 && target.classlessActiveHitUntil > this.time &&
       target.classlessActiveHitBy === hero.i) situationalBonus += effects.activeTargetDamage;
-    situationalBonus += this._classlessOpeningBonus(target);
+    const openingBonus = this._classlessOpeningBonus(target);
+    situationalBonus += openingBonus;
     if (p.damageCategory === "weapon" && effects.momentumDamagePerStack > 0) {
       if (state.momentumTarget !== target || this.time - state.lastDealtAt > 4) {
         state.momentumTarget = target;
@@ -2134,6 +2180,14 @@ export class Engine {
     const label = crit ? `CRIT ${Math.round(damage)}` : `${Math.round(damage)}`;
     this._float(target.x, target.y - 4, label, crit ? "#FFE600" : hero.d.color);
     this.effects.push({ kind: "hit", x: target.x, y: target.y, r: crit ? 15 : 10, life: 0.25, color: crit ? "#FFE600" : hero.d.color, crit });
+    if (p.sharedStrike) {
+      hero.visualActionKind = "sharedStrike";
+      hero.visualActionStartedAt = this.time;
+      hero.visualActionUntil = this.time + 0.52;
+      this.effects.push({ kind: "shared_strike", x: target.x, y: target.y, r: 22, life: 0.48, color: "#22D3EE" });
+    }
+    if (openingBonus > 0) this.effects.push({ kind: "opening", x: target.x, y: target.y, r: 18, life: 0.32, color: "#F59E0B" });
+    if (echoMarks.length) this.effects.push({ kind: "echo_hit", x: target.x, y: target.y, r: 16, life: 0.4, color: "#A78BFA" });
     if (!p.ability && !p.area && hero.d.lifesteal > 0 && damage > 0) {
       const lifestealMultiplier = state.covenantUntil > this.time ? 2 : 1;
       const heal = this._classlessHeal(hero, damage * hero.d.lifesteal * lifestealMultiplier);
@@ -2147,6 +2201,7 @@ export class Engine {
         if (target.hp > 0) {
           target.classlessEchoMarks ||= {};
           target.classlessEchoMarks[hero.i] = { expiresAt: this.time + effects.echoDurationSeconds };
+          this.effects.push({ kind: "echo_mark", x: target.x, y: target.y, r: 18, life: Math.min(0.7, effects.echoDurationSeconds), color: "#A78BFA" });
         }
       }
     }
@@ -2180,6 +2235,7 @@ export class Engine {
   _killEnemy(e, sourceId, silent) {
     if (e._dead) return;
     e._dead = true; e.hp = 0;
+    if (!silent) this.effects.push({ kind: "death", x: e.x, y: e.y, r: e.boss ? 22 : 13, life: 0.48, color: e.color || "#FF3366" });
     this.killed += 1;
     this.sim.kills.total += 1;
     this.sim.kills.byType[e.type] = (this.sim.kills.byType[e.type] || 0) + 1;
@@ -2885,7 +2941,74 @@ export class Engine {
       const alpha = Math.max(0, Math.min(1, fx.life * 2.2));
       ctx.save();
 
-      if (fx.kind === "fire") {
+      if (fx.kind === "shared_strike") {
+        const radius = fx.r + (1 - fx.life) * 26;
+        ctx.globalAlpha = alpha;
+        ctx.lineCap = "round";
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "#22D3EE";
+        ctx.strokeStyle = "#22D3EE";
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, radius, -2.2, 0.55); ctx.stroke();
+        ctx.shadowColor = "#F02DCA";
+        ctx.strokeStyle = "#F02DCA";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, radius - 5, -2.05, 0.35); ctx.stroke();
+      } else if (fx.kind === "weapon_swing") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = 2.2;
+        ctx.shadowBlur = 13; ctx.shadowColor = fx.color;
+        const radius = fx.r + (1 - fx.life) * 9;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, radius, -2.4, -0.2); ctx.stroke();
+      } else if (fx.kind === "trail") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = 4;
+        ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
+        ctx.beginPath(); ctx.moveTo(fx.x, fx.y); ctx.quadraticCurveTo((fx.x + fx.toX) / 2 - 8, (fx.y + fx.toY) / 2, fx.toX, fx.toY); ctx.stroke();
+      } else if (fx.kind === "smoke") {
+        ctx.globalAlpha = alpha * 0.75;
+        ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
+        for (let i = 0; i < 3; i += 1) {
+          ctx.strokeStyle = i % 2 ? "#F02DCA" : fx.color;
+          ctx.lineWidth = 3 - i * 0.5;
+          ctx.beginPath(); ctx.arc(fx.x + (i - 1) * 4, fx.y - i * 3, fx.r * (0.45 + i * 0.16) + (1 - fx.life) * 9, 0, Math.PI * 2); ctx.stroke();
+        }
+      } else if (fx.kind === "echo_mark" || fx.kind === "echo_hit" || fx.kind === "opening") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = fx.kind === "opening" ? 2.8 : 2;
+        ctx.shadowBlur = 12; ctx.shadowColor = fx.color;
+        const radius = fx.r + (1 - fx.life) * 15;
+        ctx.beginPath();
+        if (fx.kind === "opening") {
+          for (let i = 0; i < 6; i += 1) {
+            const a = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+            const x = fx.x + Math.cos(a) * radius, y = fx.y + Math.sin(a) * radius;
+            if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+        } else ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (fx.kind === "guard" || fx.kind === "covenant" || fx.kind === "blood_price") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = fx.kind === "blood_price" ? 3 : 2.5;
+        ctx.shadowBlur = 16; ctx.shadowColor = fx.color;
+        const radius = fx.r + (1 - fx.life) * 12;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, radius, fx.kind === "blood_price" ? -2.4 : 0, fx.kind === "blood_price" ? 0.5 : Math.PI * 2); ctx.stroke();
+        if (fx.kind === "covenant") {
+          ctx.strokeStyle = "#F9A8D4"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(fx.x, fx.y, radius - 5, 0, Math.PI * 2); ctx.stroke();
+        }
+      } else if (fx.kind === "death") {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = fx.color; ctx.lineWidth = 2;
+        ctx.shadowBlur = 14; ctx.shadowColor = fx.color;
+        for (let i = 0; i < 5; i += 1) {
+          const a = i * (Math.PI * 2 / 5);
+          const r1 = 4 + (1 - fx.life) * 7, r2 = 13 + (1 - fx.life) * 23;
+          ctx.beginPath(); ctx.moveTo(fx.x + Math.cos(a) * r1, fx.y + Math.sin(a) * r1);
+          ctx.lineTo(fx.x + Math.cos(a) * r2, fx.y + Math.sin(a) * r2); ctx.stroke();
+        }
+      } else if (fx.kind === "fire") {
         const pulse = 1 + 0.12 * Math.sin(this.time * 24 + fx.x);
         const base = 13 * pulse;
         ctx.globalAlpha = alpha;
@@ -2967,9 +3090,66 @@ export class Engine {
 
   _drawHeroSprite(h) {
     const ctx = this.ctx;
-    // Classless engine fixtures have no sprite contract; do not fall through
-    // to the legacy Archer renderer or invent a default appearance.
-    if (!h.ref.cls) return;
+    if (h.classless || !h.ref.cls) {
+      const previous = h.lastDrawPosition || { x: h.x, y: h.y };
+      const dx = h.x - previous.x, dy = h.y - previous.y;
+      const moving = dx * dx + dy * dy > 0.12;
+      const target = [h.facingTarget, h.manualTarget, h.currentTarget]
+        .find((candidate) => candidate && candidate.hp > 0);
+      const facingX = target ? target.x - h.x : moving ? dx : 0;
+      const facingY = target ? target.y - h.y : moving ? dy : -1;
+      const facing = Math.atan2(facingX, -facingY);
+      const action = h.visualActionUntil > this.time ? h.visualActionKind : null;
+      const frame = selectHeroSpriteFrame({
+        alive: h.alive,
+        hit: h.hitUntil > this.time,
+        moving,
+        running: h.retreating || !!h.manualPoint,
+        action,
+      }, action ? this.time - h.visualActionStartedAt : this.time);
+      const alpha = h.alive ? (h.protect > 0 ? 0.58 : 1) : 0.52;
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.globalAlpha = alpha;
+      // Directional facing is provided by rotating the same eagle-eye frame.
+      ctx.rotate(facing);
+      const image = getClasslessSpriteImage();
+      if (image?.complete && image.naturalWidth > 0) {
+        ctx.drawImage(image, frame.sx, frame.sy, frame.sw, frame.sh, -24, -44, 48, 48);
+      } else {
+        // Keep battles readable while the lightweight public SVG loads or if
+        // an offline WebView cannot decode it.
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = h.hitUntil > this.time ? "#F02DCA" : "#19E8F7";
+        ctx.fillStyle = "#050912";
+        ctx.strokeStyle = h.hitUntil > this.time ? "#F02DCA" : "#19E8F7";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-9, 10); ctx.lineTo(-7, -8); ctx.lineTo(0, -17);
+        ctx.lineTo(7, -8); ctx.lineTo(9, 10); ctx.lineTo(0, 15); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#F02DCA";
+        ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(11, -14); ctx.stroke();
+      }
+      ctx.restore();
+
+      const formation = h.d.classlessEffects?.formationMitigation || 0;
+      const allyNearby = this.heroes.some((ally) => ally !== h && ally.alive && Math.hypot(ally.x - h.x, ally.y - h.y) <= 5);
+      if (formation > 0 && allyNearby) {
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        ctx.strokeStyle = "#22D3EE";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash?.([3, 3]);
+        ctx.beginPath(); ctx.arc(h.x, h.y - 3, 22, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+      h.lastDrawPosition.x = h.x;
+      h.lastDrawPosition.y = h.y;
+      return;
+    }
     const color = h.d.color;
     const alive = h.alive;
     const alpha = alive ? (h.protect > 0 ? 0.5 : 1) : 0.2;
@@ -3301,6 +3481,16 @@ export class Engine {
         neon(2.4);
         ctx.beginPath(); ctx.moveTo(-14, -10); ctx.lineTo(-22, -20); ctx.moveTo(14, -10); ctx.lineTo(22, -20); ctx.stroke();
       }
+    }
+
+    if (e.hitUntil > this.time) {
+      ctx.globalAlpha = Math.min(0.45, (e.hitUntil - this.time) * 2.2);
+      ctx.fillStyle = "#F8F7FF";
+      ctx.strokeStyle = "#22D3EE";
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = "#F02DCA";
+      ctx.beginPath(); ctx.arc(0, 0, boss ? 24 : elite ? 17 : 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
     ctx.restore();

@@ -11,6 +11,7 @@ import {
 } from "../game/logic";
 import { allocateClasslessStat, purchaseClasslessNode } from "../game/classlessProgression";
 import ClasslessPerkTree from "../components/ClasslessPerkTree";
+import ClasslessHeroAvatar from "../components/ClasslessHeroAvatar";
 import { classlessMaxHp } from "../game/classlessCombatEffects";
 
 export default function Roster() {
@@ -20,7 +21,7 @@ export default function Roster() {
   const [editing, setEditing] = useState(null); // "list-idx"
   const [nameVal, setNameVal] = useState("");
   if (!state) return null;
-  const owned = state.heroes.length + (state.bench?.length || 0);
+  const owned = state.heroes.length + (state.bench?.length || 0) + (state.academyHeroes?.length || 0);
   const act = (fn, ok, fail) => mutate((s) => { if (!fn(s)) toast.error(fail || "Invalid"); else if (ok) toast.success(ok); });
   const hero = open ? (open.list === "squad" ? state.heroes[open.idx] : state.bench[open.idx]) : null;
   const progressionHero = [...(state.heroes || []), ...(state.bench || [])]
@@ -59,7 +60,7 @@ export default function Roster() {
       return (
       <div className="glass-card rounded-xl p-3" data-testid={`roster-${list}-${idx}`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-12 rounded shrink-0 border border-cyan-400/30 bg-black/30" aria-label={h.appearance?.id ? `Appearance ${h.appearance.id}` : "Appearance not selected"} />
+          <ClasslessHeroAvatar className="h-12 w-10 rounded border border-cyan-400/30 bg-black/30" label={`${h.identity?.name || "Hero"} classless sprite`} />
           <div className="flex-1 min-w-0">
             <div className="font-display font-bold text-sm text-cyan-200">{h.identity?.name || "Hero"}</div>
             <div className="font-mono-g text-[10px] text-slate-400">Classless · L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{maxHp} HP</div>
@@ -109,9 +110,9 @@ export default function Roster() {
               <span className="rounded border border-fuchsia-400/40 bg-fuchsia-400/10 px-2 py-1 font-mono-g text-[10px] text-fuchsia-200" data-testid={`roster-busy-${idx}`}>BUSY RESEARCHING · unavailable until complete</span>
             ) : (
               <>
-                {state.heroes.length < 4 && (
+                {state.heroes.length < C.HERO_ROSTER.maximumSquad && (
                   <NeonButton color="green" className="!px-2 !py-1 !text-[10px]" onClick={() => act((s) => {
-                    if (!s.bench?.[idx] || s.heroes.length >= 4 || s.libraryResearch?.mageId === s.bench[idx].id) return false;
+                    if (!s.bench?.[idx] || s.heroes.length >= C.HERO_ROSTER.maximumSquad || s.libraryResearch?.mageId === s.bench[idx].id) return false;
                     s.heroes.push(s.bench.splice(idx, 1)[0]);
                     return true;
                   }, "Added to squad", "No open squad slot available or hero is busy researching")} data-testid={`roster-add-${idx}`}>Add to Squad</NeonButton>

@@ -33,16 +33,16 @@ describe("classless new squad selection", () => {
     container.remove();
   });
 
-  test("creates and saves a classless squad without selecting an appearance or entering battle", () => {
+  test("creates and saves one unclassified starter without selecting an appearance or entering battle", () => {
     act(() => root.render(<SquadSelect />));
     act(() => container.querySelector('[data-testid="squad-classless-confirm"]').click());
-    expect(state.heroes).toHaveLength(4);
+    expect(state.heroes).toHaveLength(1);
     expect(state.heroes.every((hero) => !hero.cls && hero.appearance.id === null)).toBe(true);
     expect(mockContext.saveNow).toHaveBeenCalledTimes(1);
     expect(mockContext.setScreen).toHaveBeenCalledWith("home");
-    expect(container.textContent).toContain("live combat remains gated");
+    expect(container.textContent).toContain("Recruit up to 6 heroes total");
     const reloaded = JSON.parse(JSON.stringify(serializeGameState(state)));
-    expect(reloaded.heroes).toHaveLength(4);
+    expect(reloaded.heroes).toHaveLength(1);
     expect(reloaded.heroes.every((hero) => !hero.cls && hero.combat.hp === 300)).toBe(true);
   });
 });

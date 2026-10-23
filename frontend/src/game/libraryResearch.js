@@ -1,4 +1,6 @@
 // Data-driven Library spell research. Research is owned by one mage and saves with the profile.
+import * as C from "./config";
+
 export const SPELL_ELEMENTS = ["fire", "ice", "poison", "electric", "mind"];
 export const SPELL_EFFECTS = ["area", "time", "intensity"];
 export const MAGE_SECONDARY_AFFINITY_LEVEL = 10;
@@ -190,7 +192,7 @@ function moveMageToLibrary(state, mageId) {
   state.bench = Array.isArray(state.bench) ? state.bench : [];
   state.bench.push(mage);
   // Keep a full squad when possible by promoting the first available reserve.
-  if (state.bench.length && state.heroes.length < 4) {
+  if (state.bench.length && state.heroes.length < C.HERO_ROSTER.maximumSquad) {
     const replacementIndex = state.bench.findIndex((hero) => hero.id !== mageId && hero.cls !== "mage");
     if (replacementIndex >= 0) state.heroes.push(state.bench.splice(replacementIndex, 1)[0]);
   }

@@ -23,6 +23,12 @@ export const STARTING = {
   gold: 500, stone: 150, metal: 100,
   workers: 2, workersGold: 1, workersStone: 1, mineGoldRatio: 0.5,
 };
+export const HERO_ROSTER = Object.freeze({
+  startingHeroes: 1,
+  maximumOwned: 6,
+  maximumSquad: 6,
+  recruitmentCostMultiplier: 2,
+});
 export const PRODUCTION = {
   goldPerWorkerMin: 8, stonePerWorkerMin: 3,
 };
@@ -249,6 +255,11 @@ export function recruitCost(ownedHeroes) {
   const over = Math.max(0, ownedHeroes - 3);
   // Subtract a tiny epsilon so floating-point noise doesn't round exact prices up.
   return Math.ceil(550 * Math.pow(1.6, over - 1) - 1e-9);
+}
+export function classlessRecruitCost(ownedHeroes) {
+  // A fresh classless profile starts with one hero. Price its next recruit at
+  // twice the established fourth-hero cost, then retain the existing 1.6 curve.
+  return Math.ceil(HERO_ROSTER.recruitmentCostMultiplier * recruitCost(ownedHeroes + 3) - 1e-9);
 }
 export const BASE_STATS = { attack: 10, defense: 10, agility: 10, intelligence: 10 };
 export const ATTACK_CONFIGS = {

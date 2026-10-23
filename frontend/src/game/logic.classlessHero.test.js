@@ -1,4 +1,5 @@
 import { createHero, createNewState, freeLife, healHero, recruitHero, recoverOverTime, reviveHero, setClasslessSquad } from "./logic";
+import { classlessRecruitCost, recruitCost } from "./config";
 
 describe("classless hero creation adapter", () => {
   test("no-argument hero creation returns the classless baseline", () => {
@@ -9,7 +10,17 @@ describe("classless hero creation adapter", () => {
   });
 
   test("classless recruitment preserves profile economy and only charges after success", () => {
+    const fresh = createNewState();
+    setClasslessSquad(fresh);
+    expect(classlessRecruitCost(1)).toBe(1100);
+    expect(recruitCost(4)).toBe(550); // Legacy recruitment economy is unchanged.
+    const freshBefore = JSON.stringify(fresh);
+    expect(recruitHero(fresh)).toBe(false); // 500 starting gold cannot immediately buy a costly second hero.
+    expect(JSON.stringify(fresh)).toBe(freshBefore);
+
     const state = createNewState();
+    expect(setClasslessSquad(state)).toBe(true);
+    state.gold = 2000;
     const initialGold = state.gold;
     const initialEconomy = {
       stone: state.stone,
@@ -20,14 +31,15 @@ describe("classless hero creation adapter", () => {
     };
 
     expect(recruitHero(state)).toBe(true);
-    expect(state.heroes).toHaveLength(1);
-    expect(state.heroes[0]).not.toHaveProperty("cls");
-    expect(state.heroes[0].combat.hp).toBe(300);
+    expect(state.heroes).toHaveLength(2);
+    expect(state.heroes[1]).not.toHaveProperty("cls");
+    expect(state.heroes[1].combat.hp).toBe(300);
     expect(state.gold).toBeLessThan(initialGold);
     expect({ stone: state.stone, metal: state.metal, workers: state.workers,
       castleHp: state.castleHp, castleMaxHp: state.castleMaxHp }).toEqual(initialEconomy);
 
     const broke = createNewState();
+    setClasslessSquad(broke);
     broke.gold = 0;
     const before = JSON.stringify(broke);
     expect(recruitHero(broke)).toBe(false);
@@ -40,15 +52,39 @@ describe("classless hero creation adapter", () => {
     expect(legacyHero.hp).toBeGreaterThan(0);
   });
 
-  test("new profile classless squad uses four shared models and preserves profile economy", () => {
+  test("new profile classless squad uses one shared model and preserves profile economy", () => {
     const state = createNewState();
     const economy = { gold: state.gold, stone: state.stone, metal: state.metal, castleHp: state.castleHp };
     expect(setClasslessSquad(state)).toBe(true);
-    expect(state.heroes).toHaveLength(4);
+    expect(state.heroes).toHaveLength(1);
     expect(state.heroes.every((hero) => !hero.cls && hero.combat.maxHp === 300)).toBe(true);
-    expect(new Set(state.heroes.map((hero) => hero.identity.id)).size).toBe(4);
+    expect(new Set(state.heroes.map((hero) => hero.identity.id)).size).toBe(1);
     expect(state.needsSquad).toBe(false);
     expect({ gold: state.gold, stone: state.stone, metal: state.metal, castleHp: state.castleHp }).toEqual(economy);
+  });
+
+  test("classless recruitment enforces six owned heroes and six active slots atomically", () => {
+    const state = createNewState();
+    expect(setClasslessSquad(state)).toBe(true);
+    state.gold = 100000;
+    for (let i = 0; i < 5; i += 1) expect(recruitHero(state)).toBe(true);
+    expect(state.heroes).toHaveLength(6);
+    expect(state.bench).toHaveLength(0);
+    const before = JSON.stringify(state);
+    expect(recruitHero(state)).toBe(false);
+    expect(JSON.stringify(state)).toBe(before);
+    expect(state.heroes.every((hero) => !hero.cls && hero.combat)).toBe(true);
+    expect(new Set(state.heroes.map((hero) => hero.identity.id)).size).toBe(6);
+  });
+
+  test("heroes in Academy training count toward the six-owned recruitment limit", () => {
+    const state = createNewState();
+    setClasslessSquad(state);
+    state.academyHeroes = Array.from({ length: 5 }, (_, index) => createHero());
+    state.gold = 100000;
+    const before = JSON.stringify(state);
+    expect(recruitHero(state)).toBe(false);
+    expect(JSON.stringify(state)).toBe(before);
   });
 
   test("classless squad setup rejects occupied profiles without mutation", () => {

@@ -5,6 +5,7 @@ import { NeonButton, TopResourceHUD, SectionTitle, StatBar, HeroMiniSprite } fro
 import { HeroCard, TowerCard } from "../components/cards";
 import PrepField from "../components/PrepField";
 import CastleBuildings from "../components/CastleBuildings";
+import ClasslessHeroAvatar from "../components/ClasslessHeroAvatar";
 import DebugPanel from "../components/DebugPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { Home as HomeIcon, Swords, Terminal, ArrowRightLeft, Heart, Skull, Backpack } from "lucide-react";
@@ -189,7 +190,7 @@ export default function Preparation() {
                   <SectionTitle color="yellow">Bench · Swap into Squad</SectionTitle>
                   <div className="grid gap-2 mt-2">
                     {state.bench.map((h, bi) => {
-                      if (!h.cls && h.combat) return <div key={h.identity?.id || bi} className="flex items-center gap-2 p-2 rounded-lg bg-black/30 border-l-[3px] border-cyan-400/40" data-testid={`bench-hero-${bi}`}><div className="w-9 h-9 rounded border border-cyan-400/30 bg-black/30" /><span className="font-mono-g text-xs flex-1 text-cyan-200">{h.identity?.name || "Hero"} · Classless · L{h.progression?.level || 1} · Appearance: {h.appearance?.id || "Unselected"}</span></div>;
+                      if (!h.cls && h.combat) return <div key={h.identity?.id || bi} className="flex items-center gap-2 p-2 rounded-lg bg-black/30 border-l-[3px] border-cyan-400/40" data-testid={`bench-hero-${bi}`}><ClasslessHeroAvatar className="h-9 w-9 rounded border border-cyan-400/30 bg-black/30" label={`${h.identity?.name || "Hero"} classless sprite`} /><span className="font-mono-g text-xs flex-1 text-cyan-200">{h.identity?.name || "Hero"} · Classless · L{h.progression?.level || 1} · Appearance: {h.appearance?.id || "Unselected"}</span></div>;
                       const c = C.HERO_CLASSES[h.cls];
                       return (
                         <div key={h.id} className="flex items-center gap-2 p-2 rounded-lg bg-black/30" style={{ borderLeft: `3px solid ${c.color}` }} data-testid={`bench-hero-${bi}`}>
@@ -263,7 +264,7 @@ export default function Preparation() {
 
 function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, gold, testid }) {
   if (!h.cls && h.combat) return <div data-testid={testid} className="glass-card rounded-xl p-3 flex items-center gap-3 border-l-[3px] border-cyan-400/40">
-    <div className="w-12 h-12 rounded border border-cyan-400/30 bg-black/30 shrink-0" aria-label={h.appearance?.id ? `Appearance ${h.appearance.id}` : "Appearance not selected"} />
+    <ClasslessHeroAvatar className="h-12 w-12 rounded border border-cyan-400/30 bg-black/30 shrink-0" label={`${h.identity?.name || "Hero"} classless sprite`} />
     <div className="min-w-0 flex-1"><div className="font-display font-bold text-cyan-200">{h.identity?.name || "Hero"} · Classless</div><div className="font-mono-g text-[10px] text-slate-400">L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{h.combat.maxHp} HP · Appearance: {h.appearance?.id || "Unselected"}</div><StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={4} /></div>
   </div>;
   const d = heroDerived(h);

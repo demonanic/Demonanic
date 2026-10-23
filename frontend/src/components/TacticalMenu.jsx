@@ -3,6 +3,7 @@ import {
   BookOpen, Crosshair, Eye, Heart, Info, Move, Shield, Sparkles, Swords, UsersRound, X,
 } from "lucide-react";
 import { NeonButton, HeroMiniSprite } from "./ui-kit";
+import ClasslessHeroAvatar from "./ClasslessHeroAvatar";
 import * as C from "../game/config";
 import { getPerk } from "../game/perks";
 
@@ -102,7 +103,7 @@ export default function TacticalMenu({
           <div className="flex min-h-12 items-center gap-2 border-b border-white/10 px-2">
             {selected && (
               selectedClassless
-                ? <span className="h-8 w-8 rounded border border-cyan-400/30 bg-black/30" aria-label={selected.appearance?.id ? `Appearance ${selected.appearance.id}` : "Appearance not selected"} />
+                ? <ClasslessHeroAvatar className="h-8 w-8 rounded border border-cyan-400/30 bg-black/30" label={`${selectedName} classless sprite`} />
                 : <HeroMiniSprite cls={selected.cls} color={cls?.color} size="sm" dead={selectedDead} />
             )}
             <div className="min-w-0 flex-1">
@@ -436,7 +437,7 @@ export default function TacticalMenu({
             >
               <span className="flex items-center gap-1">
                 {classless
-                  ? <span className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" aria-label={hero.appearance?.id ? `Appearance ${hero.appearance.id}` : "Appearance not selected"} />
+                  ? <ClasslessHeroAvatar className="h-6 w-6 rounded border border-cyan-400/30 bg-black/30" label={`${name} classless sprite`} />
                   : <HeroMiniSprite cls={hero.cls} color={color} size="sm" dead={!alive} />}
                 <span className="font-mono-g text-[8px] font-bold" style={{ color }}>{name}</span>
               </span>

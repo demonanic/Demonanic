@@ -119,6 +119,7 @@ describe("bounded classless combat adapter", () => {
     expect(engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 16,
       classless: true, damageCategory: "weapon" })).toBe(true);
     expect(target.classlessControlledUntilBy[0]).toBe(3);
+    expect(engine.effects.some((effect) => effect.kind === "opening")).toBe(true);
     const beforeLingeringHit = target.hp;
     engine.time = 6.999;
     engine._applyHit({ sourceId: "H1", heroIndex: 1, target, dmg: 16,
@@ -175,6 +176,7 @@ describe("bounded classless combat adapter", () => {
     engine._applyHit({ sourceId: "H0", heroIndex: 0, target: first, dmg: 16,
       classless: true, ability: true, damageCategory: "weapon" });
     expect(first.classlessEchoMarks[0]).toEqual({ expiresAt: 4 });
+    expect(engine.effects.some((effect) => effect.kind === "echo_mark")).toBe(true);
     expect(first.classlessMarks[0].expiresAt).toBe(5);
     expect(first.rootUntil).toBe(1.5);
     expect(first.classlessControlledUntilBy[0]).toBe(3);
@@ -186,6 +188,7 @@ describe("bounded classless combat adapter", () => {
     expect(first.dmgBy.H1).toBe(16);
     expect(first.dmgBy.H0).toBeCloseTo(16 + 16 * 0.2);
     expect(first.classlessEchoMarks).toBeUndefined();
+    expect(engine.effects.some((effect) => effect.kind === "echo_hit")).toBe(true);
     expect(first.classlessMarks[0].expiresAt).toBe(5);
     expect(first.rootUntil).toBe(1.5);
 
@@ -623,6 +626,7 @@ describe("bounded classless combat adapter", () => {
       resourceCost: 0, desc: expect.stringContaining("24 raw direct-hit weapon damage at baseline"),
     });
     expect(engine.useHeroAbility(0, "shared_strike")).toBe(true);
+    expect(engine.effects.some((effect) => effect.kind === "shared_strike" && effect.x === target.x)).toBe(true);
     expect(target.hp).toBe(476);
     expect(adjacent.hp).toBe(500);
     expect(target.dmgBy.H0).toBe(24);
@@ -641,6 +645,33 @@ describe("bounded classless combat adapter", () => {
     engine.update(6.01);
     expect(engine.heroes[0].abilityCooldowns.shared_strike).toBe(0);
     random.mockRestore();
+  });
+
+  test("Rally emits healing feedback only for restored living allies and never revives", () => {
+    const caster = createHeroModel({ id: "rally-caster" });
+    caster.progression.ownedNodeIds = ["T1", "T2", "T2a"];
+    const wounded = createHeroModel({ id: "rally-wounded" });
+    const full = createHeroModel({ id: "rally-full" });
+    const dead = createHeroModel({ id: "rally-dead" });
+    wounded.combat.hp = 250;
+    dead.combat.hp = 0;
+    const engine = new Engine({ getContext: () => null },
+      { ...createNewState(), heroes: [caster, wounded, full, dead] }, { enemies: [], total: 1 });
+    engine.heroes[1].x = engine.heroes[0].x + 5;
+    engine.heroes[2].x = engine.heroes[0].x + 6;
+    engine.heroes[3].x = engine.heroes[0].x + 7;
+
+    const result = engine.useHeroAbility(0, "T2a");
+    expect(result).toMatchObject({ ok: true, abilityId: "T2a" });
+    expect(engine.heroes[1].ref.hp).toBe(280);
+    expect(engine.heroes[2].ref.hp).toBe(300);
+    expect(engine.heroes[3].ref.hp).toBe(0);
+    expect(engine.effects.filter((effect) => effect.kind === "heal").map((effect) => effect.x))
+      .toContain(engine.heroes[1].x);
+    expect(engine.effects.filter((effect) => effect.kind === "heal").map((effect) => effect.x))
+      .not.toContain(engine.heroes[2].x);
+    expect(engine.effects.filter((effect) => effect.kind === "heal").map((effect) => effect.x))
+      .not.toContain(engine.heroes[3].x);
   });
 
   test("Shared Strike applies the approved critical multiplier and rejects invalid targets atomically", () => {

@@ -154,7 +154,7 @@ export function createNewState(squadClasses) {
   };
 }
 
-// choose the initial 4-hero squad (any combination, duplicates allowed)
+// Legacy profile compatibility: callers can still explicitly build class squads.
 export function setSquad(state, classKeys) {
   state.heroes = classKeys.map(createHero);
   state.bench = state.bench || [];
@@ -162,11 +162,10 @@ export function setSquad(state, classKeys) {
   emptyEquipmentState(state);
 }
 
-// Explicit starter option for new profiles. It is only available before a
-// squad exists and creates four shared-model heroes without legacy classes.
+// Fresh profiles begin with one shared-model hero and no permanent class.
 export function setClasslessSquad(state) {
   if (!state || !state.needsSquad || !Array.isArray(state.heroes) || state.heroes.length) return false;
-  const heroes = Array.from({ length: 4 }, (_, index) => createHeroModel({ name: `Hero ${index + 1}` }));
+  const heroes = Array.from({ length: C.HERO_ROSTER.startingHeroes }, (_, index) => createHeroModel({ name: `Hero ${index + 1}` }));
   state.heroes = heroes;
   if (!Array.isArray(state.bench)) state.bench = [];
   state.needsSquad = false;
@@ -174,14 +173,23 @@ export function setClasslessSquad(state) {
   return true;
 }
 
-// recruit a new hero (Gold). Fills empty squad slots first, else goes to bench.
+export function ownedHeroCount(state) {
+  return (state?.heroes?.length || 0) + (state?.bench?.length || 0) + (state?.academyHeroes?.length || 0);
+}
+
+// Recruit a hero (Gold). Classless profiles recruit shared-model heroes;
+// legacy profiles retain their explicit class-based recruitment path.
 export function recruitHero(state, classKey) {
-  const owned = state.heroes.length + (state.bench ? state.bench.length : 0);
-  const cost = C.recruitCost(owned);
+  if (!state || state.needsSquad || !Array.isArray(state.heroes)) return false;
+  const owned = ownedHeroCount(state);
+  if (owned >= C.HERO_ROSTER.maximumOwned) return false;
+  const roster = [...state.heroes, ...(Array.isArray(state.bench) ? state.bench : []), ...(Array.isArray(state.academyHeroes) ? state.academyHeroes : [])];
+  const classlessProfile = roster.some((hero) => !hero.cls && hero.combat);
+  const cost = classlessProfile ? C.classlessRecruitCost(owned) : C.recruitCost(owned);
   if (state.gold < cost) return false;
+  const h = classlessProfile ? createHero() : createHero(classKey);
   state.gold -= cost;
-  const h = createHero(classKey);
-  if (state.heroes.length < 4) state.heroes.push(h);
+  if (state.heroes.length < C.HERO_ROSTER.maximumSquad) state.heroes.push(h);
   else { state.bench = state.bench || []; state.bench.push(h); }
   return true;
 }
