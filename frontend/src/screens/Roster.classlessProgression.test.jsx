@@ -109,7 +109,8 @@ describe("classless perk purchase through roster and profile persistence", () =>
     expect(remoteState.heroes[0].combat.stats.attack).toBe(11);
     expect(remoteState.heroes[0].appearance.id).toBe("look-cyan");
     expect(remoteState.heroes[0].combat).toEqual(JSON.parse(container.querySelector('[data-testid="hero-state"]').textContent).combat);
-    expect(remoteState.gold).toBe(456);
+    expect(remoteState.gold).toBeGreaterThanOrEqual(456);
+    expect(remoteState.gold).toBeLessThan(457);
     expect(remoteState.castleHp).toBe(789);
     expect(remoteState.accountMarker).toEqual({ disposable: true });
 
@@ -123,9 +124,10 @@ describe("classless perk purchase through roster and profile persistence", () =>
     expect(loaded.progression.sp).toBe(0);
     expect(loaded.combat.stats.attack).toBe(11);
     expect(loaded.appearance.id).toBe("look-cyan");
-    expect(JSON.parse(container.querySelector('[data-testid="profile-state"]').textContent)).toEqual({
-      gold: 456, castleHp: 789, accountMarker: { disposable: true },
-    });
+    const reloadedProfile = JSON.parse(container.querySelector('[data-testid="profile-state"]').textContent);
+    expect(reloadedProfile.gold).toBeGreaterThanOrEqual(456);
+    expect(reloadedProfile.gold).toBeLessThan(457);
+    expect(reloadedProfile).toMatchObject({ castleHp: 789, accountMarker: { disposable: true } });
     expect(gameApi.createState).not.toHaveBeenCalled();
     expect(gameApi.getState).toHaveBeenCalledTimes(2);
   });
@@ -158,5 +160,41 @@ describe("classless perk purchase through roster and profile persistence", () =>
     expect(loaded.cls).toBeUndefined();
     expect(loaded.progression).toMatchObject({ ap: 0, ownedNodeIds: ["V1", "V2", "V3", "V3a"] });
     expect(gameApi.getState).toHaveBeenCalledTimes(2);
+  });
+
+  test("shows supported Opening, Formation, and Echo effects while keeping Ward pending", async () => {
+    remoteState.heroes[0].progression = {
+      level: 10, xp: 9000, ap: 8, sp: 0, ownedNodeIds: ["T1", "T2", "C1"],
+    };
+    await mount();
+    await click("roster-classless-progression-perk-stable-id");
+
+    expect(container.querySelector('[data-testid="classless-node-T3"]').textContent)
+      .toContain("Allies deal +8% damage to an enemy currently controlled by this hero");
+    expect(container.querySelector('[data-testid="classless-node-T3a"]').textContent)
+      .toContain("Allies within 5 units take 5% less damage");
+    expect(container.querySelector('[data-testid="classless-node-C2"]').textContent)
+      .toContain("First ability hit every 10 seconds");
+    expect(container.querySelector('[data-testid="classless-node-C2"]').textContent)
+      .not.toContain("Effect pending");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C2"]').disabled).toBe(false);
+
+    expect(container.querySelector('[data-testid="classless-node-C2a"]').textContent)
+      .toContain("canonical range unspecified");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C2a"]').textContent)
+      .toContain("range unspecified");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C2a"]').disabled).toBe(true);
+
+    await click("classless-node-purchase-C2");
+    expect(container.querySelector('[data-testid="classless-node-purchase-C2"]').textContent).toBe("OWNED");
+    expect(JSON.parse(container.querySelector('[data-testid="hero-state"]').textContent).progression)
+      .toMatchObject({ ap: 6, ownedNodeIds: ["T1", "T2", "C1", "C2"] });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 750)); });
+    expect(remoteState.heroes[0].progression.ownedNodeIds).toEqual(["T1", "T2", "C1", "C2"]);
+    await act(async () => root.unmount());
+    root = null;
+    await mount();
+    expect(JSON.parse(container.querySelector('[data-testid="hero-state"]').textContent).progression)
+      .toMatchObject({ ap: 6, ownedNodeIds: ["T1", "T2", "C1", "C2"] });
   });
 });

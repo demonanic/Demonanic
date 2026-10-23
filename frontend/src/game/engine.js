@@ -179,7 +179,8 @@ export class Engine {
           nextRegenAt: 5, lastStandUntil: 0, lastStandReadyAt: 0, survivalUntil: 0,
           survivalReadyAt: 0, covenantUntil: 0, decoy: false, mirrorReadyAt: 0,
           nextDisruptAt: 0, nextRootAt: 0, lastDealtAt: 0, momentumTarget: null,
-          momentumStacks: 0, ambushTargets: new Set(), vanishDamagePending: 0 } : null,
+          momentumStacks: 0, ambushTargets: new Set(), vanishDamagePending: 0,
+          echoReadyAt: 0 } : null,
       };
     });
 
@@ -903,18 +904,27 @@ export class Engine {
       this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
       return false;
     }
+    const echoMarks = this._takeClasslessEchoMarks(target, `H${h.i}`);
     let dmg = (h.d.attack || 0) * multiplier * h.d.abilityDamageMultiplier * affinity;
     const targetHpFraction = target.hp / Math.max(1, target.maxHp);
     const lowHpBonus = targetHpFraction < 0.35 ? h.d.lowHpDamage : 0;
     const executionBonus = targetHpFraction < 0.25 ? h.d.executionDamage : 0;
     dmg *= 1 + lowHpBonus + executionBonus;
     if (targetHpFraction > 0.70) dmg *= 1 + h.d.highHpDamage;
+    dmg *= 1 + this._classlessOpeningBonus(target);
     target.hp = Math.max(0, target.hp - dmg);
     target.dmgBy["H" + h.i] = (target.dmgBy["H" + h.i] || 0) + dmg;
+    let killSourceId = `H${h.i}`;
+    for (const echo of echoMarks) {
+      if (target.hp > 0 && echo.damage >= target.hp) killSourceId = echo.sourceId;
+      target.hp = Math.max(0, target.hp - echo.damage);
+      target.dmgBy[echo.sourceId] = (target.dmgBy[echo.sourceId] || 0) + echo.damage;
+      this._float(target.x, target.y - 18, `ECHO ${Math.round(echo.damage)}`, "#A78BFA");
+    }
     if (stunSeconds > 0) target.stunUntil = Math.max(target.stunUntil || 0, this.time + stunSeconds);
     this._float(target.x, target.y - 4, label + " " + Math.round(dmg), h.d.color);
     this.effects.push({ kind: "hit", x: target.x, y: target.y, r: 16, life: 0.3, color: h.d.color, crit: false });
-    if (target.hp <= 0) this._killEnemy(target, "H" + h.i);
+    if (target.hp <= 0) this._killEnemy(target, killSourceId);
     return true;
   }
 
@@ -1740,13 +1750,62 @@ export class Engine {
     const state = hero.classlessCombatState;
     const lastStand = state?.lastStandUntil > this.time ? hero.d.lastStand : 0;
     const interpose = hero.interposeUntil > this.time ? hero.interposeReduction : 0;
-    const reduction = Math.min(0.30, Math.max(0, hero.d.damageReduction + lastStand + interpose));
+    const formation = this._classlessFormationReduction(hero);
+    const reduction = Math.min(0.30, Math.max(0, hero.d.damageReduction + lastStand + interpose + formation));
     return C.damageAfterDefense(rawDamage, hero.d.defense) * (1 - reduction);
+  }
+
+  _classlessFormationReduction(hero) {
+    return this.heroes.reduce((highest, owner) => {
+      const bonus = owner.classless && owner.alive ? owner.d.classlessEffects.formationMitigation : 0;
+      return bonus > 0 && Math.hypot(owner.x - hero.x, owner.y - hero.y) <= 5
+        ? Math.max(highest, bonus) : highest;
+    }, 0);
+  }
+
+  _classlessOpeningBonus(target) {
+    const controlledUntilBy = target?.classlessControlledUntilBy || {};
+    const total = this.heroes.reduce((sum, owner) => {
+      const controlUntil = controlledUntilBy[owner.i] || 0;
+      return owner.classless && owner.alive && owner.d.classlessEffects.openingDamage > 0 &&
+        controlUntil + 4 > this.time
+        ? sum + owner.d.classlessEffects.openingDamage : sum;
+    }, 0);
+    return Math.min(0.5, total);
+  }
+
+  _recordClasslessControl(target, hero, expiresAt) {
+    target.classlessControlledUntilBy ||= {};
+    target.classlessControlledUntilBy[hero.i] = Math.max(
+      target.classlessControlledUntilBy[hero.i] || 0,
+      expiresAt,
+    );
+  }
+
+  _takeClasslessEchoMarks(target, sourceId) {
+    const heroMatch = /^H(\d+)$/.exec(String(sourceId || ""));
+    if (!heroMatch || !target?.classlessEchoMarks) return [];
+    const entries = [];
+    for (const [ownerId, mark] of Object.entries(target.classlessEchoMarks)) {
+      const owner = this.heroes[Number(ownerId)];
+      const fraction = owner?.d?.classlessEffects?.echoDamageFraction || 0;
+      if (mark.expiresAt <= this.time || !owner?.alive || fraction <= 0) {
+        delete target.classlessEchoMarks[ownerId];
+        continue;
+      }
+      entries.push({ sourceId: `H${owner.i}`, ownerIndex: owner.i,
+        damage: owner.d.attack * fraction });
+      delete target.classlessEchoMarks[ownerId];
+    }
+    if (Object.keys(target.classlessEchoMarks).length === 0) delete target.classlessEchoMarks;
+    return entries;
   }
 
   _legacyInterposedDamage(hero, rawDamage) {
     const reduction = hero?.interposeUntil > this.time ? hero.interposeReduction : 0;
-    return C.damageAfterDefense(rawDamage, hero.d.defense) * (1 - Math.min(0.30, Math.max(0, reduction)));
+    const formation = this._classlessFormationReduction(hero);
+    return C.damageAfterDefense(rawDamage, hero.d.defense) *
+      (1 - Math.min(0.30, Math.max(0, reduction + formation)));
   }
 
   _resolveClasslessHeroDamage(hero, damage) {
@@ -1948,7 +2007,9 @@ export class Engine {
       return;
     }
 
+    const echoMarks = this._takeClasslessEchoMarks(e, p.sourceId);
     let dmg = p.dmg * affinity;
+    if (/^H\d+$/.test(String(p.sourceId || ""))) dmg *= 1 + this._classlessOpeningBonus(e);
     if (String(p.sourceId || "").startsWith("T")) {
       const slot = Number(String(p.sourceId).slice(1));
       const tower = this.towers.find((item) => item.slot === slot);
@@ -1959,6 +2020,13 @@ export class Engine {
 
     e.hp = Math.max(0, e.hp - dmg);
     e.dmgBy[p.sourceId] = (e.dmgBy[p.sourceId] || 0) + dmg;
+    let killSourceId = p.sourceId;
+    for (const echo of echoMarks) {
+      if (e.hp > 0 && echo.damage >= e.hp) killSourceId = echo.sourceId;
+      e.hp = Math.max(0, e.hp - echo.damage);
+      e.dmgBy[echo.sourceId] = (e.dmgBy[echo.sourceId] || 0) + echo.damage;
+      this._float(e.x, e.y - 18, `ECHO ${Math.round(echo.damage)}`, "#A78BFA");
+    }
 
     const affinityColor =
       affinity >= 1.25 ? "#FF66CC" :
@@ -1996,7 +2064,7 @@ export class Engine {
         this._applyHit({ ...p, target: other, dmg: p.dmg * 0.55, cleaveApplied: true });
       }
     }
-    if (e.hp <= 0) this._killEnemy(e, p.sourceId);
+    if (e.hp <= 0) this._killEnemy(e, killSourceId);
   }
 
   _applyClasslessHit(p) {
@@ -2009,6 +2077,7 @@ export class Engine {
       this._float(target.x, target.y - 4, "IMMUNE", "#39FF14");
       return false;
     }
+    const echoMarks = this._takeClasslessEchoMarks(target, p.sourceId);
     let damage = p.dmg * affinity;
     if (p.damageCategory === "weapon") damage *= 1 + effects.weaponDamage;
     if (p.damageType === C.DAMAGE_TYPES.ARCANE) damage *= 1 + (effects.arcaneDamage || 0);
@@ -2026,6 +2095,7 @@ export class Engine {
     }
     if (effects.activeTargetDamage > 0 && target.classlessActiveHitUntil > this.time &&
       target.classlessActiveHitBy === hero.i) situationalBonus += effects.activeTargetDamage;
+    situationalBonus += this._classlessOpeningBonus(target);
     if (p.damageCategory === "weapon" && effects.momentumDamagePerStack > 0) {
       if (state.momentumTarget !== target || this.time - state.lastDealtAt > 4) {
         state.momentumTarget = target;
@@ -2046,6 +2116,13 @@ export class Engine {
     target.hp = Math.max(0, target.hp - damage);
     if (consumesVanish) state.vanishDamagePending = 0;
     target.dmgBy[p.sourceId] = (target.dmgBy[p.sourceId] || 0) + damage;
+    let killSourceId = p.sourceId;
+    for (const echo of echoMarks) {
+      if (target.hp > 0 && echo.damage >= target.hp) killSourceId = echo.sourceId;
+      target.hp = Math.max(0, target.hp - echo.damage);
+      target.dmgBy[echo.sourceId] = (target.dmgBy[echo.sourceId] || 0) + echo.damage;
+      this._float(target.x, target.y - 18, `ECHO ${Math.round(echo.damage)}`, "#A78BFA");
+    }
     target.classlessLastHitBy ||= {};
     target.classlessLastHitBy[hero.i] = this.time + 4;
     state.lastDealtAt = this.time;
@@ -2065,6 +2142,13 @@ export class Engine {
     if (p.ability) {
       target.classlessActiveHitUntil = Math.max(target.classlessActiveHitUntil || 0, this.time + 4);
       target.classlessActiveHitBy = hero.i;
+      if (effects.echoDamageFraction > 0 && state.echoReadyAt <= this.time) {
+        state.echoReadyAt = this.time + effects.echoCooldownSeconds;
+        if (target.hp > 0) {
+          target.classlessEchoMarks ||= {};
+          target.classlessEchoMarks[hero.i] = { expiresAt: this.time + effects.echoDurationSeconds };
+        }
+      }
     }
     if (p.damageCategory === "weapon" && effects.disruptSlow > 0 && state.nextDisruptAt <= this.time) {
       const slow = target.boss ? effects.disruptSlow / 3 : effects.disruptSlow;
@@ -2072,14 +2156,17 @@ export class Engine {
       target.slowMultiplier = Math.min(target.slowMultiplier || 1, 1 - slow);
       target.attackSlowUntil = Math.max(target.attackSlowUntil || 0, this.time + 3);
       target.attackSlowMultiplier = Math.min(target.attackSlowMultiplier || 1, 1 - slow);
+      if (target.hp > 0) this._recordClasslessControl(target, hero, this.time + 3);
       state.nextDisruptAt = this.time + 8;
     }
     if (p.damageCategory === "weapon" && effects.rootEverySeconds > 0 && state.nextRootAt <= this.time) {
-      target.rootUntil = Math.max(target.rootUntil || 0, this.time + (target.boss ? 0.5 : 1.5));
+      const rootUntil = this.time + (target.boss ? 0.5 : 1.5);
+      target.rootUntil = Math.max(target.rootUntil || 0, rootUntil);
       target.rootedBy = hero.i;
+      if (target.hp > 0) this._recordClasslessControl(target, hero, rootUntil);
       state.nextRootAt = this.time + effects.rootEverySeconds;
     }
-    if (target.hp <= 0) this._killEnemy(target, p.sourceId);
+    if (target.hp <= 0) this._killEnemy(target, killSourceId);
     return true;
   }
 

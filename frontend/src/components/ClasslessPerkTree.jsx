@@ -12,6 +12,10 @@ const REASONS = {
   unknown_node: "Unknown node",
 };
 
+const BLOCKED_NODE_REASONS = {
+  C2a: "Unavailable — canonical range unspecified",
+};
+
 const EFFECT_LABELS = {
   V1: "+8% direct weapon damage (active)",
   V2: "+10% follow-through damage (active)",
@@ -32,7 +36,10 @@ const EFFECT_LABELS = {
   W3a: "25% damage reduction below 25% HP (active)",
   T1: "+5% active cooldown reduction (active)",
   T2: "15% slow on first hit every 8 seconds (active)",
+  T3: "+8% damage to targets controlled by this hero, lingering for 4 seconds after control (active)",
+  T3a: "5% mitigation aura within 5 units; shares the 30% reduction cap (active)",
   C1: "+8% damage to targets hit by an active ability (active)",
+  C2: "First ability hit every 10 seconds marks for 4 seconds; next allied hit adds 20% of this hero's attack (active)",
   H1: "2% direct-hit lifesteal (active)",
   F1: "+15 percentage points critical damage (active)",
   N1: "1% maximum HP regeneration every 3s after 5s without damage (active)",
@@ -82,7 +89,8 @@ export default function ClasslessPerkTree({ hero, onPurchase, onAllocate, onClos
                 {CANONICAL_NODES.filter((node) => node.branch === branch).map((node) => {
                   const result = purchaseClasslessNode(hero, node.id);
                   const isOwned = owned.has(node.id);
-                  const label = isOwned ? "OWNED" : result.ok ? "PURCHASE" : REASONS[result.reason] || "Unavailable";
+                  const label = isOwned ? "OWNED" : result.ok ? "PURCHASE" :
+                    BLOCKED_NODE_REASONS[node.id] || REASONS[result.reason] || "Unavailable";
                   return (
                     <div key={node.id} className="flex items-center gap-2 rounded border border-white/10 bg-white/[0.025] p-2" data-testid={`classless-node-${node.id}`}>
                       <div className="min-w-0 flex-1">
@@ -92,7 +100,9 @@ export default function ClasslessPerkTree({ hero, onPurchase, onAllocate, onClos
                           {node.prerequisites.length ? ` · Requires ${node.prerequisites.join(" or ")}` : " · No prerequisite"}
                         </div>
                         <div className={`font-mono-g text-[9px] ${EFFECT_LABELS[node.id] ? "text-emerald-300" : "text-amber-300"}`}>
-                          {EFFECT_LABELS[node.id] ? node.description : `Effect pending — ${node.description}`}
+                          {EFFECT_LABELS[node.id] ? node.description :
+                            node.id === "C2a" ? `Effect pending — canonical range unspecified. ${node.description}` :
+                              `Effect pending — ${node.description}`}
                         </div>
                         {node.gated && <div className="font-mono-g text-[9px] text-yellow-300">Unavailable — system pending</div>}
                       </div>

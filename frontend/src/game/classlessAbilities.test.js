@@ -52,6 +52,7 @@ describe("canonical classless active ability definitions", () => {
       damageMultiplier: 1.5, conditionalDamageBonus: 0.5, effect: "phantom_strike",
       targetMode: "enemy", requiresTarget: true,
     });
+    expect(getClasslessAbilityDefinition("C2a")).toBeNull();
     expect(getClasslessAbilityDefinition("A3")).toBeNull();
   });
 

@@ -15,7 +15,10 @@ const IMPLEMENTED_PASSIVES = Object.freeze({
   S3: { ambushDamage: 0.25 },
   T1: { cooldownReduction: 0.05 },
   T2: { disruptSlow: 0.15 },
+  T3: { openingDamage: 0.08 },
+  T3a: { formationMitigation: 0.05 },
   C1: { activeTargetDamage: 0.08 },
+  C2: { echoDamageFraction: 0.20, echoCooldownSeconds: 10, echoDurationSeconds: 4 },
   W3a: { lastStand: 0.25 },
   H1: { lifesteal: 0.02 },
   H2: { bloodPriceBonus: 0.12, bloodPriceCost: 0.05 },
@@ -33,7 +36,9 @@ export function classlessCombatEffects(ownedNodeIds = []) {
     maxHp: 0, damageReduction: 0, markDamage: 0, evasion: 0, fullHpEvasion: 0,
     lastStand: 0, lifesteal: 0, regeneration: 0, regenerationBelowHalf: 0, decoyChance: 0,
     followThroughDamage: 0, momentumDamagePerStack: 0, ambushDamage: 0, disruptSlow: 0,
-    activeTargetDamage: 0, rootEverySeconds: 0, bloodPriceBonus: 0, bloodPriceCost: 0 };
+    activeTargetDamage: 0, openingDamage: 0, formationMitigation: 0,
+    echoDamageFraction: 0, echoCooldownSeconds: 0, echoDurationSeconds: 0,
+    rootEverySeconds: 0, bloodPriceBonus: 0, bloodPriceCost: 0 };
   for (const id of new Set(ownedNodeIds)) {
     const effect = IMPLEMENTED_PASSIVES[id];
     if (!effect) continue;
@@ -53,6 +58,7 @@ export function classlessCombatEffects(ownedNodeIds = []) {
   totals.ambushDamage = Math.min(0.5, totals.ambushDamage);
   totals.disruptSlow = Math.min(0.5, totals.disruptSlow);
   totals.activeTargetDamage = Math.min(0.5, totals.activeTargetDamage);
+  totals.openingDamage = Math.min(0.5, totals.openingDamage);
   return totals;
 }
 

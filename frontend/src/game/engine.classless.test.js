@@ -1,5 +1,6 @@
 import { createHeroModel, HERO_BASELINE } from "./heroModel";
 import { createNewState } from "./logic";
+import * as C from "./config";
 import { Engine } from "./engine";
 
 function makeEngine(options = {}) {
@@ -103,6 +104,105 @@ describe("bounded classless combat adapter", () => {
     expect(target.slowMultiplier).toBeCloseTo(0.95);
     expect(target.attackSlowMultiplier).toBeCloseTo(0.95);
     expect(target.rootUntil).toBe(0.5);
+    random.mockRestore();
+  });
+
+  test("Opening boosts allied hits through control and for four seconds after control expires", () => {
+    const owner = createHeroModel({ id: "opening-owner" });
+    owner.progression.ownedNodeIds = ["T1", "T2", "T3"];
+    const ally = createHeroModel({ id: "opening-ally" });
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [owner, ally] }, { enemies: [], total: 1 });
+    const target = enemy("controlled", engine.heroes[0].x + 20, engine.heroes[0].y, { hp: 1000, maxHp: 1000 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    expect(engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 16,
+      classless: true, damageCategory: "weapon" })).toBe(true);
+    expect(target.classlessControlledUntilBy[0]).toBe(3);
+    const beforeLingeringHit = target.hp;
+    engine.time = 6.999;
+    engine._applyHit({ sourceId: "H1", heroIndex: 1, target, dmg: 16,
+      classless: true, damageCategory: "weapon" });
+    expect(beforeLingeringHit - target.hp).toBeCloseTo(16 * 1.08);
+
+    const beforeExpiredHit = target.hp;
+    engine.time = 7;
+    engine._applyHit({ sourceId: "H1", heroIndex: 1, target, dmg: 16,
+      classless: true, damageCategory: "weapon" });
+    expect(beforeExpiredHit - target.hp).toBeCloseTo(16);
+    random.mockRestore();
+  });
+
+  test("Formation is a five-unit same-type aura and shares the 30% mitigation cap", () => {
+    const recipient = createHeroModel({ id: "formation-recipient" });
+    recipient.progression.ownedNodeIds = ["W1", "W2"];
+    const firstOwner = createHeroModel({ id: "formation-owner-a" });
+    firstOwner.progression.ownedNodeIds = ["T1", "T2a", "T3a"];
+    const secondOwner = createHeroModel({ id: "formation-owner-b" });
+    secondOwner.progression.ownedNodeIds = ["T1", "T2", "T3a"];
+    const engine = new Engine({ getContext: () => null },
+      { ...createNewState(), heroes: [recipient, firstOwner, secondOwner] }, { enemies: [], total: 1 });
+    const [protectedHero, ownerA, ownerB] = engine.heroes;
+    protectedHero.x = 100;
+    ownerA.x = 105;
+    ownerB.x = 96;
+
+    expect(engine._classlessFormationReduction(protectedHero)).toBeCloseTo(0.05);
+    expect(engine._classlessReducedDamage(protectedHero, 100))
+      .toBeCloseTo(C.damageAfterDefense(100, protectedHero.d.defense) * 0.89);
+    protectedHero.interposeUntil = 10;
+    protectedHero.interposeReduction = 0.25;
+    expect(engine._classlessReducedDamage(protectedHero, 100))
+      .toBeCloseTo(C.damageAfterDefense(100, protectedHero.d.defense) * 0.70);
+
+    ownerA.alive = false;
+    ownerB.x = 105.01;
+    expect(engine._classlessFormationReduction(protectedHero)).toBe(0);
+  });
+
+  test("Echo marks ability-hit targets independently, then credits its flat bonus to the owner", () => {
+    const owner = createHeroModel({ id: "echo-owner" });
+    owner.progression.ownedNodeIds = ["C1", "C2", "P1", "P2", "T1", "T2", "N1", "N2"];
+    const ally = createHeroModel({ id: "echo-ally" });
+    const engine = new Engine({ getContext: () => null },
+      { ...createNewState(), heroes: [owner, ally] }, { enemies: [], total: 1 });
+    const first = enemy("echo-first", engine.heroes[0].x + 20, engine.heroes[0].y, { hp: 1000, maxHp: 1000 });
+    const second = enemy("echo-cooldown", engine.heroes[0].x + 30, engine.heroes[0].y, { hp: 1000, maxHp: 1000 });
+    const third = enemy("echo-ready", engine.heroes[0].x + 40, engine.heroes[0].y, { hp: 1000, maxHp: 1000 });
+    engine.active = [first, second, third];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+
+    engine._applyHit({ sourceId: "H0", heroIndex: 0, target: first, dmg: 16,
+      classless: true, ability: true, damageCategory: "weapon" });
+    expect(first.classlessEchoMarks[0]).toEqual({ expiresAt: 4 });
+    expect(first.classlessMarks[0].expiresAt).toBe(5);
+    expect(first.rootUntil).toBe(1.5);
+    expect(first.classlessControlledUntilBy[0]).toBe(3);
+
+    const beforeAllyHit = first.hp;
+    engine._applyHit({ sourceId: "H1", heroIndex: 1, target: first, dmg: 16,
+      classless: true, damageCategory: "weapon" });
+    expect(beforeAllyHit - first.hp).toBeCloseTo(16 + 16 * 0.2);
+    expect(first.dmgBy.H1).toBe(16);
+    expect(first.dmgBy.H0).toBeCloseTo(16 + 16 * 0.2);
+    expect(first.classlessEchoMarks).toBeUndefined();
+    expect(first.classlessMarks[0].expiresAt).toBe(5);
+    expect(first.rootUntil).toBe(1.5);
+
+    engine.time = 9;
+    engine._applyHit({ sourceId: "H0", heroIndex: 0, target: second, dmg: 16,
+      classless: true, ability: true, damageCategory: "weapon" });
+    expect(second.classlessEchoMarks).toBeUndefined();
+    engine.time = 10;
+    engine._applyHit({ sourceId: "H0", heroIndex: 0, target: third, dmg: 16,
+      classless: true, ability: true, damageCategory: "weapon" });
+    expect(third.classlessEchoMarks[0]).toEqual({ expiresAt: 14 });
+    engine.time = 14;
+    const beforeExpiredEcho = third.hp;
+    engine._applyHit({ sourceId: "H1", heroIndex: 1, target: third, dmg: 16,
+      classless: true, damageCategory: "weapon" });
+    expect(beforeExpiredEcho - third.hp).toBe(16);
+    expect(third.classlessEchoMarks).toBeUndefined();
     random.mockRestore();
   });
 
