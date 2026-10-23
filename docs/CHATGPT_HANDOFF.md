@@ -1364,3 +1364,59 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - Next VFX task: inspect the delivered atlas and event cues on representative Android viewport/device hardware, tune only visual scale/contrast after that review, and add rendering checks for any missing current-runtime events. Do not start audio/SFX or another gameplay balance change in that pass.
 - Broader roadmap remains unchanged: (1) finish classless progression/perks/abilities/combat; (2) VFX and combat feedback; (3) spells/Library/Academy; (4) equipment/items. This pass adds initial VFX/sprite support but does not close Phase 1 combat or certify device visual quality.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review the recorded implementation and evidence, and continue from that checkpoint. Local-only handoff edits are not retrievable from GitHub.
+
+## 33. Sprite references, equipped weapons, and persistent hero colors — 2026-10-23
+
+### Starting point and asset inspection
+
+- Continued on `review/mobile-working-copy`. The uploaded sprite-source ZIP was published at starting HEAD `6772d46ccda7f9f1d248e8e0a397b7f3866ed471`; the implementation source commit is `20fcc01` (`Add equipped weapon sprites and hero colors`). No branch switch, reset, merge, deployment, production account/profile, or live service was used.
+- Extracted `frontend/public/sprites/demonanic-sprite-assets-source-bundle.zip` to `/tmp/demonanic-sprite-source/` and inspected `Spritepack1-reference.png`, `Spritepack2-reference.png`, and `demonanic-weapons-vfx-source.png`. The 1536×1024 RGBA files are presentation/reference boards with labels, borders, and background panels, so their panels were not cropped into production assets.
+- Preserved the existing `frontend/public/sprites/classless-hero-atlas.svg` byte-for-byte. Added a body-only sibling atlas for the active Battle canvas renderer and separate transparent vector assets for sword, bow, and staff. The supplied boards informed the visual direction; the individual weapon SVGs were recreated as clean, lightweight assets rather than extracted from the reference sheets.
+
+### Implementation
+
+- `frontend/src/game/heroWeapon.js` maps equipped item metadata to the sword, bow, or staff SVG. `frontend/src/game/equipment.js` adds `weaponType` metadata to newly generated primary weapons while retaining existing equipment names, item stats, rarity, pricing, and slots. Legacy primary weapons without metadata use a sword fallback; saved class/hero labels do not choose the weapon. The Engine caches at most three weapon images and draws the selected asset as a separate overlay; missing/undecoded images are skipped safely.
+- `frontend/src/game/heroSprite.js` points the classless canvas renderer and avatar component to the new body-only atlas, leaving the old atlas file untouched. Battle draws the hero's neon identity color as a small body accent. Roster, preparation, and tactical avatar borders use the same color when present.
+- `frontend/src/game/heroModel.js` assigns a random palette color when a new classless or legacy hero is created. Existing saves lacking a color receive a deterministic identity-based color during normalization, avoiding repeated rerolls before save. `GameProvider.normalizeState` applies the cosmetic migration to active, benched, and Academy heroes; existing appearance fields are retained. The color does not affect combat statistics, progression, title, equipment, or recruitment.
+- No recruitment rules, economy, or combat behavior were changed. The renderer selects weapons from saved equipment only.
+
+### Files in implementation commit
+
+`20fcc01` contains exactly these 20 files:
+
+- `frontend/public/sprites/classless-hero-body-atlas.svg`
+- `frontend/public/sprites/weapons/bow.svg`
+- `frontend/public/sprites/weapons/staff.svg`
+- `frontend/public/sprites/weapons/sword.svg`
+- `frontend/src/components/ClasslessHeroAvatar.jsx`
+- `frontend/src/components/TacticalMenu.jsx`
+- `frontend/src/context/GameProvider.jsx`
+- `frontend/src/context/GameProvider.test.jsx`
+- `frontend/src/game/engine.js`
+- `frontend/src/game/equipment.js`
+- `frontend/src/game/heroModel.js`
+- `frontend/src/game/heroModel.test.js`
+- `frontend/src/game/heroSprite.js`
+- `frontend/src/game/heroSprite.test.js`
+- `frontend/src/game/heroWeapon.js`
+- `frontend/src/game/heroWeapon.test.js`
+- `frontend/src/game/logic.js`
+- `frontend/src/screens/Preparation.jsx`
+- `frontend/src/screens/Roster.jsx`
+- `frontend/src/screens/classlessScreen.integration.test.jsx`
+
+### Validation and limits
+
+- From `frontend/`, `CI=true npm test -- --watchAll=false --runInBand --silent src/game/heroWeapon.test.js` — PASS, 1 suite / 5 tests, including equipment type mapping and swap behavior.
+- From `frontend/`, `CI=true npm test -- --watchAll=false --runInBand --silent src/game/heroModel.test.js src/game/logic.classlessHero.test.js src/context/GameProvider.test.jsx` — PASS, 3 suites / 28 tests for new/legacy identity color assignment, normalization, creation, and provider persistence regressions.
+- From `frontend/`, the earlier combined focused command `CI=true npm test -- --watchAll=false --runInBand --silent src/game/heroModel.test.js src/game/heroWeapon.test.js src/game/heroSprite.test.js src/game/engine.classless.test.js src/context/GameProvider.test.jsx src/screens/classlessScreen.integration.test.jsx src/components/TacticalMenu.test.jsx src/screens/Preparation.classless-gate.test.jsx src/screens/Roster.classlessProgression.test.jsx src/screens/SquadSelect.classless.test.jsx` — PASS, 10 suites / 97 tests. This preceded the final restoration of original generated equipment names; the final weapon-specific test above was rerun after that change.
+- From `frontend/`, `npm run build` — PASS, optimized production build compiled. Node printed a non-fatal `[DEP0176] fs.F_OK` deprecation warning.
+- From repository root, `git diff --check` — PASS. XML parsing of the four new SVGs — PASS. `git diff --quiet HEAD -- frontend/public/sprites/classless-hero-atlas.svg` — PASS, confirming the prior atlas is unchanged.
+- Automated canvas tests verify the actual renderer's weapon asset selection path and color retention, but Android/WebView rendering, visual quality, low-memory performance, and natural battle presentation were not checked on a device. No live profile/backend or production data was used. The body atlas keeps the existing 3-frame-per-state/rotated-facing renderer; this task does not add new animation states or combat VFX.
+
+### Publication, remaining changes, and next task
+
+- Implementation commit `20fcc01` (`Add equipped weapon sprites and hero colors`) was pushed to `origin/review/mobile-working-copy`; the separate handoff-only follow-up publishes this section. Verify the final remote branch SHA against the handoff commit before relying on it.
+- The pre-existing local user changes remain outside both commits: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`. Preserve them. No other uncommitted task files remain after publication.
+- Next recommended task: review the new sprite/weapon overlays on Android hardware at the actual battle viewport, then adjust visual size/contrast only if device evidence supports it. Do not change combat, recruitment, or economy based solely on visual review. The published source ZIP remains available for future asset reference.
+- The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review the evidence, and continue from that checkpoint.
