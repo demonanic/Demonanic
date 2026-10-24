@@ -11,7 +11,7 @@ jest.mock("@/components/ui-kit", () => ({
   SectionTitle: ({ children }) => <h2>{children}</h2>,
   StatBar: () => <div />,
 }), { virtual: true });
-jest.mock("@/components/KingdomMap", () => ({ __esModule: true, default: ({ onSelect }) => <button onClick={() => onSelect("tavern")}>Open Tavern</button> }), { virtual: true });
+jest.mock("@/components/KingdomMap", () => ({ __esModule: true, default: ({ onSelect }) => <><button onClick={() => onSelect("tavern")}>Open Tavern</button><button onClick={() => onSelect("academy")}>Open Academy</button></> }), { virtual: true });
 jest.mock("@/components/LibraryResearch", () => ({ __esModule: true, default: () => null }), { virtual: true });
 jest.mock("@/game/logic", () => jest.requireActual("../game/logic"), { virtual: true });
 jest.mock("@/game/config", () => jest.requireActual("../game/config"), { virtual: true });
@@ -67,5 +67,17 @@ describe("classless tavern recruitment", () => {
     act(() => container.querySelector('[data-testid="tavern-recruit-classless"]').click());
     expect(mockState.buildings.tavern.activity).toBe(`Recruited ${mockState.heroes[mockState.heroes.length - 1].identity.name}`);
     expect(mockState.buildings.tavern.activity).not.toBe("Recruited Reserve");
+  });
+
+  test("Academy displays and trains a classless reserve by identity ID", () => {
+    mockState = createNewState();
+    mockState.bench = [createHeroModel({ id: "academy-screen-hero", name: "Reserve Neon" })];
+    mockState.buildings = { academy: { level: 1, hp: 1000, maxHp: 1000, unlocked: true } };
+    act(() => root.render(<TestHarness />));
+    act(() => [...container.querySelectorAll("button")].find((button) => button.textContent === "Open Academy").click());
+    expect(container.querySelector('[data-testid="academy-eligible-academy-screen-hero"]')?.textContent).toContain("Reserve Neon");
+    act(() => container.querySelector('[data-testid="academy-eligible-academy-screen-hero"] button').click());
+    expect(mockState.academyTraining[0].heroId).toBe("academy-screen-hero");
+    expect(mockState.academyHeroes[0].identity.id).toBe("academy-screen-hero");
   });
 });

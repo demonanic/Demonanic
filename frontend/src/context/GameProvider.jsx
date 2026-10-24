@@ -111,8 +111,9 @@ export function normalizeState(s) {
   if (!Array.isArray(s.academyTraining)) s.academyTraining = [];
   // Discard legacy enrollments that point at active/bench heroes. Only heroes
   // explicitly moved into academyHeroes may occupy a training seat.
-  const academyIds = new Set(s.academyHeroes.map((h) => h?.id).filter(Boolean));
-  s.academyTraining = s.academyTraining.filter((t) => t && (academyIds.has(t.heroId) || (t.paused && s.bench.some((h) => h?.id === t.heroId))));
+  const heroId = (hero) => hero?.identity?.id || hero?.id;
+  const academyIds = new Set(s.academyHeroes.map(heroId).filter(Boolean));
+  s.academyTraining = s.academyTraining.filter((t) => t && (academyIds.has(t.heroId) || (t.paused && s.bench.some((h) => heroId(h) === t.heroId))));
   // First-pass persistent castle-building state. Defaults preserve old profiles.
   if (!s.buildings || typeof s.buildings !== "object") s.buildings = {};
   const buildingDefaults = {

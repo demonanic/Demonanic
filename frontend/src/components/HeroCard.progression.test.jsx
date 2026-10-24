@@ -2,6 +2,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { commitHeroProgressionDraft, createHero } from "../game/logic";
 import { HeroCard } from "./cards";
+import { createHeroModel } from "../game/heroModel";
 
 jest.mock("./ui-kit", () => ({
   StatBar: () => <div />,
@@ -27,6 +28,15 @@ describe("Preparation HeroCard progression draft", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+  });
+
+  test("Battle Details renders the classless runtime model without legacy fields", () => {
+    const model = createHeroModel({ id: "details-classless", name: "Details Hero" });
+    const runtime = { classless: true, model, ref: { hp: 300 }, d: { maxHp: 300 } };
+    act(() => root.render(<HeroCard hero={runtime} editable={false} onClose={jest.fn()} />));
+    expect(container.querySelector('[data-testid="hero-card-classless"]')).not.toBeNull();
+    expect(container.textContent).toContain("Details Hero");
+    expect(container.textContent).toContain("BASIC ATTACK · 16 DMG");
   });
 
   function renderCard(hero, onCommitProgression = jest.fn(), onClose = jest.fn()) {

@@ -176,6 +176,9 @@ export default function Armory() {
   const spellMage = allMages.find((item) => item.id === spellMageId) || allMages[0] || null;
   const spellMageAffinities = mageAffinities(spellMage);
   const hero = heroes[heroIndex] || heroes[0];
+  const classless = !!hero && !hero.cls && !!hero.combat;
+  const heroName = classless ? hero.identity?.name || "Hero" : hero?.name;
+  const heroStats = classless ? hero.combat.stats || {} : hero?.stats || {};
   const d = hero ? heroDerived(hero) : null;
   const vault = state.vault || [];
   const shopItems = state.shoppe?.inventory || [];
@@ -192,7 +195,7 @@ export default function Armory() {
   };
 
   const equip = (item) => {
-    if (!hero) return;
+    if (!hero || classless) return;
     let targetSlot = item.slot;
     if (item.slot === "Ring1" && hero.equipment?.Ring1 && !hero.equipment?.Ring2) targetSlot = "Ring2";
     act((s) => equipHeroItem(s, heroIndex, item.id, targetSlot), `${item.name} equipped`, "Could not equip item");
@@ -293,21 +296,21 @@ export default function Armory() {
             <div className="glass-card rounded-xl p-3 mb-3 border border-fuchsia-400/20">
               <div className="flex gap-1.5 mb-2 overflow-x-auto no-scrollbar">
                 {heroes.map((h, i) => (
-                  <button key={h.id} onClick={() => setHeroIndex(i)}
+                  <button key={h.identity?.id || h.id || i} onClick={() => setHeroIndex(i)}
                     className={`shrink-0 px-2.5 py-1 rounded border font-mono-g text-[9px] ${heroIndex === i ? "border-fuchsia-400 text-fuchsia-300 bg-fuchsia-500/15" : "border-white/10 text-slate-500"}`}>
-                    {C.HERO_CLASSES[h.cls].name} L{h.level}
+                    {h.cls ? C.HERO_CLASSES[h.cls]?.name || h.cls : h.identity?.name || h.name || "Hero"} L{h.progression?.level || h.level || 1}
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-[1.2fr_1fr] gap-2">
                 <div>
-                  <div className="font-mono-g text-[9px] text-slate-500 mb-1">EQUIPPED · {C.HERO_CLASSES[hero.cls].name}</div>
-                  <EquipmentSlots hero={hero} onUnequip={(slot) => act((s) => unequipHeroItem(s, heroIndex, slot), "Item moved to Vault")} />
+                  <div className="font-mono-g text-[9px] text-slate-500 mb-1">{classless ? `${heroName} · CLASSLESS` : `EQUIPPED · ${C.HERO_CLASSES[hero.cls]?.name || hero.cls}`}</div>
+                  {classless ? <div className="rounded border border-cyan-400/20 bg-black/25 p-3 font-mono-g text-[9px] text-slate-400" data-testid="classless-equipment-notice">Classless equipment combat support is not available yet. Gear can be kept or sold from the Vault.</div> : <EquipmentSlots hero={hero} onUnequip={(slot) => act((s) => unequipHeroItem(s, heroIndex, slot), "Item moved to Vault")} />}
                   <div className="grid grid-cols-2 gap-1 mt-2">
                     {["attack","defense","agility","intelligence"].map((key) => (
                       <div key={key} className="font-mono-g text-[9px] text-slate-400 bg-black/25 rounded px-2 py-1 flex justify-between">
                         <span className="flex items-center gap-1">{STAT_ICONS[key]} {key.slice(0,3).toUpperCase()}</span>
-                        <b className="text-slate-200">{hero.stats[key] + (d?.gear?.[key] || 0)}</b>
+                        <b className="text-slate-200">{(heroStats[key] || 0) + (d?.gear?.[key] || 0)}</b>
                       </div>
                     ))}
                     <div className="font-mono-g text-[9px] text-slate-400 bg-black/25 rounded px-2 py-1 flex justify-between"><span>HP</span><b className="text-slate-200">{Math.round(d?.maxHp || 0)}</b></div>
@@ -316,7 +319,7 @@ export default function Armory() {
                 </div>
                 <div className="rounded-lg border border-white/5 bg-black/20 p-2">
                   <div className="font-mono-g text-[8px] text-slate-500">SECONDARY IDENTITY</div>
-                  <div className="font-mono-g text-[10px] text-slate-300 mt-1">{CLASS_SECONDARY_TYPE[hero.cls] || "Secondary"}</div>
+                  <div className="font-mono-g text-[10px] text-slate-300 mt-1">{classless ? "Universal combat profile" : CLASS_SECONDARY_TYPE[hero.cls] || "Secondary"}</div>
                   <div className="font-mono-g text-[8px] text-slate-600 mt-1">Identity modifiers remain unresolved; current stat package uses the verified neutral secondary template.</div>
                 </div>
               </div>
@@ -339,7 +342,7 @@ export default function Armory() {
                   key={item.id}
                   item={item}
                   equipped={comparisonItemForHero(item)}
-                  action={() => equip(item)}
+                  action={classless ? undefined : () => equip(item)}
                   actionLabel="EQUIP"
                   secondaryAction={() => sell(item)}
                   secondaryLabel={`SELL ${item.sellValue}g`}

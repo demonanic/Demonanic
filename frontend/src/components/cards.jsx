@@ -4,6 +4,7 @@ import { StatBar, NeonButton, HeroMiniSprite } from "./ui-kit";
 import * as C from "../game/config";
 import { allocateSp, buyPerk, heroDerived, towerDerived, undoPendingPerk, undoPendingSp } from "../game/logic";
 import PerkTree from "./PerkTree";
+import ClasslessHeroAvatar from "./ClasslessHeroAvatar";
 
 export function Modal({ children, onClose, testid, slowed }) {
   return (
@@ -24,12 +25,17 @@ export function Modal({ children, onClose, testid, slowed }) {
 
 const STAT_ICONS = { attack: <Swords size={13} />, defense: <Shield size={13} />, agility: <Wind size={13} />, intelligence: <Brain size={13} /> };
 
+function cloneHeroData(hero) {
+  return typeof structuredClone === "function" ? structuredClone(hero) : JSON.parse(JSON.stringify(hero));
+}
+
 export function HeroCard({ hero: sourceHero, editable, onAlloc, onPerk, onClose, onCommitProgression, draftProgression = false, onConfig, slowed, combatMode, onCombatMode, onRetreat, onRally }) {
   const [perkTreeOpen, setPerkTreeOpen] = useState(false);
-  const originalProgression = useRef(structuredClone(sourceHero));
-  const [progressionDraft, setProgressionDraft] = useState(() => structuredClone(sourceHero));
+  const displayHero = sourceHero?.classless ? sourceHero.model : sourceHero;
+  const originalProgression = useRef(cloneHeroData(displayHero));
+  const [progressionDraft, setProgressionDraft] = useState(() => cloneHeroData(displayHero));
   const committingDraft = useRef(false);
-  const hero = draftProgression ? progressionDraft : sourceHero;
+  const hero = draftProgression ? progressionDraft : displayHero;
   const originalPerks = originalProgression.current.perks || [];
   const removablePerks = draftProgression
     ? (hero.perks || []).filter((perkId) => !originalPerks.includes(perkId))
@@ -42,7 +48,7 @@ export function HeroCard({ hero: sourceHero, editable, onAlloc, onPerk, onClose,
   );
   const updateProgressionDraft = (update) => {
     setProgressionDraft((current) => {
-      const next = structuredClone(current);
+      const next = cloneHeroData(current);
       return update(next) ? next : current;
     });
   };
@@ -73,6 +79,32 @@ export function HeroCard({ hero: sourceHero, editable, onAlloc, onPerk, onClose,
   };
   const cls = C.HERO_CLASSES[hero.cls];
   const d = heroDerived(hero);
+  if (!hero.cls && hero.combat) {
+    const color = hero.appearance?.identityColor || "#22D3EE";
+    const stats = hero.combat.stats || {};
+    const hp = sourceHero?.classless ? sourceHero.ref.hp : hero.combat.hp;
+    const maxHp = sourceHero?.classless ? sourceHero.d.maxHp : d.maxHp;
+    return <Modal onClose={onClose} testid="hero-card-classless" slowed={slowed}>
+      <div className="p-5" style={{ borderTop: `3px solid ${color}` }}>
+        <div className="flex items-center gap-3 mb-3">
+          <ClasslessHeroAvatar identityColor={color} className="h-16 w-16 rounded border border-cyan-400/30 bg-black/30" label={`${hero.identity?.name || "Hero"} classless sprite`} />
+          <div><div className="font-display font-black text-2xl" style={{ color }}>{hero.identity?.name || "Hero"}</div><div className="font-mono-g text-[11px] text-slate-400">CLASSLESS · LVL {hero.progression?.level || 1}</div></div>
+          <div className="ml-auto text-right"><div className="font-mono-g text-[10px] text-slate-400">HP</div><div className="font-mono-g font-bold text-sm" style={{ color }}>{Math.round(hp)}/{Math.round(maxHp)}</div></div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {Object.entries({ attack: stats.attack, defense: stats.defense, agility: stats.agility, intelligence: stats.intelligence }).map(([key, value]) => <div key={key} className="flex justify-between rounded bg-black/30 px-2 py-1 font-mono-g text-xs"><span>{STAT_ICONS[key]} {key.toUpperCase()}</span><b style={{ color }}>{value}</b></div>)}
+          <div className="rounded bg-black/30 px-2 py-1 font-mono-g text-xs">BASIC ATTACK · {hero.combat.basicAttack?.damage || 0} DMG</div>
+          <div className="rounded bg-black/30 px-2 py-1 font-mono-g text-xs">RANGE · {hero.combat.basicAttack?.range || 0}</div>
+        </div>
+        {combatMode && <div className="flex gap-2 mb-3">
+          <NeonButton color="red" onClick={onRetreat} disabled={hp <= 0 || !onRetreat}>RETREAT</NeonButton>
+          <NeonButton color="green" onClick={onRally} disabled={hp <= 0 || !onRally}>RALLY</NeonButton>
+          {onCombatMode && <NeonButton color="cyan" onClick={() => onCombatMode(combatMode === "manual" ? "auto" : "manual")}>{combatMode === "manual" ? "MANUAL" : "AUTO"}</NeonButton>}
+        </div>}
+        <div className="font-mono-g text-[10px] text-slate-400">AP {hero.progression?.ap || 0} · SP {hero.progression?.sp || 0} · OWNED NODES {(hero.progression?.ownedNodeIds || []).length}</div>
+      </div>
+    </Modal>;
+  }
   const curXp = C.HERO_XP[hero.level - 1] || 0;
   const nextXp = C.HERO_XP[hero.level] || curXp;
   const xpFrac = nextXp > curXp ? (hero.xp - curXp) / (nextXp - curXp) : 1;

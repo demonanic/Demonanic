@@ -12,6 +12,7 @@ import Results from "@/screens/Results";
 import Profile from "@/screens/Profile";
 import Armory from "@/screens/Armory";
 import LibraryCompletionNotice from "@/components/LibraryCompletionNotice";
+import ScreenErrorBoundary from "@/components/ScreenErrorBoundary";
 
 function Splash({ label = "SUMMONING..." }) {
   return (
@@ -106,8 +107,10 @@ function Shell() {
   if (!user) return <Login />;
   return (
     <GameProvider user={user}>
-      <GameRouter />
-      <LibraryCompletionNotice />
+      <ScreenErrorBoundary>
+        <GameRouter />
+        <LibraryCompletionNotice />
+      </ScreenErrorBoundary>
     </GameProvider>
   );
 }

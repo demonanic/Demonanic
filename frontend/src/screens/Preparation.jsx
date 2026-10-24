@@ -76,13 +76,17 @@ export default function Preparation() {
       if (!isRewardedAdConfirmed(data)) throw new Error("Rewarded ad completion was not verified");
       mutate((s) => {
         const h = list === "squad" ? s.heroes[idx] : s.bench[idx];
-        if (!h || h.hp > 0) {
+        const classless = !!h && !h.cls && !!h.combat;
+        if (!h || (classless ? h.combat.hp : h.hp) > 0) {
           toast.error("Hero is no longer defeated");
           return;
         }
         const maxHp = heroDerived(h).maxHp;
-        h.hp = Math.max(1, Math.round(maxHp * 0.75));
-        h.maxHp = maxHp;
+        if (classless) h.combat.hp = Math.max(1, Math.round(maxHp * 0.75));
+        else {
+          h.hp = Math.max(1, Math.round(maxHp * 0.75));
+          h.maxHp = maxHp;
+        }
         toast.success("Reward granted — hero revived at 75% HP");
       });
     } catch {

@@ -673,7 +673,7 @@ export default function Battle() {
 
         {phase === "combat" && selectedManualHero != null && state.heroes[selectedManualHero]?.manual && (
           <div className={"absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded border border-fuchsia-400/50 font-mono-g text-[8px] text-fuchsia-300 tracking-wider pointer-events-none " + (hudOpaque ? "bg-[#090b12]" : "bg-black/75 backdrop-blur-sm")}>
-            MANUAL · {state.heroes[selectedManualHero].name.toUpperCase()} · {commandMode === "move" ? "MOVE MODE" : "TARGET MODE"}
+            MANUAL · {(state.heroes[selectedManualHero].identity?.name || state.heroes[selectedManualHero].name || "HERO").toUpperCase()} · {commandMode === "move" ? "MOVE MODE" : "TARGET MODE"}
           </div>
         )}
 
