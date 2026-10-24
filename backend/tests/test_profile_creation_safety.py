@@ -54,6 +54,22 @@ def test_new_profile_insert_succeeds_once(monkeypatch):
     assert collection.docs[0]["state"]["wave"] == 1
 
 
+def test_profile_creation_and_lookup_use_the_same_authenticated_account_id(monkeypatch):
+    collection = UniqueMemoryCollection()
+    install_test_collection(monkeypatch, collection)
+    account_id = "auth-user-uuid"
+    state = {"wave": 1, "gold": 100, "heroes": [], "towers": []}
+
+    created = asyncio.run(server.create_state(server.SaveStateInput(state=state), {"id": account_id}))
+    loaded = asyncio.run(server.get_state({"id": account_id}))
+    other_account = asyncio.run(server.get_state({"id": "different-auth-user-uuid"}))
+
+    assert created == {"ok": True}
+    assert loaded["state"]["wave"] == 1
+    assert collection.docs[0]["user_id"] == account_id
+    assert other_account == {"state": None}
+
+
 def test_duplicate_creation_returns_conflict_without_changing_saved_profile(monkeypatch):
     original = {"user_id": "unit-user", "state": {"wave": 19, "gold": 9999}}
     collection = UniqueMemoryCollection([original])

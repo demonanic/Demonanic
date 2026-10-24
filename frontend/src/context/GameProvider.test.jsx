@@ -19,10 +19,12 @@ function Probe() {
   const game = useGame();
   return (
     <div data-testid="game-probe" data-state={game.state ? "ready" : "empty"} data-screen={game.screen} data-prompt={game.profilePrompt?.kind || "none"}
+      data-message={game.profilePrompt?.message || ""}
       data-blockade-active={game.state?.guildBlockadeActiveUntil || 0} data-blockade-cooldown={game.state?.guildBlockadeCooldownUntil || 0}>
       <button onClick={game.startNewGame}>new-game</button>
       <button onClick={game.continueWithLocalBackup}>continue-local</button>
       <button onClick={game.saveNow}>save</button>
+      <button onClick={game.retryLoad}>retry-load</button>
     </div>
   );
 }
@@ -110,6 +112,7 @@ describe("GameProvider saved profile startup", () => {
   test.each([
     ["network failure", { code: "ERR_NETWORK" }],
     ["server error", { response: { status: 503 } }],
+    ["unexpected HTTP 404", { response: { status: 404 } }],
   ])("does not create a profile after a %s", async (_label, error) => {
     gameApi.getState.mockRejectedValue(error);
     await mount();
@@ -138,6 +141,25 @@ describe("GameProvider saved profile startup", () => {
     await mount(null);
     expect(container.querySelector("[data-testid='game-probe']").dataset.prompt).toBe("error");
     expect(gameApi.getState).not.toHaveBeenCalled();
+    expect(gameApi.createState).not.toHaveBeenCalled();
+  });
+
+  test("a failed profile verification can be retried without exposing new-profile creation", async () => {
+    gameApi.getState.mockResolvedValueOnce({ data: { state: {} } }).mockResolvedValueOnce({ data: { state: savedState } });
+    await mount();
+
+    let probe = container.querySelector("[data-testid='game-probe']");
+    expect(probe.dataset.prompt).toBe("error");
+    expect(gameApi.createState).not.toHaveBeenCalled();
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(4)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    probe = container.querySelector("[data-testid='game-probe']");
+    expect(probe.dataset.state).toBe("ready");
+    expect(probe.dataset.prompt).toBe("none");
     expect(gameApi.createState).not.toHaveBeenCalled();
   });
 
@@ -184,6 +206,78 @@ describe("GameProvider saved profile startup", () => {
       await Promise.resolve();
     });
     expect(gameApi.saveState).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not enter the game unless profile creation returns explicit success", async () => {
+    gameApi.getState.mockResolvedValue({ data: { state: null } });
+    gameApi.createState.mockResolvedValue({ data: { ok: false } });
+    await mount();
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(1)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const probe = container.querySelector("[data-testid='game-probe']");
+    expect(probe.dataset.state).toBe("empty");
+    expect(probe.dataset.prompt).toBe("error");
+    expect(probe.dataset.message).toMatch(/server did not confirm/i);
+    expect(gameApi.saveState).not.toHaveBeenCalled();
+  });
+
+  test("network failure during creation can be safely retried after an explicit missing lookup", async () => {
+    gameApi.getState.mockResolvedValue({ data: { state: null } });
+    gameApi.createState.mockRejectedValueOnce({ code: "ERR_NETWORK" }).mockResolvedValueOnce({ data: { ok: true } });
+    await mount();
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(1)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-testid='game-probe']").dataset.prompt).toBe("error");
+    expect(container.querySelector("[data-testid='game-probe']").dataset.message).toMatch(/retry loading/i);
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(4)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-testid='game-probe']").dataset.prompt).toBe("missing");
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(1)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(gameApi.createState).toHaveBeenCalledTimes(2);
+    expect(container.querySelector("[data-testid='game-probe']").dataset.state).toBe("ready");
+  });
+
+  test("a creation conflict preserves recovery through a subsequent profile lookup", async () => {
+    gameApi.getState.mockResolvedValueOnce({ data: { state: null } }).mockResolvedValueOnce({ data: { state: savedState } });
+    gameApi.createState.mockRejectedValue({ response: { status: 409 } });
+    await mount();
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(1)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const probe = container.querySelector("[data-testid='game-probe']");
+    expect(probe.dataset.state).toBe("empty");
+    expect(probe.dataset.message).toMatch(/already exists.*retry loading/i);
+    expect(gameApi.saveState).not.toHaveBeenCalled();
+
+    await act(async () => {
+      container.querySelector("button:nth-of-type(4)").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-testid='game-probe']").dataset.state).toBe("ready");
+    expect(gameApi.createState).toHaveBeenCalledTimes(1);
+    expect(gameApi.saveState).not.toHaveBeenCalled();
   });
 
   test("coalesces rapid new-game confirmation clicks", async () => {

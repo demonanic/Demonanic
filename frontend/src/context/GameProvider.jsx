@@ -15,6 +15,20 @@ function safeErrorDetails(error) {
   return { status: error?.response?.status, code: error?.code };
 }
 
+function profileCreationErrorMessage(error) {
+  const status = error?.response?.status;
+  if (status === 409) {
+    return "A saved profile already exists for this account. Retry loading it; no existing profile was replaced.";
+  }
+  if (status === 401 || status === 403) {
+    return "Your session could not be verified. Return to login and sign in again; no profile was created.";
+  }
+  if (error?.code === "ERR_NETWORK" || error?.code === "ECONNABORTED") {
+    return "The server did not confirm profile creation. Retry loading before trying again; an existing profile will not be replaced.";
+  }
+  return "The server did not confirm profile creation. Retry loading before trying again; an existing profile will not be replaced.";
+}
+
 // Backward-compat for older saves.
 export function normalizeState(s) {
   if (!s || typeof s !== "object" || Array.isArray(s)) throw new TypeError("Invalid game state");
@@ -314,7 +328,12 @@ export function GameProvider({ children, user }) {
     setProfilePrompt(null);
     try {
       const newState = normalizeState(createNewState());
-      await gameApi.createState(newState);
+      const { data } = await gameApi.createState(newState);
+      if (!data || data.ok !== true) {
+        const invalidResponse = new Error("Profile creation was not confirmed by the server.");
+        invalidResponse.code = "INVALID_PROFILE_CREATE_RESPONSE";
+        throw invalidResponse;
+      }
       serverSaveEnabled.current = true;
       writeLocalBackup(newState);
       setState(newState);
@@ -323,7 +342,7 @@ export function GameProvider({ children, user }) {
     } catch (e) {
       console.error("[Demonanic Game] NEW PROFILE CREATION FAILED:", safeErrorDetails(e));
       setState(null);
-      setProfilePrompt({ kind: "error", message: "A new profile was not created. Retry loading before trying again." });
+      setProfilePrompt({ kind: "error", message: profileCreationErrorMessage(e) });
       return false;
     } finally {
       newGamePending.current = false;
