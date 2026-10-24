@@ -449,9 +449,10 @@ export function GameProvider({ children, user }) {
     journeyPending.current = true;
     try {
       if (!serverSaveEnabled.current) {
-        const unavailable = new Error("Server profile saving is not enabled.");
-        unavailable.code = "PROFILE_SAVE_UNAVAILABLE";
-        throw unavailable;
+        // An explicitly selected device backup remains playable offline. New
+        // server profiles always enable saving after the acknowledged POST.
+        writeLocalBackup(next);
+        return { ok: true, created, offline: true };
       }
       const { data } = await gameApi.saveState(next);
       if (!data || data.ok !== true) {

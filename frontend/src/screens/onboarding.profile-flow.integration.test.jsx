@@ -207,6 +207,22 @@ describe("classless first-profile onboarding journey", () => {
     expect(gameApi.saveState).not.toHaveBeenCalled();
   });
 
+  test("an explicitly selected device backup can still begin offline without a server write", async () => {
+    const backup = createNewState();
+    localStorage.setItem("dm_state_backup_disposable-onboarding-user", JSON.stringify(backup));
+    gameApi.getState.mockRejectedValueOnce({ code: "ERR_NETWORK" });
+    await mountApp();
+    expect(container.textContent).toContain("SAVED PROFILE NOT VERIFIED");
+
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("CONTINUE WITH DEVICE SAVE")));
+    await click(container.querySelector('[data-testid="squad-classless-confirm"]'));
+
+    expect(container.querySelector('[data-testid="home-screen"]')).not.toBeNull();
+    expect(gameApi.createState).not.toHaveBeenCalled();
+    expect(gameApi.saveState).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem("dm_state_backup_disposable-onboarding-user")).heroes).toHaveLength(1);
+  });
+
   test("a server conflict requires loading the current profile instead of retrying a stale PUT", async () => {
     await mountApp();
     await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("START NEW GAME")));
