@@ -1,17 +1,24 @@
+import { useRef, useState } from "react";
 import { useGame } from "../context/GameProvider";
 import { NeonButton } from "../components/ui-kit";
-import { setClasslessSquad } from "../game/logic";
 import { HERO_ROSTER, classlessRecruitCost } from "../game/config";
 import { Swords } from "lucide-react";
 import ClasslessHeroAvatar from "../components/ClasslessHeroAvatar";
 
 export default function SquadSelect() {
-  const { mutate, setScreen, saveNow } = useGame();
+  const { beginClasslessJourney, setScreen } = useGame();
+  const startingRef = useRef(false);
+  const [error, setError] = useState("");
   const start = () => {
-    let created = false;
-    mutate((state) => { created = setClasslessSquad(state); });
-    if (!created) return;
-    saveNow();
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setError("");
+    const result = beginClasslessJourney();
+    if (!result?.ok) {
+      startingRef.current = false;
+      setError("Your starter hero could not be initialized. Retry; your saved profile was not replaced.");
+      return;
+    }
     setScreen("home");
   };
 
@@ -33,6 +40,7 @@ export default function SquadSelect() {
         <NeonButton color="cyan" className="w-full py-3.5 text-base" onClick={start} data-testid="squad-classless-confirm">
           <Swords size={16} className="mr-2 inline" /> Start with One Hero
         </NeonButton>
+        {error && <p role="alert" className="mt-3 font-mono-g text-xs text-rose-300">{error}</p>}
         <p className="mt-3 font-mono-g text-[9px] text-slate-500">Appearance stays configurable and is not chosen here.</p>
       </section>
     </div>

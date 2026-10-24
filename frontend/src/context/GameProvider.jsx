@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { gameApi } from "../api";
-import { createNewState, produce, advanceGuildManufacturing } from "../game/logic";
+import { createNewState, produce, advanceGuildManufacturing, setClasslessSquad } from "../game/logic";
 import { advanceLibraryResearch, ensureMageSpellData, ensureResearchMageBenched } from "../game/libraryResearch";
 import { emptyEquipmentState } from "../game/equipment";
 import { normalizePerks } from "../game/perks";
@@ -27,6 +27,14 @@ function profileCreationErrorMessage(error) {
     return "The server did not confirm profile creation. Retry loading before trying again; an existing profile will not be replaced.";
   }
   return "The server did not confirm profile creation. Retry loading before trying again; an existing profile will not be replaced.";
+}
+
+// Game state is persisted as JSON. Keep provider mutations usable on older
+// Android WebViews that do not implement structuredClone.
+function cloneGameState(state) {
+  return typeof structuredClone === "function"
+    ? structuredClone(state)
+    : JSON.parse(JSON.stringify(state));
 }
 
 // Backward-compat for older saves.
@@ -370,7 +378,7 @@ export function GameProvider({ children, user }) {
   const mutate = useCallback((fn) => {
     setState((prev) => {
       if (!prev) return prev;
-      const clone = structuredClone(prev);
+      const clone = cloneGameState(prev);
       fn(clone);
       scheduleSave(clone);
       return clone;
@@ -391,13 +399,36 @@ export function GameProvider({ children, user }) {
     }
   }, [writeLocalBackup]);
 
+  // Starter-hero creation is an explicit onboarding action. Keep it out of a
+  // React state-updater callback: updater execution may be deferred/replayed,
+  // so callers must not infer success from a side effect inside `mutate`.
+  const beginClasslessJourney = useCallback(() => {
+    const current = stateRef.current;
+    if (!current) return { ok: false, reason: "state-unavailable" };
+
+    // Make retries/idempotent taps harmless if the first action already won.
+    if (!current.needsSquad && Array.isArray(current.heroes) && current.heroes.length > 0) {
+      return { ok: true, created: false };
+    }
+
+    const next = cloneGameState(current);
+    if (!setClasslessSquad(next)) return { ok: false, reason: "starter-unavailable" };
+
+    // Update the ref synchronously so a rapid second tap cannot create a
+    // second hero before React commits the render.
+    stateRef.current = next;
+    setState(next);
+    scheduleSave(next);
+    return { ok: true, created: true };
+  }, [scheduleSave]);
+
   useEffect(() => {
     if (!hasState || (screen !== "prep" && screen !== "home")) return;
 
     const id = setInterval(() => {
       setState((prev) => {
         if (!prev) return prev;
-        const clone = structuredClone(prev);
+        const clone = cloneGameState(prev);
         produce(clone, 1);
         writeLocalBackup(clone);
         return clone;
@@ -418,7 +449,7 @@ export function GameProvider({ children, user }) {
     const id = setInterval(() => {
       setState((prev) => {
         if (!prev?.libraryResearch) return prev;
-        const clone = structuredClone(prev);
+        const clone = cloneGameState(prev);
         advanceLibraryResearch(clone, 1);
         writeLocalBackup(clone);
         return clone;
@@ -434,6 +465,7 @@ export function GameProvider({ children, user }) {
       setState,
       mutate,
       saveNow,
+      beginClasslessJourney,
       loading,
       loadError,
       profilePrompt,

@@ -1,6 +1,6 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { createNewState } from "../game/logic";
+import { createNewState, setClasslessSquad } from "../game/logic";
 import { serializeGameState } from "../game/heroModel";
 import SquadSelect from "./SquadSelect";
 
@@ -22,8 +22,10 @@ describe("classless new squad selection", () => {
     root = createRoot(container);
     state = createNewState();
     mockContext = {
-      mutate: (fn) => fn(state),
-      saveNow: jest.fn(),
+      beginClasslessJourney: jest.fn(() => {
+        const created = setClasslessSquad(state);
+        return { ok: created, created };
+      }),
       setScreen: jest.fn(),
     };
   });
@@ -38,11 +40,19 @@ describe("classless new squad selection", () => {
     act(() => container.querySelector('[data-testid="squad-classless-confirm"]').click());
     expect(state.heroes).toHaveLength(1);
     expect(state.heroes.every((hero) => !hero.cls && hero.appearance.id === null)).toBe(true);
-    expect(mockContext.saveNow).toHaveBeenCalledTimes(1);
+    expect(mockContext.beginClasslessJourney).toHaveBeenCalledTimes(1);
     expect(mockContext.setScreen).toHaveBeenCalledWith("home");
     expect(container.textContent).toContain("Recruit up to 6 heroes total");
     const reloaded = JSON.parse(JSON.stringify(serializeGameState(state)));
     expect(reloaded.heroes).toHaveLength(1);
     expect(reloaded.heroes.every((hero) => !hero.cls && hero.combat.hp === 300)).toBe(true);
+  });
+
+  test("shows an actionable message when starter initialization is rejected", () => {
+    mockContext.beginClasslessJourney.mockReturnValue({ ok: false, reason: "starter-unavailable" });
+    act(() => root.render(<SquadSelect />));
+    act(() => container.querySelector('[data-testid="squad-classless-confirm"]').click());
+    expect(container.querySelector('[role="alert"]')?.textContent).toMatch(/could not be initialized.*saved profile was not replaced/i);
+    expect(mockContext.setScreen).not.toHaveBeenCalled();
   });
 });
