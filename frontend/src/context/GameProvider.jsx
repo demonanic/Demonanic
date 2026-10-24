@@ -32,15 +32,27 @@ function profileCreationErrorMessage(error) {
 function journeySaveErrorMessage(error) {
   const status = error?.response?.status;
   if (status === 401 || status === 403) {
-    return "Your session expired before the starter hero was saved. Sign in again, then retry; no existing profile was replaced.";
+    return {
+      message: "Your session expired before the starter hero was saved. Sign in again before continuing; the profile was not overwritten.",
+      recoveryAction: "login",
+    };
   }
   if (status === 409) {
-    return "The profile could not be updated because the server reported a conflict. Retry loading your profile before continuing.";
+    return {
+      message: "The server reported a profile conflict. Reload the saved profile before continuing; it will not be overwritten.",
+      recoveryAction: "reload",
+    };
   }
   if (error?.code === "ERR_NETWORK" || error?.code === "ECONNABORTED") {
-    return "The server did not confirm the starter hero save. Check your connection and tap Start with One Hero to retry.";
+    return {
+      message: "The server did not confirm the starter hero save. Check your connection and tap Start with One Hero to retry.",
+      recoveryAction: "retry",
+    };
   }
-  return "The server did not confirm the starter hero save. Retry the save before entering the game.";
+  return {
+    message: "The server did not confirm the starter hero save. Retry the save before entering the game.",
+    recoveryAction: "retry",
+  };
 }
 
 // Game state is persisted as JSON. Keep provider mutations usable on older
@@ -451,7 +463,7 @@ export function GameProvider({ children, user }) {
       return { ok: true, created };
     } catch (error) {
       console.error("[Demonanic Game] STARTER HERO SAVE FAILED:", safeErrorDetails(error));
-      return { ok: false, reason: "save-failed", message: journeySaveErrorMessage(error) };
+      return { ok: false, reason: "save-failed", ...journeySaveErrorMessage(error) };
     } finally {
       journeyPending.current = false;
     }

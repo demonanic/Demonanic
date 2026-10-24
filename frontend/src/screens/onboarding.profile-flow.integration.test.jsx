@@ -21,7 +21,8 @@ jest.mock("../components/ui-kit", () => ({
   setTacticalHudOpaque: jest.fn(),
 }));
 
-jest.mock("../context/AuthContext", () => ({ useAuth: () => ({ logout: jest.fn() }) }));
+let mockLogout;
+jest.mock("../context/AuthContext", () => ({ useAuth: () => ({ logout: mockLogout }) }));
 
 function OnboardingRouteProbe() {
   const game = useGame();
@@ -53,6 +54,7 @@ describe("classless first-profile onboarding journey", () => {
     global.structuredClone = undefined;
     localStorage.clear();
     localStorage.setItem("dm_token", "disposable-test-token");
+    mockLogout = jest.fn();
     jest.clearAllMocks();
     gameApi.getState.mockResolvedValue({ data: { state: null } });
     gameApi.createState.mockResolvedValue({ status: 201, data: { ok: true } });
@@ -153,6 +155,18 @@ describe("classless first-profile onboarding journey", () => {
     expect(gameApi.saveState.mock.calls[1][0].heroes[0].identity.id).toBe(heroId);
   });
 
+  test("does not proceed when the starter PUT resolves without an ok acknowledgement", async () => {
+    await mountApp();
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("START NEW GAME")));
+    gameApi.saveState.mockResolvedValueOnce({ status: 200, data: { ok: false } });
+
+    await click(container.querySelector('[data-testid="squad-classless-confirm"]'));
+
+    expect(container.querySelector('[data-testid="home-screen"]')).toBeNull();
+    expect(container.querySelector("[role=alert]")?.textContent).toMatch(/server did not confirm.*retry/i);
+    expect(gameApi.saveState).toHaveBeenCalledTimes(1);
+  });
+
   test("a saved new profile reloads into Home with the same starter identity", async () => {
     await mountApp();
     await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("START NEW GAME")));
@@ -191,6 +205,37 @@ describe("classless first-profile onboarding journey", () => {
     expect(container.querySelector('[data-testid="home-screen"]')).not.toBeNull();
     expect(gameApi.createState).not.toHaveBeenCalled();
     expect(gameApi.saveState).not.toHaveBeenCalled();
+  });
+
+  test("a server conflict requires loading the current profile instead of retrying a stale PUT", async () => {
+    await mountApp();
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("START NEW GAME")));
+    gameApi.saveState.mockRejectedValueOnce({ response: { status: 409 } });
+    const currentServerProfile = createNewState();
+    setClasslessSquad(currentServerProfile);
+    gameApi.getState.mockResolvedValueOnce({ data: { state: serializeGameState(currentServerProfile) } });
+
+    await click(container.querySelector('[data-testid="squad-classless-confirm"]'));
+    expect(container.querySelector('[data-testid="squad-classless-confirm"]').disabled).toBe(true);
+    expect(container.textContent).toMatch(/profile conflict.*reload the saved profile/i);
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("Reload Saved Profile")));
+
+    expect(container.querySelector('[data-testid="home-screen"]')).not.toBeNull();
+    expect(gameApi.saveState).toHaveBeenCalledTimes(1);
+  });
+
+  test("an expired session offers a direct return-to-login action", async () => {
+    await mountApp();
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent.includes("START NEW GAME")));
+    gameApi.saveState.mockRejectedValueOnce({ response: { status: 401 } });
+
+    await click(container.querySelector('[data-testid="squad-classless-confirm"]'));
+    expect(container.textContent).toMatch(/session expired.*sign in again/i);
+    const returnToLogin = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Return to Login"));
+    expect(returnToLogin).not.toBeNull();
+    await click(returnToLogin);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="home-screen"]')).toBeNull();
   });
 
   test.each([

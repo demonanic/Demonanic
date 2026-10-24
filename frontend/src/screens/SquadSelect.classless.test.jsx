@@ -5,7 +5,9 @@ import { serializeGameState } from "../game/heroModel";
 import SquadSelect from "./SquadSelect";
 
 let mockContext;
+let mockLogout;
 jest.mock("../context/GameProvider", () => ({ useGame: () => mockContext }));
+jest.mock("../context/AuthContext", () => ({ useAuth: () => ({ logout: mockLogout }) }));
 jest.mock("../components/ui-kit", () => ({
   NeonButton: ({ children, ...props }) => <button {...props}>{children}</button>,
 }));
@@ -17,6 +19,7 @@ describe("classless new squad selection", () => {
 
   beforeEach(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
+    mockLogout = jest.fn();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -27,6 +30,7 @@ describe("classless new squad selection", () => {
         return { ok: created, created };
       }),
       setScreen: jest.fn(),
+      retryLoad: jest.fn(),
     };
   });
 
