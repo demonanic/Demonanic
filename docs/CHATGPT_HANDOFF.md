@@ -1621,3 +1621,31 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - If the device still appears unresponsive, capture Android System WebView version and sanitized console output; the source-level integration test now covers the missing-`structuredClone` failure mode.
 - No backend deployment is required for this frontend fix. Publish the rebuilt frontend using the repository's existing Cloudflare Pages workflow when separately approved; create/install a fresh Android package for phone testing. Do not infer Android behavior from the web build.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back.
+
+## 41. Android debug APK build attempt for onboarding fix — 2026-10-24
+
+- Fetched `origin/review/mobile-working-copy` and verified remote HEAD `cc0019a4ac4e5432578dd7cc677210cccf422831`. Confirmed onboarding implementation commit `38c679e5f90eef3295f3815f27871b7d320aa2ac` is an ancestor of that HEAD. The primary checkout remained at `42a6f78e1e867795711f2e83d3fa70d6c56f2676` with the four known local user changes intact. Build work was isolated to a temporary worktree at the published HEAD.
+- Followed `.github/workflows/castle-management-build.yml`: from `frontend/`, `REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android` — PASS; the Android backend guard accepted the production host and CRA compiled (221.32 kB JS / 14.06 kB CSS gzip; non-fatal Node `[DEP0176] fs.F_OK` warning). `npx cap sync android` — PASS.
+- From `frontend/android/`, `./gradlew assembleDebug` — BLOCKED/FAIL: `SDK location not found`. `/usr/lib/android-sdk` contains only `platform-tools`; no `ANDROID_HOME`/`ANDROID_SDK_ROOT`, `android/local.properties`, SDK platform/build-tools, or `sdkmanager` is available here. Java 21 and `adb` 34 are installed, but are insufficient. Expected output `frontend/android/app/build/outputs/apk/debug/app-debug.apk` was not created. Capacitor sync changed generated `capacitor.settings.gradle` because `node_modules` was symlinked from the primary checkout; that generated path change was inspected and restored, leaving the build worktree free of source changes.
+- No APK was produced, installed, or tested on a device. This is a build-environment blocker, not evidence that the onboarding issue is fixed on Android. No backend deploy occurred.
+- To continue in Termux from an existing clone with the Android SDK installed under `$PREFIX/opt/android-sdk`, use:
+
+  ```sh
+  cd "$HOME"
+  git clone --branch review/mobile-working-copy --single-branch https://github.com/demonanic/Demonanic.git Demonanic-apk-cc0019a
+  cd "$HOME/Demonanic-apk-cc0019a"
+  git rev-parse HEAD
+  cd frontend
+  npm ci
+  export ANDROID_HOME="$PREFIX/opt/android-sdk"
+  export ANDROID_SDK_ROOT="$ANDROID_HOME"
+  REACT_APP_BACKEND_URL=https://demonanic.onrender.com npm run build:android
+  npx cap sync android
+  cd android
+  ./gradlew assembleDebug
+  termux-setup-storage
+  cp app/build/outputs/apk/debug/app-debug.apk "$HOME/storage/downloads/Demonanic-debug.apk"
+  ```
+
+  The printed HEAD should be `cc0019a4ac4e5432578dd7cc677210cccf422831` or a later review-branch commit containing `38c679e`. If `platforms/android-36/android.jar` or `build-tools/35.0.0/aapt2` is absent and `sdkmanager` is available, install the required components with `sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"`, accept licenses with `yes | sdkmanager --licenses`, then rerun Gradle. The expected APK is `frontend/android/app/build/outputs/apk/debug/app-debug.apk`; copy it to shared storage only after confirming it exists. Keep any local modifications out of the clone used for building.
+- The latest handoff update is committed separately; this APK build did not change gameplay source files. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
