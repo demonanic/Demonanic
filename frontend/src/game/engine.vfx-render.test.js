@@ -4,11 +4,13 @@ import { createHeroModel } from "./heroModel";
 
 function makeCanvasContext() {
   const calls = [];
+  const textCalls = [];
   const values = { globalAlpha: 1 };
   const context = new Proxy(values, {
     get(target, key) {
       if (key in target) return target[key];
       if (key === "drawImage") return (...args) => calls.push({ args, alpha: target.globalAlpha });
+      if (key === "fillText") return (...args) => textCalls.push(args);
       if (key === "createLinearGradient" || key === "createRadialGradient") {
         return () => ({ addColorStop() {} });
       }
@@ -16,7 +18,7 @@ function makeCanvasContext() {
     },
     set(target, key, value) { target[key] = value; return true; },
   });
-  return { context, calls };
+  return { context, calls, textCalls };
 }
 
 function makeEnemy(x, y) {
@@ -66,13 +68,23 @@ describe("supplied combat VFX through the live Engine canvas renderer", () => {
     expect(mageEngine.castMageSpell(0, "fireball", { enemy: spellTarget })).toBe(true);
 
     const rendered = [];
-    for (const engine of [classlessEngine, legacyEngine, mageEngine]) {
-      const { context, calls } = makeCanvasContext();
+    const damageCounters = [];
+    const engines = [classlessEngine, legacyEngine, mageEngine];
+    const enemyDrawSpies = engines.map((engine) => jest.spyOn(engine, "_drawEnemySprite"));
+    for (const engine of engines) {
+      const { context, calls, textCalls } = makeCanvasContext();
       engine.ctx = context;
       engine.canvas = { width: 420, height: 760 };
       engine.render();
       rendered.push(...calls);
+      damageCounters.push(...textCalls);
     }
+
+    const allDrawnUrls = rendered.map(({ args }) => args[0]?.src).filter(Boolean);
+    expect(allDrawnUrls.filter((url) => url.includes("/sprites/hero/supplied-classless-hero-atlas.png"))).toHaveLength(3);
+    expect(allDrawnUrls.some((url) => url.includes("classless-hero-body-atlas.svg"))).toBe(false);
+    expect(enemyDrawSpies.every((spy) => spy.mock.calls.length > 0)).toBe(true);
+    expect(damageCounters.some(([text]) => String(text).includes("CRIT"))).toBe(true);
 
     const suppliedPngDraws = rendered.filter(({ args }) => args[0]?.src?.includes("/sprites/vfx/"));
     const drawnUrls = suppliedPngDraws.map(({ args }) => args[0].src);

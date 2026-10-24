@@ -3,6 +3,8 @@ import { Engine } from "./engine";
 import { createHeroModel } from "./heroModel";
 import { createNewState } from "./logic";
 import { HERO_WEAPON_ASSETS } from "./heroWeapon";
+import fs from "fs";
+import path from "path";
 
 describe("classless hero sprite animation selection", () => {
   test.each([
@@ -20,39 +22,59 @@ describe("classless hero sprite animation selection", () => {
   test("cycles frames inside the correct transparent atlas row", () => {
     const first = selectHeroSpriteFrame({ alive: true, action: "sharedStrike" }, 0);
     const later = selectHeroSpriteFrame({ alive: true, action: "sharedStrike" }, 0.13);
-    expect(first.sy).toBe(HERO_SPRITE_ATLAS.animations.sharedStrike * 48);
+    expect(first.sy).toBe(HERO_SPRITE_ATLAS.animations.sharedStrike * 64);
     expect(first.sx).not.toBe(later.sx);
-    expect(first.sw).toBe(48);
-    expect(first.sh).toBe(48);
-    expect(selectHeroSpriteFrame({ alive: false }, 1).sx).toBeLessThan(144);
+    expect(first.sw).toBe(64);
+    expect(first.sh).toBe(64);
+    expect(selectHeroSpriteFrame({ alive: false }, 1).sx).toBeLessThan(192);
   });
 
-  test("Engine draws the body atlas, actual equipped weapon, and persisted color accent", () => {
+  test("the supplied hero atlas differs from the previous recreated artwork", () => {
+    const publicRoot = path.join(__dirname, "../../public");
+    const supplied = fs.readFileSync(path.join(publicRoot, HERO_SPRITE_ATLAS.path));
+    const previous = fs.readFileSync(path.join(publicRoot, "sprites/classless-hero-body-atlas.svg"));
+    expect(HERO_SPRITE_ATLAS.path).toBe("/sprites/hero/supplied-classless-hero-atlas.png");
+    expect(supplied.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    expect(supplied.readUInt32BE(16)).toBe(192);
+    expect(supplied.readUInt32BE(20)).toBe(448);
+    expect(supplied.readUInt8(25)).toBe(6); // RGBA frame extraction preserves transparent background.
+    expect(supplied.equals(previous)).toBe(false);
+  });
+
+  test("Engine draws the supplied atlas and compatible weapon overlay for classless and legacy heroes", () => {
     const previousImage = global.Image;
     const images = [];
     global.Image = class {
       constructor() {
         this.complete = true;
-        this.naturalWidth = 144;
+        this.naturalWidth = 192;
+        this.naturalHeight = 448;
         images.push(this);
       }
       set src(value) { this.path = value; }
     };
-    const context = { save: jest.fn(), translate: jest.fn(), rotate: jest.fn(), drawImage: jest.fn(), fillRect: jest.fn(), restore: jest.fn() };
-    const model = createHeroModel({ id: "sprite-draw", identityColor: "#F02DCA" });
-    model.equipment = { PrimaryWeapon: { id: "bow-item", slot: "PrimaryWeapon", weaponType: "bow" } };
-    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [model] }, { enemies: [], total: 1 });
-    engine.ctx = context;
+    const makeContext = () => ({ save: jest.fn(), translate: jest.fn(), rotate: jest.fn(), drawImage: jest.fn(), fillRect: jest.fn(), restore: jest.fn() });
+    const classlessContext = makeContext();
+    const legacyContext = makeContext();
+    const classless = createHeroModel({ id: "sprite-classless", identityColor: "#F02DCA" });
+    classless.equipment = { PrimaryWeapon: { id: "bow-item", slot: "PrimaryWeapon", weaponType: "bow" } };
+    const classlessEngine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [classless] }, { enemies: [], total: 1 });
+    const legacyEngine = new Engine({ getContext: () => null }, createNewState(["archer"]), { enemies: [], total: 1 });
+    classlessEngine.ctx = classlessContext;
+    legacyEngine.ctx = legacyContext;
     try {
-      engine._drawHeroSprite(engine.heroes[0]);
+      classlessEngine._drawHeroSprite(classlessEngine.heroes[0]);
+      legacyEngine._drawHeroSprite(legacyEngine.heroes[0]);
       const body = images.find((image) => image.path.includes(HERO_SPRITE_ATLAS.path));
       const bow = images.find((image) => image.path.includes(HERO_WEAPON_ASSETS.bow));
       expect(body).toBeTruthy();
       expect(bow).toBeTruthy();
-      expect(context.drawImage).toHaveBeenCalledWith(body, 0, 0, 48, 48, -24, -44, 48, 48);
-      expect(context.drawImage).toHaveBeenCalledWith(bow, 0, 0, 48, 48, -24, -44, 48, 48);
-      expect(context.fillStyle).toBe("#F02DCA");
-      expect(context.fillRect).toHaveBeenCalledWith(-1.75, -34, 3.5, 3.5);
+      for (const context of [classlessContext, legacyContext]) {
+        expect(context.drawImage).toHaveBeenCalledWith(body, 0, 0, 64, 64, -24, -44, 48, 48);
+        expect(context.drawImage).toHaveBeenCalledWith(bow, 0, 0, 48, 48, -24, -44, 48, 48);
+        expect(context.fillRect).toHaveBeenCalledWith(-1.75, -34, 3.5, 3.5);
+      }
+      expect(images.every((image) => !image.path.includes("classless-hero-body-atlas.svg"))).toBe(true);
     } finally { global.Image = previousImage; }
   });
 });

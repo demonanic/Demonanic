@@ -15,14 +15,14 @@ import { getEquippedHeroWeaponType, HERO_WEAPON_ASSETS } from "./heroWeapon";
 import { isNeonIdentityColor } from "./heroModel";
 import { combatVfxAssetId, drawCombatVfx, getCombatVfxImage, projectileVfxAssetId } from "./combatVfx";
 
-let classlessSpriteImage = null;
+let heroSpriteImage = null;
 const classlessWeaponImages = new Map();
 const combatVfxImages = new Map();
-function getClasslessSpriteImage() {
-  if (classlessSpriteImage || typeof Image === "undefined") return classlessSpriteImage;
-  classlessSpriteImage = new Image();
-  classlessSpriteImage.src = `${process.env.PUBLIC_URL || ""}${HERO_SPRITE_ATLAS.path}`;
-  return classlessSpriteImage;
+function getHeroSpriteImage() {
+  if (heroSpriteImage || typeof Image === "undefined") return heroSpriteImage;
+  heroSpriteImage = new Image();
+  heroSpriteImage.src = `${process.env.PUBLIC_URL || ""}${HERO_SPRITE_ATLAS.path}`;
+  return heroSpriteImage;
 }
 
 function getClasslessWeaponImage(type) {
@@ -3133,178 +3133,81 @@ export class Engine {
 
   _drawHeroSprite(h) {
     const ctx = this.ctx;
-    if (h.classless || !h.ref.cls) {
-      const previous = h.lastDrawPosition || { x: h.x, y: h.y };
-      const dx = h.x - previous.x, dy = h.y - previous.y;
-      const moving = dx * dx + dy * dy > 0.12;
-      const target = [h.facingTarget, h.manualTarget, h.currentTarget]
-        .find((candidate) => candidate && candidate.hp > 0);
-      const facingX = target ? target.x - h.x : moving ? dx : 0;
-      const facingY = target ? target.y - h.y : moving ? dy : -1;
-      const facing = Math.atan2(facingX, -facingY);
-      const action = h.visualActionUntil > this.time ? h.visualActionKind : null;
-      const frame = selectHeroSpriteFrame({
-        alive: h.alive,
-        hit: h.hitUntil > this.time,
-        moving,
-        running: h.retreating || !!h.manualPoint,
-        action,
-      }, action ? this.time - h.visualActionStartedAt : this.time);
-      const alpha = h.alive ? (h.protect > 0 ? 0.58 : 1) : 0.52;
-      ctx.save();
-      ctx.translate(h.x, h.y);
-      ctx.globalAlpha = alpha;
-      // Directional facing is provided by rotating the same eagle-eye frame.
-      ctx.rotate(facing);
-      const image = getClasslessSpriteImage();
-      if (image?.complete && image.naturalWidth > 0) {
-        ctx.drawImage(image, frame.sx, frame.sy, frame.sw, frame.sh, -24, -44, 48, 48);
-      } else {
-        // Keep battles readable while the lightweight public SVG loads or if
-        // an offline WebView cannot decode it.
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = h.hitUntil > this.time ? "#F02DCA" : "#19E8F7";
-        ctx.fillStyle = "#050912";
-        ctx.strokeStyle = h.hitUntil > this.time ? "#F02DCA" : "#19E8F7";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-9, 10); ctx.lineTo(-7, -8); ctx.lineTo(0, -17);
-        ctx.lineTo(7, -8); ctx.lineTo(9, 10); ctx.lineTo(0, 15); ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = "#F02DCA";
-        ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(11, -14); ctx.stroke();
-      }
-
-      const weaponType = getEquippedHeroWeaponType(h.model);
-      const weaponImage = getClasslessWeaponImage(weaponType);
-      if (weaponImage?.complete && weaponImage.naturalWidth > 0) {
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = h.d.color;
-        ctx.drawImage(weaponImage, 0, 0, 48, 48, -24, -44, 48, 48);
-      }
-      const identityColor = isNeonIdentityColor(h.model?.appearance?.identityColor)
-        ? h.model.appearance.identityColor : "#22D3EE";
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = identityColor;
-      ctx.fillStyle = identityColor;
-      ctx.fillRect(-1.75, -34, 3.5, 3.5);
-      ctx.restore();
-
-      const formation = h.d.classlessEffects?.formationMitigation || 0;
-      const allyNearby = this.heroes.some((ally) => ally !== h && ally.alive && Math.hypot(ally.x - h.x, ally.y - h.y) <= 5);
-      if (formation > 0 && allyNearby) {
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        ctx.strokeStyle = "#22D3EE";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash?.([3, 3]);
-        ctx.beginPath(); ctx.arc(h.x, h.y - 3, 22, 0, Math.PI * 2); ctx.stroke();
-        ctx.restore();
-      }
-      h.lastDrawPosition.x = h.x;
-      h.lastDrawPosition.y = h.y;
-      return;
-    }
-    const color = h.d.color;
-    const alive = h.alive;
-    const alpha = alive ? (h.protect > 0 ? 0.5 : 1) : 0.2;
-    const cls = h.ref.cls;
+    const previous = h.lastDrawPosition || { x: h.x, y: h.y };
+    const dx = h.x - previous.x, dy = h.y - previous.y;
+    const moving = dx * dx + dy * dy > 0.12;
+    const target = [h.facingTarget, h.manualTarget, h.currentTarget]
+      .find((candidate) => candidate && candidate.hp > 0);
+    const facingX = target ? target.x - h.x : moving ? dx : 0;
+    const facingY = target ? target.y - h.y : moving ? dy : -1;
+    const facing = h.classless ? Math.atan2(facingX, -facingY) : 0;
+    const action = h.visualActionUntil > this.time ? h.visualActionKind : null;
+    const frame = selectHeroSpriteFrame({
+      alive: h.alive,
+      hit: h.hitUntil > this.time,
+      moving,
+      running: h.retreating || !!h.manualPoint,
+      action,
+    }, action ? this.time - h.visualActionStartedAt : this.time);
+    const alpha = h.alive ? (h.protect > 0 ? 0.58 : 1) : 0.52;
+    const identityColor = isNeonIdentityColor(h.model?.appearance?.identityColor)
+      ? h.model.appearance.identityColor : h.d.color || "#22D3EE";
+    const legacyWeapon = ({ knight: "sword", rouge: "sword", archer: "bow", mage: "staff" })[h.ref?.cls];
+    const weaponType = getEquippedHeroWeaponType(h.model || h.ref) || legacyWeapon;
 
     ctx.save();
     ctx.translate(h.x, h.y);
     ctx.globalAlpha = alpha;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = color;
-
-    const stroke = () => {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-    };
-    const fill = () => {
-      ctx.fillStyle = color;
-      ctx.fill();
-    };
-
-    if (cls === "knight") {
-      // Back-facing helmet, cape, shield and sword all point toward the enemy lane (UP).
-      ctx.beginPath();
-      ctx.moveTo(-10, 9); ctx.lineTo(-8, -7); ctx.lineTo(0, -13);
-      ctx.lineTo(8, -7); ctx.lineTo(10, 9); ctx.lineTo(5, 14);
-      ctx.lineTo(-5, 14); ctx.closePath(); fill(); stroke();
-
-      ctx.fillStyle = "#07111A";
-      ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = color; ctx.stroke();
-
-      ctx.fillStyle = "#101820";
-      ctx.beginPath();
-      ctx.moveTo(-14, 8); ctx.lineTo(-7, 4); ctx.lineTo(-6, 13); ctx.lineTo(-13, 15); ctx.closePath();
-      ctx.fill(); stroke();
-
-      ctx.strokeStyle = color; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(7, 8); ctx.lineTo(12, -13); ctx.stroke();
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(10, -13); ctx.lineTo(12, -17); ctx.lineTo(14, -13); ctx.stroke();
-    } else if (cls === "rouge") {
-      // Hooded back silhouette with twin blades angled forward.
-      ctx.beginPath();
-      ctx.moveTo(-10, 12); ctx.lineTo(-8, -6); ctx.lineTo(0, -14);
-      ctx.lineTo(8, -6); ctx.lineTo(10, 12); ctx.lineTo(0, 16); ctx.closePath();
-      fill(); stroke();
-
-      ctx.fillStyle = "#09020D";
-      ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI * 2); ctx.fill();
-
-      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(-7, 6); ctx.lineTo(-15, -12); ctx.moveTo(7, 6); ctx.lineTo(15, -12); ctx.stroke();
-    } else if (cls === "mage") {
-      // Robed back silhouette, staff and arcane orb pointed toward the enemy.
-      ctx.beginPath();
-      ctx.moveTo(-12, 13); ctx.lineTo(-8, -4); ctx.lineTo(0, -12);
-      ctx.lineTo(8, -4); ctx.lineTo(12, 13); ctx.closePath();
-      fill(); stroke();
-
-      ctx.fillStyle = "#090313";
-      ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI * 2); ctx.fill();
-
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(9, 13); ctx.lineTo(12, -12); ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(12, -15, 3.5, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-10, -13, 2.2, 0, Math.PI * 2); ctx.fill();
+    // All heroes now share the supplied body art. Class remains gameplay data;
+    // legacy weapons are preserved as compatible visual overlays.
+    ctx.rotate(facing);
+    const image = getHeroSpriteImage();
+    if (image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      ctx.drawImage(image, frame.sx, frame.sy, frame.sw, frame.sh, -24, -44, 48, 48);
     } else {
-      // Archer: hood/back silhouette, bow on the side, arrow aimed UP.
-      ctx.beginPath();
-      ctx.moveTo(-9, 13); ctx.lineTo(-8, -5); ctx.lineTo(0, -13);
-      ctx.lineTo(8, -5); ctx.lineTo(9, 13); ctx.closePath();
-      fill(); stroke();
-
-      ctx.fillStyle = "#071305";
-      ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.fill();
-
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(10, 0, 10, -1.15, 1.15); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(10, 10); ctx.stroke();
-
-      ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(1, -3); ctx.lineTo(1, -16); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(1, -16); ctx.lineTo(-1, -12); ctx.moveTo(1, -16); ctx.lineTo(3, -12); ctx.stroke();
-    }
-
-    if (!alive) {
-      ctx.strokeStyle = "#FF0055";
+      // Missing-image fallback is a neutral silhouette, never the old
+      // class-specific procedural character artwork.
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = h.hitUntil > this.time ? "#F02DCA" : identityColor;
+      ctx.fillStyle = "#050912";
+      ctx.strokeStyle = h.hitUntil > this.time ? "#F02DCA" : identityColor;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(8, 8); ctx.moveTo(8, -8); ctx.lineTo(-8, 8); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-9, 10); ctx.lineTo(-7, -8); ctx.lineTo(0, -17);
+      ctx.lineTo(7, -8); ctx.lineTo(9, 10); ctx.lineTo(0, 15); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "#F02DCA";
+      ctx.beginPath(); ctx.moveTo(7, 5); ctx.lineTo(11, -14); ctx.stroke();
     }
-    ctx.restore();
-  }
 
+    const weaponImage = getClasslessWeaponImage(weaponType);
+    if (weaponImage?.complete && weaponImage.naturalWidth > 0) {
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = identityColor;
+      ctx.drawImage(weaponImage, 0, 0, 48, 48, -24, -44, 48, 48);
+    }
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = identityColor;
+    ctx.fillStyle = identityColor;
+    ctx.fillRect(-1.75, -34, 3.5, 3.5);
+    ctx.restore();
+
+    const formation = h.d.classlessEffects?.formationMitigation || 0;
+    const allyNearby = this.heroes.some((ally) => ally !== h && ally.alive && Math.hypot(ally.x - h.x, ally.y - h.y) <= 5);
+    if (formation > 0 && allyNearby) {
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "#22D3EE";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash?.([3, 3]);
+      ctx.beginPath(); ctx.arc(h.x, h.y - 3, 22, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    h.lastDrawPosition.x = h.x;
+    h.lastDrawPosition.y = h.y;
+  }
   _drawTowerSprite(t) {
     const ctx = this.ctx;
     const color = t.d.color;

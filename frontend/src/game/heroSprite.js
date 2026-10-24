@@ -1,7 +1,9 @@
 export const HERO_SPRITE_ATLAS = Object.freeze({
-  path: "/sprites/classless-hero-body-atlas.svg",
-  frameWidth: 48,
-  frameHeight: 48,
+  // Cropped, background-masked character frames from the uploaded
+  // Spritepack1 reference board (not the older recreated SVG atlas).
+  path: "/sprites/hero/supplied-classless-hero-atlas.png",
+  frameWidth: 64,
+  frameHeight: 64,
   columns: 3,
   animations: Object.freeze({ idle: 0, walk: 1, run: 2, attack: 3, sharedStrike: 4, hit: 5, death: 6 }),
 });
