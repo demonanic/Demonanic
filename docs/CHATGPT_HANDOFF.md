@@ -1649,3 +1649,33 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 
   The printed HEAD should be `cc0019a4ac4e5432578dd7cc677210cccf422831` or a later review-branch commit containing `38c679e`. If `platforms/android-36/android.jar` or `build-tools/35.0.0/aapt2` is absent and `sdkmanager` is available, install the required components with `sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"`, accept licenses with `yes | sdkmanager --licenses`, then rerun Gradle. The expected APK is `frontend/android/app/build/outputs/apk/debug/app-debug.apk`; copy it to shared storage only after confirming it exists. Keep any local modifications out of the clone used for building.
 - The latest handoff update is committed separately; this APK build did not change gameplay source files. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
+
+## 42. Require acknowledged starter-hero save before entering Home — 2026-10-24
+
+### Starting point and confirmed gap
+
+- Started from fetched `origin/review/mobile-working-copy` at `f3bb440466fff17d32b112f236e1476a020677d8`, in the isolated worktree `/tmp/demonanic-onboarding-fix`. The primary checkout remains on local `review/mobile-working-copy` at `42a6f78e1e867795711f2e83d3fa70d6c56f2676` with its four pre-existing user changes untouched: modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, `frontend/src/game/perks.js`, and untracked `frontend/src/components/PerkTree.test.jsx`.
+- The source-confirmed gap was after “Begin Your Journey”: `GameProvider.beginClasslessJourney` updated UI state and used a 700 ms debounced save, then `SquadSelect` navigated to Home immediately. The delayed save logged a failure but did not return one to the onboarding screen. This allowed navigation before an authenticated `PUT /api/game/state` had been acknowledged; the server could retain only the empty profile created by the preceding POST. This is a verified code path, not a confirmed explanation of the user's specific device run.
+- Initial profile creation remains the existing authenticated `POST /api/game/state` through `gameApi.createState`; the API interceptor adds the current bearer token. Backend `backend/server.py` exposes insert-only authenticated POST (201 `{ "ok": true }`) and authenticated PUT returns `{ "ok": true }`. No backend or API contract was changed.
+
+### Implementation
+
+- `frontend/src/context/GameProvider.jsx`: `beginClasslessJourney` is now asynchronous and waits for an explicit successful PUT acknowledgement before returning success. It updates the in-memory state/ref once, preserving the same starter hero identity for retry; an unsuccessful or malformed acknowledgement returns a sanitized actionable error, and no delayed save can be mistaken for journey completion. It writes the local backup after the server confirms the starter state.
+- `frontend/src/screens/SquadSelect.jsx`: disables the action and shows “Saving Hero…” while the PUT is pending, blocks repeated taps, remains on onboarding after a failed save with a visible retry/session/conflict message, and navigates to Home only after the provider confirms persistence.
+- `frontend/src/screens/onboarding.profile-flow.integration.test.jsx`: now renders the production `Home` screen after its provider route probe, verifies navigation is withheld while the PUT is pending, rapid double taps issue one PUT, a failed PUT retries the same single hero ID, serialized save/reload returns to Home without another profile creation, and an existing saved profile still opens Home without POST/PUT.
+- `frontend/src/screens/SquadSelect.classless.test.jsx`: adapted component tests to the now-async click handler and visible failure copy.
+- No backend, production profile, account, API, or deployment changes were made. Existing legacy/profile-loading behavior was not redesigned.
+
+### Validation and evidence
+
+- From `frontend/`, attempted `CI=true npm test -- --watchAll=false --runInBand --silent src/screens/onboarding.profile-flow.integration.test.jsx src/screens/SquadSelect.classless.test.jsx src/context/GameProvider.test.jsx src/apiConfig.test.js` — **BLOCKED before Jest starts**. The shell's `node` is `/data/data/com.termux/files/usr/bin/node` and exits with `CANNOT LINK EXECUTABLE "node": cannot locate symbol "_ZNSt6__ndk113__hash_memoryEPKvm"`. Retried with elevated command execution; same result. Therefore the new or regression tests have not passed in this environment.
+- From `frontend/`, attempted `npm run build` — **BLOCKED before the build starts** by the same Node linker error. No frontend build or APK was produced.
+- From the repository root: `git diff --check` — PASS.
+- `adb devices -l` showed a connected Samsung Android device. A filtered `adb logcat -d -t 1000 -s AndroidRuntime:E Capacitor/Console:E chromium:E` snapshot returned no matching error lines. This is only a log snapshot; no app was tapped, no profile was created, and no device reproduction or visual/on-device verification occurred. No dedicated disposable credentials were available, and no existing account was used.
+- Backend tests were not run because no backend code changed. Existing-profile preservation is covered in the added frontend mock-IO test only; the actual deployed backend, real authenticated POST/PUT, app restart, and account recovery have not been verified in this pass.
+
+### Publication and retest
+
+- Source commit `74710a239e996fee9a4f3884554bac2bf3205517` (`Wait for starter hero profile save`) was pushed to `origin/review/mobile-working-copy` after confirming the remote tip was `f3bb440466fff17d32b112f236e1476a020677d8`. It contains only the four implementation/test files listed above. This handoff update is being published as a separate documentation-only commit; verify the resulting remote HEAD before relying on it.
+- Required next verification before calling the phone issue fixed: use a compatible Node environment to run the focused tests and `npm run build`; install a fresh APK built from this published branch; with a dedicated disposable account, register/login, create the one-hero profile, confirm Home and Preparation render, force-stop/restart and confirm the same hero loads, then separately log into a known existing account and confirm its saved profile remains unchanged. Do not use production accounts for creation tests.
+- The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
