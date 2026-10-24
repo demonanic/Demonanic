@@ -8,18 +8,27 @@ import ClasslessHeroAvatar from "../components/ClasslessHeroAvatar";
 export default function SquadSelect() {
   const { beginClasslessJourney, setScreen } = useGame();
   const startingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const start = () => {
+  const start = async () => {
     if (startingRef.current) return;
     startingRef.current = true;
+    setSaving(true);
     setError("");
-    const result = beginClasslessJourney();
-    if (!result?.ok) {
+    try {
+      const result = await beginClasslessJourney();
+      if (!result?.ok) {
+        startingRef.current = false;
+        setError(result?.message || "Your starter hero could not be saved. Retry before entering the game.");
+        return;
+      }
+      setScreen("home");
+    } catch (startError) {
       startingRef.current = false;
-      setError("Your starter hero could not be initialized. Retry; your saved profile was not replaced.");
-      return;
+      setError("Your starter hero could not be saved. Check your connection and retry before entering the game.");
+    } finally {
+      setSaving(false);
     }
-    setScreen("home");
   };
 
   return (
@@ -37,8 +46,8 @@ export default function SquadSelect() {
             Recruit up to {HERO_ROSTER.maximumOwned} heroes total. Classless recruitment costs are doubled; your first recruit costs {classlessRecruitCost(HERO_ROSTER.startingHeroes)} gold.
           </div>
         </div>
-        <NeonButton color="cyan" className="w-full py-3.5 text-base" onClick={start} data-testid="squad-classless-confirm">
-          <Swords size={16} className="mr-2 inline" /> Start with One Hero
+        <NeonButton color="cyan" className="w-full py-3.5 text-base" onClick={start} disabled={saving} aria-busy={saving} data-testid="squad-classless-confirm">
+          <Swords size={16} className="mr-2 inline" /> {saving ? "Saving Hero…" : "Start with One Hero"}
         </NeonButton>
         {error && <p role="alert" className="mt-3 font-mono-g text-xs text-rose-300">{error}</p>}
         <p className="mt-3 font-mono-g text-[9px] text-slate-500">Appearance stays configurable and is not chosen here.</p>

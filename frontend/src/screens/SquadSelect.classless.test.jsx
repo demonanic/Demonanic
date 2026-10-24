@@ -35,9 +35,12 @@ describe("classless new squad selection", () => {
     container.remove();
   });
 
-  test("creates and saves one unclassified starter without selecting an appearance or entering battle", () => {
+  test("creates and saves one unclassified starter without selecting an appearance or entering battle", async () => {
     act(() => root.render(<SquadSelect />));
-    act(() => container.querySelector('[data-testid="squad-classless-confirm"]').click());
+    await act(async () => {
+      container.querySelector('[data-testid="squad-classless-confirm"]').click();
+      await Promise.resolve();
+    });
     expect(state.heroes).toHaveLength(1);
     expect(state.heroes.every((hero) => !hero.cls && hero.appearance.id === null)).toBe(true);
     expect(mockContext.beginClasslessJourney).toHaveBeenCalledTimes(1);
@@ -48,11 +51,14 @@ describe("classless new squad selection", () => {
     expect(reloaded.heroes.every((hero) => !hero.cls && hero.combat.hp === 300)).toBe(true);
   });
 
-  test("shows an actionable message when starter initialization is rejected", () => {
+  test("shows an actionable message when starter initialization is rejected", async () => {
     mockContext.beginClasslessJourney.mockReturnValue({ ok: false, reason: "starter-unavailable" });
     act(() => root.render(<SquadSelect />));
-    act(() => container.querySelector('[data-testid="squad-classless-confirm"]').click());
-    expect(container.querySelector('[role="alert"]')?.textContent).toMatch(/could not be initialized.*saved profile was not replaced/i);
+    await act(async () => {
+      container.querySelector('[data-testid="squad-classless-confirm"]').click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[role="alert"]')?.textContent).toMatch(/could not be saved.*retry/i);
     expect(mockContext.setScreen).not.toHaveBeenCalled();
   });
 });

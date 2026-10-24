@@ -29,6 +29,20 @@ function profileCreationErrorMessage(error) {
   return "The server did not confirm profile creation. Retry loading before trying again; an existing profile will not be replaced.";
 }
 
+function journeySaveErrorMessage(error) {
+  const status = error?.response?.status;
+  if (status === 401 || status === 403) {
+    return "Your session expired before the starter hero was saved. Sign in again, then retry; no existing profile was replaced.";
+  }
+  if (status === 409) {
+    return "The profile could not be updated because the server reported a conflict. Retry loading your profile before continuing.";
+  }
+  if (error?.code === "ERR_NETWORK" || error?.code === "ECONNABORTED") {
+    return "The server did not confirm the starter hero save. Check your connection and tap Start with One Hero to retry.";
+  }
+  return "The server did not confirm the starter hero save. Retry the save before entering the game.";
+}
+
 // Game state is persisted as JSON. Keep provider mutations usable on older
 // Android WebViews that do not implement structuredClone.
 function cloneGameState(state) {
@@ -200,6 +214,7 @@ export function GameProvider({ children, user }) {
   const saveTimer = useRef(null);
   const serverSaveEnabled = useRef(false);
   const newGamePending = useRef(false);
+  const journeyPending = useRef(false);
 
   stateRef.current = state;
   const hasState = Boolean(state);
@@ -399,28 +414,48 @@ export function GameProvider({ children, user }) {
     }
   }, [writeLocalBackup]);
 
-  // Starter-hero creation is an explicit onboarding action. Keep it out of a
-  // React state-updater callback: updater execution may be deferred/replayed,
-  // so callers must not infer success from a side effect inside `mutate`.
-  const beginClasslessJourney = useCallback(() => {
-    const current = stateRef.current;
-    if (!current) return { ok: false, reason: "state-unavailable" };
+  // Starter creation and its authenticated PUT form one onboarding action.
+  // Do not leave the screen until the server acknowledges the hero state.
+  // Keep the same candidate in state on failure so a retry persists that hero
+  // instead of creating another one.
+  const beginClasslessJourney = useCallback(async () => {
+    if (journeyPending.current) return { ok: false, reason: "save-pending" };
+    let next = stateRef.current;
+    if (!next) return { ok: false, reason: "state-unavailable" };
 
-    // Make retries/idempotent taps harmless if the first action already won.
-    if (!current.needsSquad && Array.isArray(current.heroes) && current.heroes.length > 0) {
-      return { ok: true, created: false };
+    const alreadyHasHeroes = Array.isArray(next.heroes) && next.heroes.length > 0;
+    let created = false;
+    if (next.needsSquad || !alreadyHasHeroes) {
+      next = cloneGameState(next);
+      if (!setClasslessSquad(next)) return { ok: false, reason: "starter-unavailable" };
+      created = true;
+      // Update synchronously to make retries and rapid taps idempotent.
+      stateRef.current = next;
+      setState(next);
     }
 
-    const next = cloneGameState(current);
-    if (!setClasslessSquad(next)) return { ok: false, reason: "starter-unavailable" };
-
-    // Update the ref synchronously so a rapid second tap cannot create a
-    // second hero before React commits the render.
-    stateRef.current = next;
-    setState(next);
-    scheduleSave(next);
-    return { ok: true, created: true };
-  }, [scheduleSave]);
+    journeyPending.current = true;
+    try {
+      if (!serverSaveEnabled.current) {
+        const unavailable = new Error("Server profile saving is not enabled.");
+        unavailable.code = "PROFILE_SAVE_UNAVAILABLE";
+        throw unavailable;
+      }
+      const { data } = await gameApi.saveState(next);
+      if (!data || data.ok !== true) {
+        const invalidResponse = new Error("Starter hero save was not confirmed by the server.");
+        invalidResponse.code = "INVALID_PROFILE_SAVE_RESPONSE";
+        throw invalidResponse;
+      }
+      writeLocalBackup(next);
+      return { ok: true, created };
+    } catch (error) {
+      console.error("[Demonanic Game] STARTER HERO SAVE FAILED:", safeErrorDetails(error));
+      return { ok: false, reason: "save-failed", message: journeySaveErrorMessage(error) };
+    } finally {
+      journeyPending.current = false;
+    }
+  }, [writeLocalBackup]);
 
   useEffect(() => {
     if (!hasState || (screen !== "prep" && screen !== "home")) return;
