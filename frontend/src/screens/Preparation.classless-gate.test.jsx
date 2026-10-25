@@ -16,7 +16,6 @@ jest.mock("../components/ui-kit", () => ({
   HeroMiniSprite: () => null,
 }));
 jest.mock("../components/cards", () => ({ HeroCard: () => null, TowerCard: () => null }));
-jest.mock("../components/PrepField", () => () => null);
 jest.mock("../components/CastleBuildings", () => () => null);
 jest.mock("../components/DebugPanel", () => () => null);
 jest.mock("../components/ui/tabs", () => ({
@@ -53,6 +52,7 @@ describe("classless preparation battle entry", () => {
 
   test("saves and enters battle for a classless squad", () => {
     act(() => root.render(<Preparation />));
+    expect(container.querySelector('[data-testid="prep-hero-prep-gated-hero"]')).not.toBeNull();
     act(() => container.querySelector('[data-testid="start-wave-button"]').click());
 
     expect(container.querySelector('[data-testid="classless-combat-notice"]')).toBeNull();

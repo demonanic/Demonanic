@@ -2,6 +2,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import PrepField from "./PrepField";
 import { buildTower } from "../game/logic";
+import { createHeroModel } from "../game/heroModel";
 
 jest.mock("./ui-kit", () => ({
   NeonButton: ({ children, ...props }) => <button {...props}>{children}</button>,
@@ -73,5 +74,19 @@ describe("PrepField tower placement confirmation", () => {
     expect(container.querySelector('[data-testid="confirm-tower-placement"]').textContent).toContain("CONFIRM SLOT 1");
     expect(container.querySelector('[data-testid="confirm-tower-placement"]').disabled).toBe(false);
     expect(container.querySelector('[data-testid="tower-placement-preview"]')).not.toBeNull();
+  });
+
+  test("renders classless and legacy heroes on the preparation field", () => {
+    const classless = createHeroModel({ id: "classless-prep-hero", identityColor: "#F02DCA" });
+    const mixedState = { ...state, heroes: [classless, { id: "legacy-prep-hero", cls: "knight", hp: 100, level: 1 }] };
+
+    act(() => root.render(<PrepField state={mixedState} handlers={{}} />));
+
+    const classlessMarker = container.querySelector('[data-testid="prep-hero-classless-prep-hero"]');
+    const legacyMarker = container.querySelector('[data-testid="prep-hero-legacy-prep-hero"]');
+    expect(classlessMarker).not.toBeNull();
+    expect(classlessMarker.style.background).toBe("rgb(240, 45, 202)");
+    expect(legacyMarker).not.toBeNull();
+    expect(legacyMarker.style.background).toBeTruthy();
   });
 });

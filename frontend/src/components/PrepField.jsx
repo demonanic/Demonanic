@@ -200,9 +200,11 @@ export default function PrepField({ state, handlers }) {
 
         {/* heroes */}
         {state.heroes.map((h, i) => {
-          const c = C.HERO_CLASSES[h.cls];
-          return <div key={h.id} className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
-            style={{ left: pctX(W * ((i + 0.5) / n)), top: pctY(HERO_Y), width: "5%", height: "5%", background: c.color, boxShadow: `0 0 8px ${c.color}`, pointerEvents: "none" }} />;
+          const classColor = C.HERO_CLASSES[h.cls]?.color;
+          const color = classColor || h.appearance?.identityColor || "#22D3EE";
+          const id = h.identity?.id || h.id || i;
+          return <div key={id} data-testid={`prep-hero-${id}`} className="absolute -translate-x-1/2 -translate-y-1/2 rounded"
+            style={{ left: pctX(W * ((i + 0.5) / n)), top: pctY(HERO_Y), width: "5%", height: "5%", background: color, boxShadow: `0 0 8px ${color}`, pointerEvents: "none" }} />;
         })}
 
         {/* placement overlay captures taps anywhere */}
