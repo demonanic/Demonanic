@@ -267,10 +267,13 @@ export default function Preparation() {
 }
 
 function HeroRow({ h, onClick, onHeal, onRevive, onAdRevive, gold, testid }) {
-  if (!h.cls && h.combat) return <div data-testid={testid} className="glass-card rounded-xl p-3 flex items-center gap-3 border-l-[3px] border-cyan-400/40">
+  if (!h.cls && h.combat) {
+    const maxHp = heroDerived(h).maxHp;
+    return <div data-testid={testid} className="glass-card rounded-xl p-3 flex items-center gap-3 border-l-[3px] border-cyan-400/40">
     <ClasslessHeroAvatar identityColor={h.appearance?.identityColor} className="h-12 w-12 rounded border border-cyan-400/30 bg-black/30 shrink-0" label={`${h.identity?.name || "Hero"} classless sprite`} />
-    <div className="min-w-0 flex-1"><div className="font-display font-bold text-cyan-200">{h.identity?.name || "Hero"} · Classless</div><div className="font-mono-g text-[10px] text-slate-400">L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{h.combat.maxHp} HP · Appearance: {h.appearance?.id || "Unselected"}</div><StatBar frac={h.combat.hp / h.combat.maxHp} color="#22D3EE" height={4} /></div>
+    <div className="min-w-0 flex-1"><div className="font-display font-bold text-cyan-200">{h.identity?.name || "Hero"} · Classless</div><div className="font-mono-g text-[10px] text-slate-400">L{h.progression?.level || 1} · {Math.round(h.combat.hp)}/{maxHp} HP · Appearance: {h.appearance?.id || "Unselected"}</div><StatBar frac={h.combat.hp / Math.max(1, maxHp)} color="#22D3EE" height={4} /></div>
   </div>;
+  }
   const d = heroDerived(h);
   const cls = C.HERO_CLASSES[h.cls];
   const wounded = h.hp > 0 && h.hp < d.maxHp;

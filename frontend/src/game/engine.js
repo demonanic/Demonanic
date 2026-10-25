@@ -9,6 +9,7 @@ import { unlockedAbilities, getAbility, MAGE_SPELLS } from "./perks";
 import { logicalTowerPosition } from "./towerPlacement";
 import { HERO_BASELINE } from "./heroModel";
 import { classlessCombatEffects, classlessMaxHp } from "./classlessCombatEffects";
+import { aggregateEquipmentStats } from "./equipment";
 import { getUnlockedClasslessAbilities, validateClasslessAbilityUse } from "./classlessAbilities";
 import { HERO_SPRITE_ATLAS, selectHeroSpriteFrame } from "./heroSprite";
 import { getEquippedHeroWeaponType, HERO_WEAPON_ASSETS } from "./heroWeapon";
@@ -61,7 +62,7 @@ function classlessHeroRef(hero) {
     get level() { return hero.progression?.level || 1; },
     get hp() { return hero.combat.hp; },
     set hp(value) { hero.combat.hp = value; },
-    get maxHp() { return hero.combat.maxHp; },
+    get maxHp() { return classlessMaxHp(hero); },
     get stats() { return hero.combat.stats; },
     get shield() { return Number(hero.combat.shield) || 0; },
     set shield(value) { hero.combat.shield = value; },
@@ -73,7 +74,13 @@ function classlessHeroRef(hero) {
 function classlessHeroDerived(hero) {
   const combat = hero.combat;
   const attack = combat.basicAttack;
-  const stats = combat.stats;
+  const gear = aggregateEquipmentStats(hero.equipment);
+  const stats = {
+    attack: (Number(combat.stats.attack) || 0) + gear.attack,
+    defense: (Number(combat.stats.defense) || 0) + gear.defense,
+    agility: (Number(combat.stats.agility) || 0) + gear.agility,
+    intelligence: (Number(combat.stats.intelligence) || 0) + gear.intelligence,
+  };
   const effects = classlessCombatEffects(hero.progression?.ownedNodeIds);
   const attackDamage = attack.damage + ((Number(stats.attack) || 10) - HERO_BASELINE.stats.attack);
   return {
@@ -91,8 +98,8 @@ function classlessHeroDerived(hero) {
     defense: stats.defense,
     agility: stats.agility,
     intelligence: stats.intelligence,
-    critChance: Math.min(0.5, attack.criticalChance + effects.critChance),
-    critMult: Math.min(2.5, attack.criticalDamageMultiplier + effects.critDamage),
+    critChance: Math.min(0.5, attack.criticalChance + gear.critChance / 100 + effects.critChance),
+    critMult: Math.min(2.5, attack.criticalDamageMultiplier + gear.critDamage / 100 + effects.critDamage),
     dodge: C.dodgeChance(stats.agility),
     lowHpDodge: 0,
     moveSpeedMultiplier: 1,
@@ -108,6 +115,7 @@ function classlessHeroDerived(hero) {
     lifesteal: effects.lifesteal,
     decoyChance: effects.decoyChance,
     classlessEffects: effects,
+    gear,
     bloodPriceBonus: effects.bloodPriceBonus,
     bloodPriceCost: effects.bloodPriceCost,
     color: hero.appearance?.identityColor || "#22D3EE",

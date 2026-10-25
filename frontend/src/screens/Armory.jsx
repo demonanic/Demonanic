@@ -195,7 +195,7 @@ export default function Armory() {
   };
 
   const equip = (item) => {
-    if (!hero || classless) return;
+    if (!hero) return;
     let targetSlot = item.slot;
     if (item.slot === "Ring1" && hero.equipment?.Ring1 && !hero.equipment?.Ring2) targetSlot = "Ring2";
     act((s) => equipHeroItem(s, heroIndex, item.id, targetSlot), `${item.name} equipped`, "Could not equip item");
@@ -305,7 +305,7 @@ export default function Armory() {
               <div className="grid grid-cols-[1.2fr_1fr] gap-2">
                 <div>
                   <div className="font-mono-g text-[9px] text-slate-500 mb-1">{classless ? `${heroName} · CLASSLESS` : `EQUIPPED · ${C.HERO_CLASSES[hero.cls]?.name || hero.cls}`}</div>
-                  {classless ? <div className="rounded border border-cyan-400/20 bg-black/25 p-3 font-mono-g text-[9px] text-slate-400" data-testid="classless-equipment-notice">Classless equipment combat support is not available yet. Gear can be kept or sold from the Vault.</div> : <EquipmentSlots hero={hero} onUnequip={(slot) => act((s) => unequipHeroItem(s, heroIndex, slot), "Item moved to Vault")} />}
+                  <EquipmentSlots hero={hero} onUnequip={(slot) => act((s) => unequipHeroItem(s, heroIndex, slot), "Item moved to Vault")} />
                   <div className="grid grid-cols-2 gap-1 mt-2">
                     {["attack","defense","agility","intelligence"].map((key) => (
                       <div key={key} className="font-mono-g text-[9px] text-slate-400 bg-black/25 rounded px-2 py-1 flex justify-between">
@@ -342,7 +342,7 @@ export default function Armory() {
                   key={item.id}
                   item={item}
                   equipped={comparisonItemForHero(item)}
-                  action={classless ? undefined : () => equip(item)}
+                  action={() => equip(item)}
                   actionLabel="EQUIP"
                   secondaryAction={() => sell(item)}
                   secondaryLabel={`SELL ${item.sellValue}g`}

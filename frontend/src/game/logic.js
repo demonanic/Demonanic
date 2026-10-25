@@ -42,7 +42,14 @@ export function heroDerived(hero) {
   // Classless heroes keep their combat profile under `combat`; this read model
   // is used by shared screens, while the battle Engine owns classless combat.
   if (hero && !hero.cls && hero.combat && typeof hero.combat === "object") {
-    const stats = hero.combat.stats || {};
+    const baseStats = hero.combat.stats || {};
+    const gear = aggregateEquipmentStats(hero.equipment);
+    const stats = {
+      attack: (Number(baseStats.attack) || 0) + gear.attack,
+      defense: (Number(baseStats.defense) || 0) + gear.defense,
+      agility: (Number(baseStats.agility) || 0) + gear.agility,
+      intelligence: (Number(baseStats.intelligence) || 0) + gear.intelligence,
+    };
     const attack = hero.combat.basicAttack || {};
     const maxHp = classlessMaxHp(hero);
     return {
@@ -54,11 +61,11 @@ export function heroDerived(hero) {
       defense: Number(stats.defense) || 0,
       agility: Number(stats.agility) || 0,
       intelligence: Number(stats.intelligence) || 0,
-      critChance: Number(attack.criticalChance) || 0,
-      critMult: Number(attack.criticalDamageMultiplier) || 1,
-      dodge: Number(attack.dodgeChance) || 0,
+      critChance: Math.min(0.5, (Number(attack.criticalChance) || 0) + gear.critChance / 100),
+      critMult: Math.min(2.5, (Number(attack.criticalDamageMultiplier) || 1) + gear.critDamage / 100),
+      dodge: C.dodgeChance(stats.agility),
       color: hero.appearance?.identityColor || "#22D3EE",
-      gear: { attack: 0, defense: 0, agility: 0, intelligence: 0, maxHP: 0, critChance: 0, critDamage: 0 },
+      gear,
     };
   }
   const cls = C.HERO_CLASSES[hero.cls];
@@ -1097,6 +1104,11 @@ export function completeWave(state, clearedWave = state.wave) {
 
 export function reconcileEquipmentHp(state, hero) {
   if (!hero) return;
+  if (!hero.cls && hero.combat) {
+    const d = heroDerived(hero);
+    if (hero.combat.hp > 0) hero.combat.hp = Math.min(hero.combat.hp, d.maxHp);
+    return;
+  }
   const d = heroDerived(hero);
   if (hero.hp > 0) hero.hp = Math.min(hero.hp, d.maxHp);
   hero.maxHp = d.maxHp;
@@ -1107,6 +1119,11 @@ export function equipHeroItem(state, heroIndex, itemId, targetSlot = null) {
   if (!hero) return false;
   if (!equipStoredItem(state, heroIndex, itemId, targetSlot)) return false;
   const afterMax = heroDerived(hero).maxHp;
+
+  if (!hero.cls && hero.combat) {
+    if (hero.combat.hp > 0) hero.combat.hp = Math.min(hero.combat.hp, afterMax);
+    return true;
+  }
 
   // Equipment changes modify the hero's maximum HP, but do not heal them.
   // Preserve current HP and only clamp it if the new maximum is lower.

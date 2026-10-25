@@ -57,6 +57,22 @@ describe("bounded classless combat adapter", () => {
     expect(refreshed.heroes[0].d.dodge).toBeCloseTo(0.06);
   });
 
+  test("equipped classless gear affects battle stats exactly once", () => {
+    const hero = createHeroModel({ id: "equipped-classless" });
+    hero.equipment = {
+      PrimaryWeapon: { id: "sword", slot: "PrimaryWeapon", stats: { attack: 2, critChance: 3, critDamage: 5 } },
+      Chest: { id: "chest", slot: "Chest", stats: { defense: 5, maxHP: 10 } },
+      Boots: { id: "boots", slot: "Boots", stats: { agility: 2 } },
+    };
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+
+    expect(engine.heroes[0].d).toMatchObject({ attack: 18, maxHp: 310, defense: 15, agility: 12, dodge: 0.06, critChance: 0.08, critMult: 1.55 });
+    expect(hero.combat.stats).toEqual({ attack: 10, defense: 10, agility: 10, intelligence: 10 });
+    const secondEngine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    expect(secondEngine.heroes[0].d.attack).toBe(18);
+    expect(secondEngine.heroes[0].d.maxHp).toBe(310);
+  });
+
   test("implemented universal passive nodes change hits, crits, attack speed, and Shared Strike cooldown", () => {
     const hero = createHeroModel({ id: "passive-build" });
     hero.progression.ownedNodeIds = ["V1", "P1", "P2a", "S1", "T1", "F1"];

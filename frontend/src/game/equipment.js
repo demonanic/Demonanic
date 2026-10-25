@@ -325,6 +325,9 @@ export function formatEquipmentStats(stats = {}) {
 
 export function secondaryTypeMatchesHero(hero, item) {
   if (!hero || item?.slot !== "SecondaryWeapon") return true;
+  // Classless heroes have no class-bound secondary identity. Generic catalog
+  // stats remain in force; identity-specific modifiers are not applied.
+  if (!hero.cls && hero.combat) return true;
   // Legacy secondary items created before identity metadata remain equipable.
   if (!item.secondaryType) return true;
   return CLASS_SECONDARY_TYPE[hero.cls] === item.secondaryType;
