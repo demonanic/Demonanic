@@ -1736,6 +1736,6 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 
 ### Publication and next step
 
-- The source commit is based directly on verified remote tip `5d2d0e1ed33cfed27bc9feb237cea356473d420c`. A separate handoff-only commit is intended to follow this source commit on `review/mobile-working-copy`; verify remote HEAD before relying on publication. No merge, deployment, or Android build was performed.
+- The source commit is based directly on verified remote tip `5d2d0e1ed33cfed27bc9feb237cea356473d420c`. Handoff-only commit `eaab6d8e4b2d03a1d249113f8577bbc41c36834e` was pushed after the source commit and verified as the remote review-branch tip; this handoff-only correction is published separately afterward. No merge, deployment, or Android build was performed.
 - Next: build and install a fresh Android APK from the published review tip, sign in using the appropriate test profile, open Preparation, and verify the battlefield field and hero markers render. If another error screen appears, record the screen and sanitized runtime error; do not infer device success from this web build.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back.
