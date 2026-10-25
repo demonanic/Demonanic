@@ -1716,3 +1716,26 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - Phone-specific WebView behavior and the user's exact runtime error remain unverified. The next check is to install a fresh APK from the published review branch, open the Armory and Shoppe, inspect Battle Details/manual mode, and enroll/complete an Academy course using a disposable profile; verify the saved profile still reloads. Do not use production accounts for destructive creation tests.
 - No deployment, merge, production profile access, or production data change occurred. The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back.
 - Implementation commit: `6dd5b9b898c0dc6ef42b38ed3cc07dce8f79c9a4` (`Guard shared screens for classless heroes`), containing the 14 frontend implementation/test files listed above. The branch was verified at `b0d430f861bb90a6ddea20a71e9b12e774f4b246` before publication. The source commit was pushed first; handoff-only commit `405e6733e56bc3b54168858317e83956e8ebd94a` was pushed next. A subsequent fetch verified `origin/review/mobile-working-copy` at `405e6733e56bc3b54168858317e83956e8ebd94a`, and the remote handoff contained this Section 43. No local source changes remained in the isolated worktree at that verification point.
+
+## 44. Fix Preparation render failure for the classless starter — 2026-10-24
+
+### Root cause and implementation
+
+- Continued from verified `origin/review/mobile-working-copy` HEAD `5d2d0e1ed33cfed27bc9feb237cea356473d420c`, in an isolated worktree. The primary checkout remains on local `review/mobile-working-copy` at `42a6f78e1e867795711f2e83d3fa70d6c56f2676`; its pre-existing modified `ROADMAP.md`, `frontend/src/components/PerkTree.jsx`, and `frontend/src/game/perks.js`, plus untracked `frontend/src/components/PerkTree.test.jsx`, were not edited or staged.
+- Confirmed render crash: `Preparation` always renders `PrepField`. Its hero marker used `C.HERO_CLASSES[h.cls].color`. New classless heroes intentionally have no `cls`, so this lookup returned `undefined` and reading `.color` threw during preparation render. The existing `Preparation.classless-gate.test.jsx` had mocked `PrepField`, hiding the production child failure; the generic `ScreenErrorBoundary` then replaced the screen with its error message.
+- `frontend/src/components/PrepField.jsx` now selects the legacy class color when present, otherwise the classless hero's persisted `appearance.identityColor`, with a cyan fallback. It also uses stable classless `identity.id` for the React key. Legacy class appearance remains unchanged.
+- `frontend/src/components/PrepField.test.jsx` now renders actual classless and legacy hero markers and checks their colors. `frontend/src/screens/Preparation.classless-gate.test.jsx` now renders the real `PrepField` inside `Preparation` and asserts the classless marker appears before entering battle, rather than mocking that child.
+- Source implementation commit: `e9c5d12a47d13ec501fe178d01a7eee0b0cea223` (`Fix classless preparation field crash`), containing only those three implementation/test files.
+
+### Validation and limits
+
+- From `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true /data/data/com.termux/files/usr/bin/npm test -- --watchAll=false --runInBand --silent src/components/PrepField.test.jsx src/screens/Preparation.classless-gate.test.jsx src/screens/classlessScreen.integration.test.jsx` — PASS, 3 suites / 8 tests. This uses actual `PrepField` and `Preparation` rendering with the repository's existing isolated component mocks; it does not reproduce the user's installed APK or live account.
+- From `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib /data/data/com.termux/files/usr/bin/npm run build` — PASS, optimized bundle 223.62 kB JS and 14.07 kB CSS gzip.
+- From the worktree root: `git diff --check` and `git diff --cached --check` — PASS. No backend changes, APK build, Android install, phone test, deployment, or production-data access occurred.
+- The exact root cause is verified by the production source path and the test that now renders the actual preparation child. Whether this was the only issue on the user's phone remains unverified until a fresh Android build is installed and the Preparation screen is opened there.
+
+### Publication and next step
+
+- The source commit is based directly on verified remote tip `5d2d0e1ed33cfed27bc9feb237cea356473d420c`. A separate handoff-only commit is intended to follow this source commit on `review/mobile-working-copy`; verify remote HEAD before relying on publication. No merge, deployment, or Android build was performed.
+- Next: build and install a fresh Android APK from the published review tip, sign in using the appropriate test profile, open Preparation, and verify the battlefield field and hero markers render. If another error screen appears, record the screen and sanitized runtime error; do not infer device success from this web build.
+- The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back.
