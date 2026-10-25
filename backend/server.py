@@ -84,9 +84,31 @@ def apply_offline_accrual(state: Dict[str, Any]) -> Dict[str, Any]:
                                     math.isfinite(float(max_hp)) and max_hp > 0)
                 except (OverflowError, TypeError, ValueError):
                     valid_hp = valid_max_hp = False
-                if not valid_hp or not valid_max_hp or hp <= 0 or hp >= max_hp:
+                if not valid_hp or not valid_max_hp or hp <= 0:
                     continue
-                new_hp = min(max_hp, hp + max_hp * (gc.RECOVERY_HERO_HP_PERCENT_PER_HOUR / 100.0) * recovery_hours)
+
+                # Classless combat.maxHp is the saved base value. Equipment and
+                # W1 are derived at runtime, so use that same effective cap for
+                # offline recovery without mutating the saved base stat.
+                equipment_max_hp = 0.0
+                equipment = hero.get("equipment")
+                if isinstance(equipment, dict):
+                    for item in equipment.values():
+                        stats = item.get("stats") if isinstance(item, dict) else None
+                        value = stats.get("maxHP", 0) if isinstance(stats, dict) else 0
+                        try:
+                            numeric = float(value)
+                            if math.isfinite(numeric):
+                                equipment_max_hp += numeric
+                        except (TypeError, ValueError, OverflowError):
+                            continue
+                progression = hero.get("progression")
+                owned_nodes = progression.get("ownedNodeIds", []) if isinstance(progression, dict) else []
+                vitality_multiplier = 1.08 if isinstance(owned_nodes, list) and "W1" in owned_nodes else 1.0
+                effective_max_hp = math.floor((max_hp + equipment_max_hp) * vitality_multiplier + 0.5)
+                if effective_max_hp <= 0 or hp >= effective_max_hp:
+                    continue
+                new_hp = min(effective_max_hp, hp + effective_max_hp * (gc.RECOVERY_HERO_HP_PERCENT_PER_HOUR / 100.0) * recovery_hours)
                 combat["hp"] = new_hp
                 hero_recovery += new_hp - hp
                 continue
