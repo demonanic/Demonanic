@@ -1740,3 +1740,26 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - The source commit is based directly on verified remote tip `5d2d0e1ed33cfed27bc9feb237cea356473d420c`. Handoff-only commit `eaab6d8e4b2d03a1d249113f8577bbc41c36834e` was pushed after the source commit and verified as the remote review-branch tip; this handoff-only correction is published separately afterward. No merge, deployment, or Android build was performed.
 - Next: build and install a fresh Android APK from the published review tip, sign in using the appropriate test profile, open Preparation, and verify the battlefield field and hero markers render. If another error screen appears, record the screen and sanitized runtime error; do not infer device success from this web build.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review its evidence, and report back.
+
+## 45. Enable existing equipment for classless heroes — 2026-10-25
+
+### Scope and implementation
+
+- Continued from verified `origin/review/mobile-working-copy` HEAD `8db0aaa31ba251180b58e4b697170763b545c0d3` in an isolated detached worktree. The primary checkout remains on local `review/mobile-working-copy`; its pre-existing ROADMAP/PerkTree changes were not touched or staged.
+- Connected existing catalog equipment to classless heroes without changing their saved base stats. `Armory` now offers existing equip/unequip controls for classless heroes. Generic catalog stats are calculated in the shared derived-stat path and classless Engine runtime: attack, defense, agility, intelligence, max HP, critical chance, and critical damage. Base stats and `combat.maxHp` remain unchanged; gear bonuses are derived once, avoiding compounding through Engine recreation, serialization, or normalization.
+- Classless heroes can equip a secondary item without requiring a legacy class identity. This applies only the item's generic catalog stats; no class-specific secondary identity bonus is assigned. The canonical specification leaves secondary identity modifiers unresolved, so those remain excluded.
+- Preparation HP display now uses derived maximum HP. Equip/unequip clamps current classless HP to the new maximum where needed and does not heal on equip. Legacy class equipment derivation and eligibility paths are preserved.
+
+### Validation
+
+- From `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true /data/data/com.termux/files/usr/bin/npm test -- --watchAll=false --runInBand --silent src/game/logic.classlessScreens.test.js src/game/engine.classless.test.js src/screens/Armory.classless.test.jsx src/game/engine.abilities.test.js src/game/engine.perk-characterization.test.js src/game/logic.progression.test.js` — PASS, 6 suites / 92 tests. Coverage includes Armory equip/unequip and Shoppe access, generic secondary equipment, classless battle-derived stats and max HP, non-compounding, save/normalize reload, and legacy Knight equipment derivation.
+- From `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib /data/data/com.termux/files/usr/bin/npm run build` — PASS; optimized gzip bundle 223.83 kB JS / 14.07 kB CSS.
+- `git diff --check` — PASS.
+- No Android APK/device, backend/offline-recovery, live account, or production-data test was run. Backend offline recovery currently reads nested base `combat.maxHp`; it does not account for equipment-added max HP or W1's max-HP modifier. That mismatch remains a known follow-up rather than being changed without backend validation.
+
+### Files and status
+
+- Intended implementation/test files: `frontend/src/game/classlessCombatEffects.js`, `frontend/src/game/engine.js`, `frontend/src/game/equipment.js`, `frontend/src/game/logic.js`, `frontend/src/screens/Armory.jsx`, `frontend/src/screens/Preparation.jsx`, `frontend/src/game/engine.classless.test.js`, `frontend/src/game/logic.classlessScreens.test.js`, and `frontend/src/screens/Armory.classless.test.jsx`.
+- Equipment support is a bounded compatibility slice; it does not complete the classless rebuild. Remaining work points include unfinished Phase 1 passive/active/signature mechanics and their acceptance coverage, equipment/offline-recovery integration, visual inspection of the existing VFX on Android, unresolved Library/spell/Academy support, and the later item/consumable work. Phase 1.5/2 content and unresolved canonical decisions remain gated.
+- Next recommended implementation: audit and connect one dependency-complete set of remaining Phase 1 combat mechanics against the canonical bible, with tests for the actual Engine consumer; separately plan a backend recovery adjustment only after its effective-HP rule and backend test environment are established. Then build/install an APK and check the existing battle visuals on device.
+- Source implementation commit: `f57773fab64c0f297f9064a8b2ddbb654a4d5be3` (`Enable existing equipment for classless heroes`). This entry is in a separate handoff-only commit, to be recorded after remote verification. No merge, deployment, or production-data access is part of this work. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
