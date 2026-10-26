@@ -128,6 +128,17 @@ describe("purchaseNode", () => {
       .toEqual({ ok: false, reason: "effect_pending" });
   });
 
+  test("makes Jackpot purchasable only after its canonical Fortune prerequisites", () => {
+    const hero = createHero();
+    hero.progression = { level: 10, xp: 0, ap: 3, sp: 0, ownedNodeIds: ["F1", "F2"] };
+
+    const purchase = purchaseClasslessNode(hero, "F3");
+    expect(purchase).toMatchObject({ ok: true, progression: { ap: 0, ownedNodeIds: ["F1", "F2", "F3"] } });
+    expect(hero.progression.ownedNodeIds).toEqual(["F1", "F2"]);
+    expect(purchaseClasslessNode({ ...hero, progression: purchase.progression }, "F3"))
+      .toEqual({ ok: false, reason: "already_owned" });
+  });
+
   test("permits only the newly registered Interpose and Blood Price/Covenant effects after canonical prerequisites", () => {
     const warden = createHero();
     warden.progression = { level: 10, xp: 0, ap: 6, sp: 0, ownedNodeIds: ["W1", "W2"] };

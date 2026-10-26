@@ -145,6 +145,39 @@ describe("TacticalMenu mobile controls", () => {
     random.mockRestore();
   });
 
+  test("Jackpot selection routes from TacticalMenu to the real Engine and shows remaining charges", () => {
+    const state = createNewState();
+    const hero = createHeroModel({ id: "tactical-jackpot", name: "Fortune" });
+    hero.progression.ownedNodeIds = ["F1", "F2", "F3"];
+    state.heroes = [hero];
+    const engine = new Engine({ getContext: () => null }, state, { enemies: [], total: 1 });
+    const target = { name: "Lucky target", type: "targetDummy", hp: 500, maxHp: 500,
+      x: engine.heroes[0].x + 80, y: engine.heroes[0].y, speed: 0, lane: -1,
+      floats: true, dmgBy: {}, affinities: {} };
+    engine.active = [target];
+    const onAbility = jest.fn((index, id) => engine.useHeroAbility(index, id));
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}} onAbility={onAbility}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} />));
+
+    act(() => container.querySelector('[data-testid="tactical-category-abilities"]').click());
+    const jackpot = container.querySelector('[data-testid="tactical-ability-F3"]');
+    expect(jackpot.disabled).toBe(false);
+    expect(jackpot.textContent).toContain("Jackpot");
+    expect(jackpot.textContent).toContain("35s CD");
+    act(() => jackpot.click());
+
+    expect(onAbility).toHaveBeenCalledWith(0, "F3");
+    expect(target.hp).toBe(500);
+    expect(engine.heroes[0].classlessCombatState.jackpotHitsRemaining).toBe(3);
+    expect(engine.heroes[0].abilityCooldowns.F3).toBe(35);
+
+    act(() => root.render(<Harness onCastSpell={() => {}} onManual={() => {}} onAbility={onAbility}
+      menuHeroes={state.heroes} heroStatuses={[{ hp: 300, maxHp: 300, alive: true }]}
+      abilityStatus={engine.getHeroAbilityStatus(0)} />));
+    expect(container.querySelector('[data-testid="tactical-ability-F3"]').textContent).toContain("3 GUARANTEED CRITS");
+  });
+
   test.each([
     ["P3", 150, 500, 16 * 1.8 * 1.25, 22],
     ["P3a", 190, 500, 16 * 2, 18],

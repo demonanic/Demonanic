@@ -352,6 +352,7 @@ export default function TacticalMenu({
                               {Number.isFinite(ability.damage) ? `${Math.round(ability.damage)} RAW · ` : ""}
                               {Number.isFinite(ability.cooldownSeconds) ? `${ability.cooldownSeconds}s CD · ` : ""}
                               {Number.isFinite(ability.resourceCost) ? `${ability.resourceCost} COST · ` : ""}
+                              {Number.isFinite(ability.chargesRemaining) && ability.chargesRemaining > 0 ? `${ability.chargesRemaining} GUARANTEED CRITS · ` : ""}
                               {ability.active
                                 ? `ACTIVE ${ability.activeRemaining.toFixed(1)}s · CD ${ability.cooldown.toFixed(1)}s`
                                 : ability.cooldown > 0 ? `${ability.cooldown.toFixed(1)}s` : ability.available ? "READY" : abilityReasonText(ability.reason)}

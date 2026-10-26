@@ -421,6 +421,40 @@ describe("bounded classless combat adapter", () => {
     random.mockRestore();
   });
 
+  test("Jackpot guarantees exactly the next three direct hits and not area damage", () => {
+    const hero = createHeroModel({ id: "jackpot-build" });
+    hero.progression.ownedNodeIds = ["F1", "F2", "F3"];
+    const engine = new Engine({ getContext: () => null }, { ...createNewState(), heroes: [hero] }, { enemies: [], total: 1 });
+    const runtimeHero = engine.heroes[0];
+    const target = enemy("jackpot target", runtimeHero.x + 30, runtimeHero.y, { hp: 500, maxHp: 500 });
+    engine.active = [target];
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.99);
+
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "F3"))
+      .toMatchObject({ available: true, cooldownSeconds: 35, resourceCost: 0, targetMode: null, chargesRemaining: 0 });
+    expect(engine.executeClasslessAbility(0, "F3")).toMatchObject({ ok: true, cooldownRemaining: 35 });
+    expect(runtimeHero.classlessCombatState.jackpotHitsRemaining).toBe(3);
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "F3").chargesRemaining).toBe(3);
+
+    const hit = (options = {}) => engine._applyHit({ sourceId: "H0", heroIndex: 0, target, dmg: 10,
+      classless: true, damageCategory: "weapon", ...options });
+    hit({ area: true });
+    expect(runtimeHero.classlessCombatState.jackpotHitsRemaining).toBe(3);
+    hit();
+    hit();
+    hit();
+    expect(runtimeHero.classlessCombatState.jackpotHitsRemaining).toBe(0);
+    hit();
+
+    // One ordinary area hit, three guaranteed 150% crits, then one ordinary
+    // hit. Jackpot bypasses chance only and uses the existing crit multiplier.
+    expect(target.hp).toBe(500 - 10 - 3 * (10 * runtimeHero.d.critMult) - 10);
+    expect(engine.getHeroAbilityStatus(0).find(({ id }) => id === "F3").chargesRemaining).toBe(0);
+    expect(engine.executeClasslessAbility(0, "F3")).toMatchObject({ ok: false, reason: "cooldown" });
+    expect(runtimeHero.classlessCombatState.jackpotHitsRemaining).toBe(0);
+    random.mockRestore();
+  });
+
   test("Cleaving Strike hits its selected target and nearest adjacent enemy through the weapon pipeline", () => {
     const hero = createHeroModel({ id: "cleaving-build" });
     hero.progression.ownedNodeIds = ["V1", "V2", "V3"];

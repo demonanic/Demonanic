@@ -223,7 +223,7 @@ export class Engine {
           survivalReadyAt: 0, covenantUntil: 0, decoy: false, mirrorReadyAt: 0,
           nextDisruptAt: 0, nextRootAt: 0, lastDealtAt: 0, momentumTarget: null,
           momentumStacks: 0, ambushTargets: new Set(), vanishDamagePending: 0,
-          echoReadyAt: 0 } : null,
+          echoReadyAt: 0, jackpotHitsRemaining: 0 } : null,
       };
     });
 
@@ -362,6 +362,7 @@ export class Engine {
         return { id: definition.id, name: definition.name, desc: definition.description,
           cooldown: abilityCooldown, cooldownSeconds, resourceCost: definition.resourceCost,
           damage, color: h.d.color, active: activeRemaining > 0, activeRemaining,
+          chargesRemaining: definition.effect === "jackpot" ? h.classlessCombatState.jackpotHitsRemaining : undefined,
           available: validation.ok && canPayHealthCost, targetMode: definition.targetMode,
           range: definition.rangeMode === "hero_attack_range" ? h.d.range : definition.range,
           radius: definition.adjacentRadius, reason: !canPayHealthCost ? "health_cost" : validation.reason };
@@ -873,6 +874,11 @@ export class Engine {
       if (state.survivalReadyAt <= this.time) state.survivalUntil = this.time + definition.durationSeconds;
       this._float(h.x, h.y - 22, "CRIMSON COVENANT", "#DC2626");
       this.effects.push({ kind: "covenant", x: h.x, y: h.y, r: 24, life: 0.55, color: "#DC2626" });
+      affectedTargets = [h];
+    } else if (definition.effect === "jackpot") {
+      h.classlessCombatState.jackpotHitsRemaining = 3;
+      this._float(h.x, h.y - 22, "JACKPOT · 3 CRITS", "#FFE600");
+      this.effects.push({ kind: "critical", x: h.x, y: h.y, r: 24, life: 0.6, color: "#FFE600" });
       affectedTargets = [h];
     } else if (definition.effect === "untargetable" || definition.effect === "vanish") {
       h.untargetableUntil = Math.max(h.untargetableUntil, this.time + definition.durationSeconds);
@@ -2195,8 +2201,11 @@ export class Engine {
     if (p.elementalBonus) damage *= 1 + Math.min(0.5, p.elementalBonus);
     // Vanish's next-hit bonus belongs to the shared situational category and
     // therefore obeys its canonical +50% cap in the damage pipeline.
-    const crit = p.guaranteedCrit || Math.random() < hero.d.critChance;
+    const directHit = p.area !== true && p.damageOverTime !== true;
+    const consumesJackpot = directHit && state.jackpotHitsRemaining > 0;
+    const crit = p.guaranteedCrit || consumesJackpot || Math.random() < hero.d.critChance;
     if (crit) damage *= hero.d.critMult;
+    if (consumesJackpot) state.jackpotHitsRemaining = Math.max(0, state.jackpotHitsRemaining - 1);
     target.hp = Math.max(0, target.hp - damage);
     if (consumesVanish) state.vanishDamagePending = 0;
     target.dmgBy[p.sourceId] = (target.dmgBy[p.sourceId] || 0) + damage;

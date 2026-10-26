@@ -156,6 +156,19 @@ const CLASSLESS_ABILITIES = Object.freeze([
     effect: "crimson_covenant",
     requiresTarget: false,
   }),
+  Object.freeze({
+    id: "F3",
+    branch: "Fortune",
+    unlockNodeId: "F3",
+    name: "Jackpot",
+    description: "Your next 3 direct hits are guaranteed critical hits. Bypasses the crit-chance cap, not the crit-damage cap.",
+    cooldownSeconds: 35,
+    resourceCost: 0,
+    targetMode: null,
+    rangeMode: "self",
+    effect: "jackpot",
+    requiresTarget: false,
+  }),
 ]);
 
 const DEFINITIONS = new Map(CLASSLESS_ABILITIES.map((ability) => [ability.id, ability]));

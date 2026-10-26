@@ -7,8 +7,8 @@ import {
 } from "./classlessAbilities";
 
 describe("canonical classless active ability definitions", () => {
-  test("exposes implemented Phase 1 Warden, Vanguard, Precision, Shadowcraft, Illusion, and Hemomancy abilities", () => {
-    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a", "T2a", "W3", "S2a", "S3a", "I3", "H3"]);
+  test("exposes implemented Phase 1 Warden, Vanguard, Precision, Shadowcraft, Illusion, Hemomancy, and Fortune abilities", () => {
+    expect(IMPLEMENTED_CLASSLESS_ABILITY_NODE_IDS).toEqual(["P3", "P3a", "V3", "V3a", "T2a", "W3", "S2a", "S3a", "I3", "H3", "F3"]);
     expect(getClasslessAbilityDefinition("P3")).toMatchObject({
       unlockNodeId: "P3", name: "Execution", cooldownSeconds: 22, resourceCost: 0,
       targetMode: "enemy", damageMultiplier: 1.8, conditionalTargetHpBelow: 0.35, conditionalDamageBonus: 0.25,
@@ -51,6 +51,10 @@ describe("canonical classless active ability definitions", () => {
       unlockNodeId: "I3", name: "Phantom Strike", cooldownSeconds: 22,
       damageMultiplier: 1.5, conditionalDamageBonus: 0.5, effect: "phantom_strike",
       targetMode: "enemy", requiresTarget: true,
+    });
+    expect(getClasslessAbilityDefinition("F3")).toMatchObject({
+      unlockNodeId: "F3", name: "Jackpot", cooldownSeconds: 35, resourceCost: 0,
+      effect: "jackpot", targetMode: null, requiresTarget: false,
     });
     expect(getClasslessAbilityDefinition("C2a")).toBeNull();
     expect(getClasslessAbilityDefinition("A3")).toBeNull();
