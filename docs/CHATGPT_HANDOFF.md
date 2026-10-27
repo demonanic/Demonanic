@@ -1826,3 +1826,38 @@ Pre-existing local user files remain separate and unstaged: `ROADMAP.md`, `front
 - Keep roster-size pricing separate from offer development value. The current classless recruit formula starts at $1,100 and escalates to $1,760, $2,816, $4,506, and $7,209 by owned count. Applying that full exponential surcharge on top of veteran/specialist multipliers risks making late-slot offers unreachable. Do not stack both curves by default; if a roster adjustment is retained, test a small, separately visible surcharge after the base tier prices.
 - Significant limitation: the current classless recruitment implementation creates the same baseline hero, while no stable offer-market generator, stored seed, veteran build generator, or package valuation exists. The simulator cannot value perk synergies, equipment, role coverage, or the combat contribution of a generated developed hero. It also holds castle power at one and assumes successful complete waves. The next practical step is a disposable-profile market prototype/simulation with legal generated classless builds and actual tower/recovery spending, before implementing persisted rotating offers or committing to prices.
 - The exact phrase `work done` means ChatGPT should retrieve the latest **published** `docs/CHATGPT_HANDOFF.md`, review the evidence, and report back.
+
+## 48. Compare classless recruitment packages with defense spending — 2026-10-27
+
+### Scope and method
+
+- Continued from published `origin/review/mobile-working-copy` HEAD `0952bf3d8092fb233aecdfc7db88da60de069ccc` in the isolated temporary worktree `/tmp/demonanic-continuation`. The primary checkout and its four preserved ROADMAP/PerkTree user changes were not edited.
+- A temporary Jest harness used production `Engine.update()`, `buildWave()`, classless hero creation/progression/purchases/stat allocation, equipment definitions, tower/barricade purchase helpers, and defense repair. It created fresh disposable local profile state for each encounter. It compared one baseline hero, a second baseline recruit, a legally progressed level-5 Warden-style build, a legally progressed level-10 Precision-style build, and one archer tower plus two barricades. The latter spent 1,100 construction gold plus the configured 8-gold upkeep. The veteran bought W1/W2 and E2 chest/helm equipment; the specialist bought P1/P2/P2a/P3, allocated earned SP to Attack, carried E3 weapon/chest/boots, and used Execution through the Engine when available. No permanent class was assigned.
+- Wave generation and combat random rolls used deterministic seeds. Each option was run five times on waves 1 and 5 (50 encounters total). Hero packages were placed at full derived HP. Tower/barricade construction used actual purchase helpers; defense repair used the production repair helper after each simulation.
+
+### Results
+
+| Wave / option | Package cost | Clears | Avg. enemies | Avg. kills | Avg. hero deaths | Avg. hero HP left | Avg. castle HP left | Avg. duration |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W1 one baseline hero | 0 | 5/5 | 8.0 | 8.0 | 0.0 | 300/300 | 1000 | 33.4s |
+| W1 second baseline recruit | 1,100 | 5/5 | 8.0 | 8.0 | 0.0 | 600/600 | 1000 | 29.7s |
+| W1 level-5 veteran | 2,560 | 5/5 | 8.0 | 8.0 | 0.0 | 646/646 | 1000 | 29.5s |
+| W1 level-10 specialist | 4,988 | 5/5 | 8.0 | 8.0 | 0.0 | 640/640 | 1000 | 29.0s |
+| W1 tower + two barricades | 1,108 incl. upkeep | 5/5 | 8.0 | 8.0 | 0.0 | 300/300 | 1000 | 20.2s |
+| W5 one baseline hero | 0 | 0/5 | 28.2 | 17.8 | 0.8 | 6/300 | 678 | 55.4s |
+| W5 second baseline recruit | 1,100 | 1/5 | 27.8 | 19.0 | 1.8 | 60/600 | 721 | 56.9s |
+| W5 level-5 veteran | 2,560 | 2/5 | 30.4 | 22.8 | 1.4 | 85/646 | 617 | 61.6s |
+| W5 level-10 specialist | 4,988 | 2/5 | 33.4 | 24.4 | 1.6 | 74/640 | 788 | 59.1s |
+| W5 tower + two barricades | 1,108 incl. upkeep | 3/5 | 31.4 | 26.8 | 0.4 | 82/300 | 591 | 67.5s |
+
+Tower/barricade sample details: the first W5 run cleared in 80.2s, killed 33/33, ended with 143/300 hero HP and 437 castle HP, and the repair helper reported 19 gold/10 stone. The specialist used Execution an average of 1.0 times in W1 and 1.8 times in W5. Higher-level hero packages increased wave enemy counts through their campaign-power contribution; package comparisons therefore include a difficulty increase, not just more hero damage.
+
+### Recommendation and limits
+
+- Keep the occupied-offer-slot rule already recorded in Section 47: after purchase, that slot stays empty/unavailable until the scheduled refresh; unpurchased offers, including unaffordable ones, remain stable. This pass did not implement a market.
+- The sampled W5 results show a useful strategic tradeoff: 1,100 gold spent on tower/barricade defense had the highest W5 clear count (3/5) and lowest average hero deaths (0.4), while the 4,988-gold specialist package killed more enemies on average than a baseline hero (24.4 vs. 17.8) but cleared only 2/5. The defense option also faced more enemies on average than the baseline (31.4 vs. 28.2), and had lower mean remaining castle HP (591 vs. 678), so it did not establish a universally superior purchase. The five-seed sample is directional only.
+- This supports testing the affordable entry recruit and defense as competing early choices, while keeping veteran/specialist offers as premium options whose value depends on valid builds. It does not establish final market prices: the veteran/specialist prices were test inputs (2x/3x the 1,100 entry anchor plus catalog equipment buy values), not values solved by the simulator. The two baseline recruit choices remain cosmetically different only unless a future approved system creates meaningful classless variation.
+- Limitation: this was a seeded battle-snapshot comparison, not a continuous campaign economy simulation. It did not simulate gold income and purchases across sequential waves, offer refreshes, player decision timing, recruitment-slot pressure, losses/revival, routine tower repairs/upgrades over multiple waves, or statistical variation beyond five seeds per scenario. Equipment packages and builds were valid production progression/equipment data, but authored representative packages rather than a production market generator. The harness also triggered Execution automatically when available; it did not validate TacticalMenu interaction. No production profile, backend, Android device, or live service was used.
+- Exact command from `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true /data/data/com.termux/files/usr/bin/npm test -- --watchAll=false --runInBand src/game/RecruitmentMarketEngineSimulation.tmp.test.js` — PASS, 1 suite / 1 test covering ten scenario aggregates and 50 deterministic Engine encounters. `git diff --check` — PASS. The temporary simulation test was removed afterward. No production source, frontend build, Android APK, or device test was part of this task.
+- Next useful decision evidence is a longer sequential campaign simulation that spends actual earned gold on offers, towers, upkeep, repairs, and upgrades while preserving blocked offer slots through five-wave refreshes. Use multiple seeds and report campaign survival and remaining resources before locking prices or finalizing market tiers. The five-wave refresh remains a candidate, not a simulated optimum.
+- No implementation, deployment, or production-data access occurred. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review the evidence, and report back.
