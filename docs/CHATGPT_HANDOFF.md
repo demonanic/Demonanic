@@ -1989,3 +1989,65 @@ Do not tune recruitment prices yet. Compare no defense, one tower, and tower plu
 - Published in documentation-only commit `4bb1c5fced3ead7b80de8bd1899c9bc4f70dd2d2` on `review/mobile-working-copy`; this line records the section's original publication commit.
 - Recommended next evidence: a truly sequential, paired 20-seed campaign comparison using production completion, preparation, recovery, wave transitions, tower upkeep/ammunition and user-defined action timing. Track individual hero/castle/tower HP, attack targets, actual gross spending versus battle income, and each defeat/revival reason. Use this snapshot result to prioritize W4/W5 survivability investigation, not to change balance values. Continue to keep recruitment-market features and gameplay changes out of scope until the owner reviews the evidence.
 - The exact phrase “work done” means ChatGPT should retrieve the latest published handoff, review the evidence, and report back.
+
+## 52. Sequential defense and tower-power counterfactual — 2026-10-31 (published documentation)
+
+### Checkpoint and model
+
+- Started in isolated detached worktree `/tmp/demonanic-controlled-survival-7bf7151` at published `origin/review/mobile-working-copy` HEAD `a86704e36b9908450e29db0366fc14ab1e9ce8fc`. Fetched and verified that remote before testing. The primary checkout was not edited.
+- Temporary Jest simulation ran 20 paired deterministic seeds (`31001 + 101*i`, `i=0..19`) through four policies: A, no optional defense; B, one archer tower; C, one archer tower plus one 400-HP barricade; D, one archer tower with the tower's campaign-power contribution removed from wave generation only. It ran 80 campaign trajectories, using production `createNewState`/`normalizeState`/`setClasslessSquad`, `buildWave`, `Engine.update(0.05)`, `stageBattleCompletion`, production wave completion, `chargeUpkeep`, tower/barricade build and repair, castle repair, resupply, `produce`, `freeLife`, and paid `reviveHero`/`paidRevivalCost` paths. Shared Strike was activated via production `getHeroAbilityStatus`/`useHeroAbility` whenever available.
+- The fourth policy uses a test-only disposable tower-array iterator override during `buildWave`: `castlePower` does not iterate the tower, while `buildWave` still sees its type through array `reduce`/`filter`, preserving tower-aware enemy composition weights. The actual tower remains in the Engine and fires normally. This is a counterfactual experiment only; no game code or values were changed.
+- Policies: buy each chosen defense at most once, when affordable; do not rebuild it if destroyed. At each preparation, attempt production repairs and resupply when affordable. Charge actual upkeep at battle start. Spend eight minutes in production/recovery after each battle; after the first hero defeat, use the actual one-time Free Life; subsequent defeats use paid revival if affordable, otherwise wait in eight-minute production increments, capped at 48 hours for that revival, then retry. A campaign stops at wave 6, 18 battle attempts, or when the revival limit cannot be met. No ad revival or TacticalMenu timing was modeled. All strategies share seeds, but combat history and campaign progression naturally diverge.
+
+### Campaign results
+
+| Policy | Mean waves cleared | W5 clear / 20 campaigns | Reached W6 | Engine battle attempts | Mean tower damage / kills | Mean ammo consumed | Mean final gold / stone | Mean paid revives | Extra wait for revival gold per campaign |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A — no defense | 3.8 | 0/20 | 0/20 | 234 | 0 / 0 | 0 | 94.6 / 500 | 6.0 | 68.1 h |
+| B — one archer tower | 4.1 | 2/20 | 2/20 | 266 | 2,019 / 29.6 | 155.8 | 165.8 / 468.0 | 7.7 | 59.7 h |
+| C — tower + barricade | 4.1 | 2/20 | 2/20 | 334 | 2,023 / 29.8 | 155.8 | 127.9 / 468.0 | 11.7 | 26.8 h |
+| D — tower, tower CP omitted from wave generation | 4.1 | 2/20 | 2/20 | 269 | 2,129 / 30.9 | 157.7 | 136.1 / 463.1 | 7.8 | 60.0 h |
+
+The C row has 11.7 mean paid revives (the other rows are 6.0, 7.7, and 7.8); its value is in the “Mean paid revives” column. Approximate extra wait divided by mean paid revives is about 11.3 h (A), 7.8 h (B), 2.3 h (C), and 7.7 h (D) per paid revival. These are quotients of aggregate means, not per-revival wait distributions. Extra wait is only time spent producing until the paid-revive price was available; the routine eight-minute rests are additional.
+
+Gross defense/resource results averaged per campaign:
+
+| Policy | Build spend | Upkeep | Defense repairs | Castle repairs | Notes |
+|---|---:|---:|---:|---:|---|
+| A | 0 | 0 | 0 | 40 stone | No optional defenses. |
+| B | 100 gold / 20 stone | 44 gold / 11 stone | 29.9 gold / 15.2 stone | 72.3 stone | One tower purchase; no replacement after destruction. |
+| C | 300 gold / 20 stone | 44.4 gold / 11.1 stone | 26.9 gold / 13.7 stone | 90.6 stone | One tower and one barricade purchase. |
+| D | 100 gold / 20 stone | 46.4 gold / 11.6 stone | 31.1 gold / 15.8 stone | 69.6 stone | Same live defense as B; counterfactual affects wave generation only. |
+
+These are averages from the simulated policies. End gold includes kill rewards and production, while the outflow columns count actual helper-mediated construction, upkeep, repairs, Free Life resource loss and/or revival costs as instrumented by the harness; the displayed breakdown separates construction, upkeep and repairs. The archer began with 120 ammunition. There was no initial guild ammunition cache, no guild manufacturing worker, and no ammo could be resupplied from empty stock. Free Life restored tower ammo once when used. Campaign-average total ammo use exceeds one magazine because of that one-time refill.
+
+### Wave 4 and 5 pressure, including the counterfactual
+
+The following are encounter averages over repeated attempts in the 20 campaigns; `attempts` includes retries and is not an independent-seed success rate.
+
+| Wave / policy | Encounters (clears) | Mean initial enemies | Mean enemy HP pool | Generation CP / actual CP | Mean hero HP start → end | Mean castle HP end | Mean tower damage / kills | Mean tower ammo start → end |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| W4 A | 86 (15) | 20.7 | 1,492 | 4.2 / 4.2 | 207.7 → 30.2 | 1,129 | 0 / 0 | — |
+| W4 B | 24 (20) | 20.1 | 1,430 | 3.1 / 3.1 | 300 → 199.9 | 1,143 | 496 / 5.6 | 81.9 → 39.0 |
+| W4 C | 24 (20) | 20.1 | 1,430 | 3.1 / 3.1 | 300 → 199.1 | 1,139 | 496 / 5.6 | 81.9 → 39.0 |
+| W4 D | 25 (20) | 20.0 | 1,406 | 2.2 / 3.1 | 300 → 192.8 | 1,148 | 497 / 5.4 | 78.8 → 37.3 |
+| W5 A | 88 (0) | 25.7 | 5,198 | 5.0 / 5.0 | 170.4 → 0 | 1,144 | 0 / 0 | — |
+| W5 B | 182 (2) | 25.7 | 5,236 | 5.3 / 5.3 | 174.3 → 0.8 | 1,115 | 91.8 / 0.8 | 9.7 → 1.9 |
+| W5 C | 250 (2) | 25.8 | 5,243 | 5.4 / 5.4 | 168.5 → 0.6 | 1,128 | 67.1 / 0.6 | 7.1 → 1.4 |
+| W5 D | 184 (2) | 25.5 | 5,206 | 5.1 / 5.3 | 174.2 → 1.0 | 1,127 | 101.2 / 1.0 | 10.4 → 2.6 |
+
+### Findings and limits
+
+- **Campaign-power hypothesis:** B and D both cleared W5 in 2/20 campaigns. W5 mean initial enemy count was 25.7 for B versus 25.5 for D, and mean initial enemy HP pool was 5,236 versus 5,206 (about 0.6% lower for D). Their sampled W5 campaign outcome was identical. W4 also had the same eventual campaign clear count (20/20) with a small pool difference (1,430 versus 1,406). In this model, removing tower CP from wave generation reduced some enemy pressure but did not measurably improve wave-5 campaign clears. This weakens the claim that tower CP is the main reason tower defense fails to carry the party through W5; the 20-seed sample cannot prove there is no effect.
+- The wave-5 failure pattern remains hero defeat with substantial castle health. No strategy materially cleared W5: A 0/20, tower strategies B/C/D 2/20 each. A tower makes a clear difference in W4 durability and kills, but most attempts reaching W5 exhaust nearly all remaining tower ammunition and then defeat still occurs. Under this policy the tower did not become a reliable W5 solution.
+- Adding the one barricade did not increase W5 clears over tower-only (2/20 in both), while costing an additional 200 gold. This campaign test did not instrument enemy-lane attack events or barricade damage attribution separately, so its exact pathing/deterrence contribution remains unresolved; Section 51's isolated comparison observed no barricade damage and documented the lane-cost rule.
+- Revival affordability is strongly policy-dependent. The runs attempted to wait until revival could be paid, rather than treating an eight-minute interval as a hard cutoff. C generated more kills and more paid revivals under its repeated-retry policy, with less cumulative wait, but it did not improve W5 clear rate. These are simulated times under repeated production, not a promise that a real player should wait hours or evidence about actual player choices.
+- **No gameplay defect or balance fix was established.** Tower CP is not supported as the dominant source of W5 failure by this counterfactual. The strongest measured issues remain high W5 hero damage and ammo depletion under repeated encounters. Changing target behavior, enemy damage, HP, recovery, or recruitment prices is not recommended from this evidence alone.
+- Limitations: 20 paired seeds; a maximum 18 battles per campaign; retries after defeat; deterministic auto-Shared Strike; eight-minute ordinary preparation rests; paid-revival waiting capped at 48 hours per death; no ad revival, TacticalMenu actions, human movement, or production profile. The counterfactual holds tower type in composition weights and removes its CP from `buildWave` generation, but campaign histories still diverge because tower combat affects XP, kills, economy, and hero level. Per-wave encounter rows count retries, not independent campaigns. No production services/data, Android build, or device was used.
+
+### Validation and publication status
+
+- Final simulation command from `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-controlled-survival-7bf7151/.jest-cache --runTestsByPath src/game/SequentialDefenseCounterfactual.tmp.test.js` — PASS, 1 suite / 1 test, 80 campaigns / 20 paired seeds / 4 strategies, with repeated Engine attempts recorded above. Earlier temporary harness runs used an auto-rebuild tower policy or had a per-wave reporting grouping error; those outputs were discarded and are not the reported evidence.
+- Regression command: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-controlled-survival-7bf7151/.jest-cache --runTestsByPath src/game/engine.classless.test.js src/game/logic.wave-composition.test.js src/game/logic.classlessHero.test.js` — PASS, 3 suites / 52 tests. `git diff --check` — PASS after this handoff update.
+- The temporary harness and temporary dependency/cache artifacts were removed. This is a documentation-only update; no gameplay/configuration source changed. The primary checkout remains untouched. Published to `origin/review/mobile-working-copy` after verifying the remote base and staged file set; the resulting publication SHA is reported in the completion message.
+- Recommended next step: instrument barricade lane routing and wave-5 target/damage/ammunition events in another isolated experiment. Current evidence does not support changing tower scaling; continue diagnosis before proposing any balance adjustment. The exact phrase “work done” means ChatGPT should retrieve the latest published handoff, review evidence, and report back.
