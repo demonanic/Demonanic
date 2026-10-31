@@ -1940,7 +1940,7 @@ Tower/barricade sample details: the first W5 run cleared in 80.2s, killed 33/33,
 
 Do not tune recruitment prices yet. Compare no defense, one tower, and tower plus barricade with more shared seeds through W5, tracking target distribution, hero damage, tower kills/ammo, composition/power, and repair/upkeep. Separately measure time-to-revival-cost with actual preparation production rather than treating eight minutes as a hard cutoff. Then decide whether evidence points to a code defect or an owner-approved balance adjustment. Keep the Section 47 blocked-slot rule unchanged. The exact phrase “work done” means ChatGPT should retrieve the latest published handoff, review evidence, and report back.
 
-## 51. Controlled early combat survival comparison — 2026-10-31 (local, unpublished)
+## 51. Controlled early combat survival comparison — 2026-10-31 (published documentation)
 
 ### Checkpoint, scope, and method
 
@@ -1986,5 +1986,6 @@ Do not tune recruitment prices yet. Compare no defense, one tower, and tower plu
 - Temporary simulation command from `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-controlled-survival-7bf7151/.jest-cache --runTestsByPath src/game/ControlledDefenseComparison.tmp.test.js` — PASS, 1 suite / 1 test, 300 encounters, 20 common seeds per wave across A/B/C.
 - Regression command from `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-controlled-survival-7bf7151/.jest-cache --runTestsByPath src/game/engine.classless.test.js src/game/logic.wave-composition.test.js src/game/logic.classlessHero.test.js` — PASS, 3 suites / 52 tests. `git diff --check` — PASS. No production gameplay/configuration files changed; no build was run.
 - The temporary test, dependency symlink, and Jest cache were removed after execution. This handoff section is the only change from the investigation; no gameplay/configuration files changed. Publication is limited to this documentation update.
+- Published in documentation-only commit `4bb1c5fced3ead7b80de8bd1899c9bc4f70dd2d2` on `review/mobile-working-copy`; this line records the section's original publication commit.
 - Recommended next evidence: a truly sequential, paired 20-seed campaign comparison using production completion, preparation, recovery, wave transitions, tower upkeep/ammunition and user-defined action timing. Track individual hero/castle/tower HP, attack targets, actual gross spending versus battle income, and each defeat/revival reason. Use this snapshot result to prioritize W4/W5 survivability investigation, not to change balance values. Continue to keep recruitment-market features and gameplay changes out of scope until the owner reviews the evidence.
 - The exact phrase “work done” means ChatGPT should retrieve the latest published handoff, review the evidence, and report back.
