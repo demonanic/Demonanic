@@ -1896,3 +1896,46 @@ Tower/barricade sample details: the first W5 run cleared in 80.2s, killed 33/33,
 - Exact final command from `frontend/`: `env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true /data/data/com.termux/files/usr/bin/npm test -- --watchAll=false --runInBand src/game/RecruitmentCampaignSimulation.tmp.test.js` — PASS, 1 suite / 1 test, 18 trajectories / 110 Engine battle attempts. Earlier harness runs failed due to missing jsdom `structuredClone`, importing `freeLife` from the wrong module, and a stale expected trajectory count; these harness-only issues were corrected before the recorded passing run. `git diff --check` — PASS. The temporary test was removed; no gameplay source changed, so no production build was run. No Android, backend, production profile, or live-service check occurred.
 - Next recommended simulation task: investigate early campaign survival and the affordability/revival bottleneck with tactical Shared Strike use modeled through the production ability API; then repeat the campaign comparison after specifying the player’s intended preparation-time and ad-revival assumptions. Do not proceed to persistent rotating offers or treat the candidate prices as final until those results exist.
 - No gameplay implementation, deployment, or production-data access occurred. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
+
+## 50. Early campaign survival diagnosis — 2026-10-30 (local, unpublished)
+
+### Checkpoint and method
+
+- Verified origin/review/mobile-working-copy with git ls-remote: 883408ef2938dd60b2ac4fd610c48ca33848c817, matching the authorized commit. Work ran only in detached worktree /tmp/demonanic-early-survival-883408e. The primary checkout was not edited, switched, reset, rebased, or stashed; its HEAD remains 42a6f78e1e867795711f2e83d3fa70d6c56f2676 and its four pre-existing ROADMAP/PerkTree changes remain intact.
+- Read the handoff including Sections 47–49. Traced frontend/src/game/config.js, logic.js, engine.js, heroModel.js, classlessAbilities.js, battleCompletion.js, classlessBattleResults.js, context/GameProvider.jsx, screens/Battle.jsx, Preparation.jsx, Results.jsx, components/TacticalMenu.jsx, and relevant classless/wave tests.
+- A temporary Jest diagnostic used fresh normalized local state, production buildWave, Engine.update() at 0.05-second steps, stageBattleCompletion, actual getHeroAbilityStatus + useHeroAbility("shared_strike"), produce, freeLife, reviveHero, healHero, tower/barricade purchase, upkeep, repair and resupply helpers. No persistent profile/API, backend, or live account was used.
+- Paired isolated-wave comparison covered waves 1–5 with 12 seeds each, Shared Strike disabled versus production API auto-use: 120 encounters. Campaign comparison covered 40 trajectories (10 shared seeds for each of no optional spending, defense-first, balanced defense/recovery, and recovery-first), 245 battle attempts, up to seven cleared waves. Each campaign used a fixed eight-minute preparation interval after battle/defeat. Defense policy attempted one archer tower plus one barricade on the first preparation when affordable; balanced healed below 80% HP; recovery-only healed below 95%. These are scenario assumptions, not intended player behavior or required game timing.
+
+### Measured results
+
+| Wave | Clears without / with API Shared Strike | Mean kills without / with | Mean hero HP lost without / with | Mean boss adds with API use | Mean Shared Strikes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 12/12 / 12/12 | 8.0 / 8.0 | 0 / 0 | 0 | 2.2 |
+| 2 | 12/12 / 12/12 | 10.0 / 10.0 | 1.3 / 0.7 | 0 | 3.3 |
+| 3 | 12/12 / 12/12 | 10.0 / 10.0 | 2.6 / 1.8 | 0 | 3.2 |
+| 4 | 7/12 / 8/12 | 17.6 / 17.8 | 188 / 170 | 0 | 4.5 |
+| 5 | 0/12 / 0/12 | 14.5 / 15.1 | 300 / 300 | 2.3 | 3.7 |
+
+- All 24 isolated W5 battles ended because the hero died (Engine reason “heroes”), not because the castle fell. Mean remaining castle HP was about 1,194.
+- Campaign averages: no optional spend cleared 3.8 waves (0/10 reached W6); defense cleared 4.1 (2/10 reached W6, 1/10 W7); balanced cleared 4.2 (2/10 W6, 2/10 W7); recovery-only cleared 3.8 (0/10 W6). These small samples are directional, not calibrated odds.
+- Defense and balanced spent about 330 gold on tower/barricade and about 72–74 stone on repairs on average. The tower dealt about 136, 208, and 273 damage on W1–W3. Compared with no tower, defense reduced average hero damage on W1/W2/W3 from 217/328/405 to 92/137/174. However, its added castle power raised later wave pressure: W5 averaged about 35.8 total enemies with defense versus 25.5 with no optional spending. Defense cleared W5 in only 2/12 runs; it helps but did not make the wave safe in this scenario.
+- Eight minutes of preparation recovered about 3 HP on average per campaign. All ten no-spend, defense, and recovery trajectories eventually stopped at the harness’s eight-minute revival affordability checkpoint; this means “not affordable yet at that time,” not permanently unaffordable. Paid revival prices of $400–$600 occurred in later attempts as heroes leveled. The player can remain in preparation longer.
+
+### Verified behavior and assessment
+
+- W5 has a configured boss. While alive, Engine boss behavior periodically spawns two skeleton adds. This raised incoming pressure, but it is implemented behavior; this investigation found no specification or source evidence that it is a defect.
+- Shared Strike was queried and activated through the production Engine API when it reported available. It modestly improved W4 in this sample but did not clear W5. This is idealized immediate activation, not the TacticalMenu input path; real input may be less effective.
+- Engine reports defeat when all heroes die. In these W5 outcomes, castle HP remained high. stageBattleCompletion maps classless nested HP/XP by stable hero ID. Relevant Engine, wave, classless hero, battle result, and provider completion regression tests passed.
+- Assessment, not confirmed defect: the strongest measured pressure is sustained hero damage in W4/W5 and the W5 boss/add wave. Tower defense reduces early hero exposure but increases later wave power. Slow HP recovery and rising paid-revival cost contribute to recovery pressure under the chosen eight-minute wait, but the game does not impose that waiting limit. No individual mechanic was established as a bug.
+- Limitations: the campaign stops at an eight-minute checkpoint, uses fixed action policies, and does not model ads, TacticalMenu latency, human decisions, changing rest duration, production telemetry, or market offers. No balance values were changed.
+
+### Validation and publication
+
+- Temporary simulation command from frontend/: env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-early-survival-883408e/.jest-cache --runTestsByPath src/game/EarlyCampaignSurvivalDiagnosis.tmp.test.js — PASS, 1 suite / 1 test, 120 snapshots, 40 campaign trajectories, 245 battle attempts. One earlier harness run failed after simulation due to a reporting-variable typo; corrected before the passing run.
+- Regression command from frontend/: env LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib CI=true npm test -- --watchAll=false --runInBand --cacheDirectory=/tmp/demonanic-early-survival-883408e/.jest-cache --runTestsByPath src/game/engine.classless.test.js src/game/logic.wave-composition.test.js src/game/logic.classlessHero.test.js src/game/classlessBattleResults.test.js src/context/classlessBattleCompletion.provider.test.jsx — PASS, 5 suites / 59 tests.
+- This handoff is the only intended tracked change in the isolated worktree. The temporary test and dependency/cache artifacts are not deliverables. No gameplay source changed. No frontend build, Android build/device check, backend/live-service test, or production data operation was performed.
+- The handoff update was prepared from base 883408ef2938dd60b2ac4fd610c48ca33848c817 and contains documentation only. Its publication status and resulting commit SHA are reported in the Codex completion message; no gameplay source changed.
+
+### Recommended next step
+
+Do not tune recruitment prices yet. Compare no defense, one tower, and tower plus barricade with more shared seeds through W5, tracking target distribution, hero damage, tower kills/ammo, composition/power, and repair/upkeep. Separately measure time-to-revival-cost with actual preparation production rather than treating eight minutes as a hard cutoff. Then decide whether evidence points to a code defect or an owner-approved balance adjustment. Keep the Section 47 blocked-slot rule unchanged. The exact phrase “work done” means ChatGPT should retrieve the latest published handoff, review evidence, and report back.
