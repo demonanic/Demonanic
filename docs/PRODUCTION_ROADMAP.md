@@ -265,7 +265,7 @@ Copilot must not assume a task is complete because Codex or another contributor 
 
 | Date | Commit reference | Requirements changed | Supporting evidence | New blockers / decision | Next recommended task |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-31 | Base checkpoint `5dc5403c89013dd7b013b59c8ff6d25a972ccc41`; roadmap publication commit to be recorded after creation | Initial baseline for STAB-001–015, GAME-001–020, UI-001–015, AUTH-001–015, MON-001–013, QA-001–018, REL-001–013 | Published handoff §§47–52; source review of `ROADMAP.md`; canonical perk/ability bible; Section 52 explicitly remains diagnostic evidence only | Survival findings require owner review; barricade lane routing and W5 pressure remain open; no broad requirement marked verified at baseline | STAB-010 instrumentation, then review W5 damage/ammunition evidence before balance decisions |
+| 2026-10-31 | Roadmap creation commit `17bc075d5d580c75e1487d4c2598f281826dee3c` (based on checkpoint `5dc5403c89013dd7b013b59c8ff6d25a972ccc41`) | Initial baseline for STAB-001–015, GAME-001–020, UI-001–015, AUTH-001–015, MON-001–013, QA-001–018, REL-001–013 | Published handoff §§47–52; source review of `ROADMAP.md`; canonical perk/ability bible; Section 52 explicitly remains diagnostic evidence only | Survival findings require owner review; barricade lane routing and W5 pressure remain open; no broad requirement marked verified at baseline | STAB-010 instrumentation, then review W5 damage/ammunition evidence before balance decisions |
 
 ## Source-of-truth and evidence links
 
