@@ -1897,7 +1897,7 @@ Tower/barricade sample details: the first W5 run cleared in 80.2s, killed 33/33,
 - Next recommended simulation task: investigate early campaign survival and the affordability/revival bottleneck with tactical Shared Strike use modeled through the production ability API; then repeat the campaign comparison after specifying the player’s intended preparation-time and ad-revival assumptions. Do not proceed to persistent rotating offers or treat the candidate prices as final until those results exist.
 - No gameplay implementation, deployment, or production-data access occurred. The exact phrase `work done` means ChatGPT should retrieve the latest **published** handoff, review its evidence, and report back.
 
-## 50. Early campaign survival diagnosis — 2026-10-30 (local, unpublished)
+## 50. Early campaign survival diagnosis — 2026-10-30 (published documentation update)
 
 ### Checkpoint and method
 
